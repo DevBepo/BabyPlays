@@ -1,0 +1,21 @@
+# Senhas e Banco de Dados
+**/.env
+**/*.sqlite3
+
+# Arquivos de Cache do Python
+**/__pycache__/
+**/.mypy_cache/
+**/*.pyc
+
+# Ambientes Virtuais
+**/venv/
+venv/
+
+# Frontend / Next.js (Para o Nicolas no futuro)
+**/node_modules/
+**/.next/
+**/out/
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
