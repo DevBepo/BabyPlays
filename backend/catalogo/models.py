@@ -1,6 +1,6 @@
 from django.db import models
 
-class Brinquedo(models.py):
+class Brinquedo(models.Model):
     nome = models.CharField(max_length=200)
     descricao = models.TextField()
     preco_aluguel = models.DecimalField(max_digits=6, decimal_places=2)
