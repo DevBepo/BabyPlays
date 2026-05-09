@@ -1,7 +1,6 @@
 # Senhas e Banco de Dados
 **/.env
 **/*.sqlite3
-
 # Arquivos de Cache do Python
 **/__pycache__/
 **/.mypy_cache/
@@ -10,7 +9,7 @@
 # Ambientes Virtuais
 **/venv/
 venv/
-
+**/.vscode
 # Frontend / Next.js (Para o Nicolas no futuro)
 **/node_modules/
 **/.next/
