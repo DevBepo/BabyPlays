@@ -7,7 +7,15 @@ class BrinquedoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Brinquedo
-        fields = '__all__'  
+        fields = (
+            "id",
+            "nome",
+            "descricao",
+            "preco_aluguel",
+            "ativo",
+            "data_cadastro",
+            "quantidade_disponivel",
+        )
         read_only_fields = ("id", "data_cadastro", "quantidade_disponivel")
 
     def get_quantidade_disponivel(self, obj):
