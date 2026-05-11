@@ -29,7 +29,7 @@ class BrinquedoAPITests(APITestCase):
             "nome": "Cama elastica",
             "descricao": "Cama elastica infantil.",
             "preco_aluguel": "220.00",
-            "disponivel": True,
+            "ativo": True,
         }
 
     def test_usuario_anonimo_consegue_listar_brinquedos(self):
@@ -152,3 +152,18 @@ class BrinquedoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["quantidade_disponivel"], 0)
+
+    def test_quantidade_disponivel_nao_depende_de_brinquedo_ativo(self):
+        self.brinquedo.ativo = False
+        self.brinquedo.save(update_fields=["ativo"])
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ATIVO-FALSE-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ativo"])
+        self.assertEqual(response.data["quantidade_disponivel"], 1)

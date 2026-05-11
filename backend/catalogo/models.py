@@ -9,7 +9,11 @@ class Brinquedo(models.Model):
         verbose_name="Preço do Aluguel",
         help_text="Preço do aluguel por período (ex: diária)."
     )
-    disponivel = models.BooleanField(default=True, verbose_name="Disponível")
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo no catálogo",
+        help_text="Indica se o produto está habilitado para publicação no catálogo; não representa estoque físico disponível.",
+    )
     data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
 
     def __str__(self):
