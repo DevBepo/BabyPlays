@@ -11,6 +11,11 @@ class BrinquedoService:
         return Brinquedo.objects.all()
 
     @staticmethod
+    def list_public_catalog():
+        """Retorna brinquedos ativos para exibicao no catalogo publico."""
+        return Brinquedo.objects.filter(ativo=True)
+
+    @staticmethod
     def unidades_disponiveis(brinquedo):
         """Retorna as unidades fisicas disponiveis para locacao."""
         return UnidadeBrinquedo.objects.filter(

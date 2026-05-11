@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import Brinquedo, UnidadeBrinquedo
+from .services import BrinquedoService
 
 
 class BrinquedoAPITests(APITestCase):
@@ -32,19 +33,35 @@ class BrinquedoAPITests(APITestCase):
             "ativo": True,
         }
 
-    def test_usuario_anonimo_consegue_listar_brinquedos(self):
+    def test_usuario_anonimo_lista_apenas_brinquedos_ativos(self):
+        Brinquedo.objects.create(
+            nome="Escorregador inativo",
+            descricao="Brinquedo fora do catalogo publico.",
+            preco_aluguel="120.00",
+            ativo=False,
+        )
+
         response = self.client.get(self.brinquedos_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["nome"], self.brinquedo.nome)
+        self.assertTrue(response.data[0]["ativo"])
 
-    def test_usuario_anonimo_consegue_visualizar_detalhe_de_brinquedo(self):
+    def test_usuario_anonimo_consegue_visualizar_detalhe_de_brinquedo_ativo(self):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.brinquedo.id)
         self.assertEqual(response.data["nome"], self.brinquedo.nome)
+
+    def test_usuario_anonimo_nao_visualiza_detalhe_de_brinquedo_inativo(self):
+        self.brinquedo.ativo = False
+        self.brinquedo.save(update_fields=["ativo"])
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_usuario_anonimo_nao_consegue_criar_brinquedo(self):
         response = self.client.post(
@@ -153,6 +170,18 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["quantidade_disponivel"], 0)
 
+    def test_quantidade_disponivel_continua_sendo_exibida_para_brinquedo_ativo(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ATIVO-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+
     def test_quantidade_disponivel_nao_depende_de_brinquedo_ativo(self):
         self.brinquedo.ativo = False
         self.brinquedo.save(update_fields=["ativo"])
@@ -162,8 +191,6 @@ class BrinquedoAPITests(APITestCase):
             status=UnidadeBrinquedo.Status.DISPONIVEL,
         )
 
-        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        quantidade = BrinquedoService.quantidade_disponivel(self.brinquedo)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(response.data["ativo"])
-        self.assertEqual(response.data["quantidade_disponivel"], 1)
+        self.assertEqual(quantidade, 1)

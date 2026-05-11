@@ -18,6 +18,8 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
         Retorna o queryset de brinquedos consumindo a camada de serviço.
         Isso centraliza a lógica de consulta no BrinquedoService.
         """
+        if self.action in ['list', 'retrieve']:
+            return BrinquedoService.list_public_catalog()
         return BrinquedoService.list_all()
 
     def get_permissions(self):
