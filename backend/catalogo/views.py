@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAdminUser
-from .serializers import BrinquedoSerializer
+from .serializers import BrinquedoAdminSerializer, BrinquedoPublicSerializer
 from .services import BrinquedoService
 
 class BrinquedoViewSet(viewsets.ModelViewSet):
@@ -11,7 +11,12 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
     # O queryset é gerenciado pelo método get_queryset para desacoplar a view
     # da lógica de banco de dados.
     # Usa o tradutor que acabamos de criar
-    serializer_class = BrinquedoSerializer
+    serializer_class = BrinquedoAdminSerializer
+
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return BrinquedoPublicSerializer
+        return BrinquedoAdminSerializer
 
     def get_queryset(self):
         """

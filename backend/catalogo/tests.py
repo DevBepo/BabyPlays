@@ -47,7 +47,18 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["nome"], self.brinquedo.nome)
-        self.assertTrue(response.data[0]["ativo"])
+
+    def test_api_publica_listagem_nao_retorna_ativo(self):
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("ativo", response.data[0])
+
+    def test_api_publica_listagem_nao_retorna_data_cadastro(self):
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("data_cadastro", response.data[0])
 
     def test_usuario_anonimo_consegue_visualizar_detalhe_de_brinquedo_ativo(self):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
@@ -55,6 +66,18 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.brinquedo.id)
         self.assertEqual(response.data["nome"], self.brinquedo.nome)
+
+    def test_api_publica_detalhe_nao_retorna_ativo(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("ativo", response.data)
+
+    def test_api_publica_detalhe_nao_retorna_data_cadastro(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("data_cadastro", response.data)
 
     def test_api_publica_retorna_categoria_do_brinquedo(self):
         categoria = Categoria.objects.create(
@@ -188,6 +211,7 @@ class BrinquedoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["quantidade_disponivel"], 0)
+        self.assertIn("quantidade_disponivel", response.data)
 
     def test_brinquedo_com_multiplas_unidades_disponiveis_conta_corretamente(self):
         UnidadeBrinquedo.objects.create(

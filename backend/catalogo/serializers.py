@@ -18,7 +18,27 @@ class CategoriaField(serializers.PrimaryKeyRelatedField):
         return CategoriaResumoSerializer(value).data
 
 
-class BrinquedoSerializer(serializers.ModelSerializer):
+class BrinquedoPublicSerializer(serializers.ModelSerializer):
+    quantidade_disponivel = serializers.SerializerMethodField()
+    categoria = CategoriaResumoSerializer(read_only=True)
+
+    class Meta:
+        model = Brinquedo
+        fields = (
+            "id",
+            "nome",
+            "descricao",
+            "preco_aluguel",
+            "categoria",
+            "quantidade_disponivel",
+        )
+        read_only_fields = fields
+
+    def get_quantidade_disponivel(self, obj):
+        return BrinquedoService.quantidade_disponivel(obj)
+
+
+class BrinquedoAdminSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
     categoria = CategoriaField(
         queryset=Categoria.objects.all(),
@@ -42,3 +62,6 @@ class BrinquedoSerializer(serializers.ModelSerializer):
 
     def get_quantidade_disponivel(self, obj):
         return BrinquedoService.quantidade_disponivel(obj)
+
+
+BrinquedoSerializer = BrinquedoAdminSerializer
