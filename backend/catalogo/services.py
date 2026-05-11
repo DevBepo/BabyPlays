@@ -1,4 +1,4 @@
-from .models import Brinquedo
+from .models import Brinquedo, UnidadeBrinquedo
 
 class BrinquedoService:
     """
@@ -9,3 +9,16 @@ class BrinquedoService:
     def list_all():
         """Retorna um queryset com todos os brinquedos."""
         return Brinquedo.objects.all()
+
+    @staticmethod
+    def unidades_disponiveis(brinquedo):
+        """Retorna as unidades fisicas disponiveis para locacao."""
+        return UnidadeBrinquedo.objects.filter(
+            brinquedo=brinquedo,
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+    @staticmethod
+    def quantidade_disponivel(brinquedo):
+        """Retorna a quantidade de unidades fisicas disponiveis."""
+        return BrinquedoService.unidades_disponiveis(brinquedo).count()

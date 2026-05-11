@@ -1,12 +1,11 @@
-# Instruções para agentes de código
+# AGENTS.md
 
-Antes de qualquer alteração, leia:
-
+Leia estes arquivos quando forem relevantes:
 - docs/PROJECT_CONTEXT.md
 - docs/CODEX_RULES.md
 - docs/SECURITY_CHECKLIST.md
 
-Projeto: BABYPLAYS.BRINQUEDOS
+Projeto BABYPLAYS.BRINQUEDOS.
 
 Stack:
 - Backend: Django + Django REST Framework
@@ -14,13 +13,15 @@ Stack:
 - Banco: PostgreSQL
 - Deploy provável: VPS Hostinger/HostGator 2GB ou 4GB
 
-Regras obrigatórias:
-- Não implementar tudo de uma vez.
-- Trabalhar em mudanças pequenas.
-- Não refatorar partes fora do escopo.
-- Não criar lógica falsa apenas para parecer funcionando.
-- Toda regra crítica deve ter teste.
-- Toda validação importante deve existir no backend.
-- Nunca confiar apenas no frontend.
-- Antes de editar, explique o plano.
-- Depois de editar, liste arquivos alterados, testes e riscos restantes.
+Regras:
+- Trabalhe em mudanças pequenas.
+- Não implemente funcionalidades futuras sem pedido.
+- Não refatore partes fora do escopo.
+- Valide regras críticas no backend.
+- Toda regra crítica precisa de teste.
+- Cliente só acessa os próprios dados.
+- Admin tem rotas próprias protegidas.
+- Estoque é por unidade física.
+- Item devolvido vai para higienização/standby e não volta automaticamente para disponível.
+- Pedido não confirma sem contrato aceito.
+- Preço, frete e disponibilidade são calculados no backend.
