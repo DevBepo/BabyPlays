@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Brinquedo
+from .models import Brinquedo, UnidadeBrinquedo
 
 
 class BrinquedoAPITests(APITestCase):
@@ -96,6 +96,7 @@ class BrinquedoAPITests(APITestCase):
         payload = self.payload_valido()
         payload["id"] = 999
         payload["data_cadastro"] = "2000-01-01T00:00:00Z"
+        payload["quantidade_disponivel"] = 999
 
         response = self.client.post(self.brinquedos_url, payload, format="json")
 
@@ -106,3 +107,48 @@ class BrinquedoAPITests(APITestCase):
             brinquedo_criado.data_cadastro.isoformat(),
             "2000-01-01T00:00:00+00:00",
         )
+        self.assertEqual(response.data["quantidade_disponivel"], 0)
+
+    def test_brinquedo_sem_unidades_disponiveis_retorna_quantidade_zero(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["quantidade_disponivel"], 0)
+
+    def test_brinquedo_com_multiplas_unidades_disponiveis_conta_corretamente(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-002",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["quantidade_disponivel"], 2)
+
+    def test_unidades_indisponiveis_nao_contam_como_disponiveis(self):
+        status_indisponiveis = [
+            UnidadeBrinquedo.Status.RESERVADA,
+            UnidadeBrinquedo.Status.EM_LOCACAO,
+            UnidadeBrinquedo.Status.HIGIENIZACAO,
+            UnidadeBrinquedo.Status.MANUTENCAO,
+            UnidadeBrinquedo.Status.STANDBY,
+            UnidadeBrinquedo.Status.BAIXADA,
+        ]
+        for indice, status_unidade in enumerate(status_indisponiveis, start=1):
+            UnidadeBrinquedo.objects.create(
+                brinquedo=self.brinquedo,
+                codigo=f"PISCINA-IND-{indice:03d}",
+                status=status_unidade,
+            )
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["quantidade_disponivel"], 0)
