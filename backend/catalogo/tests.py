@@ -1,8 +1,9 @@
+from django.db import IntegrityError, transaction
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Brinquedo, UnidadeBrinquedo
+from .models import Brinquedo, Categoria, UnidadeBrinquedo
 from .services import BrinquedoService
 
 
@@ -55,6 +56,37 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.data["id"], self.brinquedo.id)
         self.assertEqual(response.data["nome"], self.brinquedo.nome)
 
+    def test_api_publica_retorna_categoria_do_brinquedo(self):
+        categoria = Categoria.objects.create(
+            nome="Brinquedos grandes",
+            slug="brinquedos-grandes",
+            descricao="Brinquedos para festas maiores.",
+            ordem=1,
+        )
+        self.brinquedo.categoria = categoria
+        self.brinquedo.save(update_fields=["categoria"])
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["categoria"],
+            {
+                "id": categoria.id,
+                "nome": "Brinquedos grandes",
+                "slug": "brinquedos-grandes",
+            },
+        )
+        self.assertNotIn("ativo", response.data["categoria"])
+        self.assertNotIn("ordem", response.data["categoria"])
+
+    def test_brinquedo_sem_categoria_continua_retornando_corretamente(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data["categoria"])
+        self.assertEqual(response.data["nome"], self.brinquedo.nome)
+
     def test_usuario_anonimo_nao_visualiza_detalhe_de_brinquedo_inativo(self):
         self.brinquedo.ativo = False
         self.brinquedo.save(update_fields=["ativo"])
@@ -97,6 +129,31 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Brinquedo.objects.count(), 2)
         self.assertEqual(response.data["nome"], "Cama elastica")
+
+    def test_usuario_admin_consegue_criar_brinquedo_com_categoria(self):
+        categoria = Categoria.objects.create(
+            nome="Bebes",
+            slug="bebes",
+        )
+        payload = self.payload_valido()
+        payload["categoria"] = categoria.id
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(self.brinquedos_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        brinquedo_criado = Brinquedo.objects.get(nome="Cama elastica")
+        self.assertEqual(brinquedo_criado.categoria, categoria)
+        self.assertEqual(response.data["categoria"]["id"], categoria.id)
+        self.assertEqual(response.data["categoria"]["nome"], "Bebes")
+        self.assertEqual(response.data["categoria"]["slug"], "bebes")
+
+    def test_categoria_usa_slug_unico(self):
+        Categoria.objects.create(nome="Bebes", slug="bebes")
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Categoria.objects.create(nome="Bebes duplicado", slug="bebes")
 
     def test_criacao_de_brinquedo_valida_campos_obrigatorios(self):
         self.client.force_authenticate(user=self.usuario_admin)

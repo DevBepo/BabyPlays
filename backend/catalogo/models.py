@@ -1,13 +1,40 @@
 from django.db import models
 
+
+class Categoria(models.Model):
+    nome = models.CharField(max_length=120, verbose_name="Nome")
+    slug = models.SlugField(max_length=140, unique=True, verbose_name="Slug")
+    descricao = models.TextField(blank=True, verbose_name="Descricao")
+    ativo = models.BooleanField(default=True, verbose_name="Ativa")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de exibicao")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        ordering = ("ordem", "nome")
+        verbose_name = "Categoria"
+        verbose_name_plural = "Categorias"
+
+    def __str__(self):
+        return self.nome
+
+
 class Brinquedo(models.Model):
     nome = models.CharField(max_length=200, verbose_name="Nome")
     descricao = models.TextField(verbose_name="Descrição")
+    categoria = models.ForeignKey(
+        Categoria,
+        related_name="brinquedos",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="Categoria",
+    )
     preco_aluguel = models.DecimalField(
-        max_digits=6, 
-        decimal_places=2, 
+        max_digits=6,
+        decimal_places=2,
         verbose_name="Preço do Aluguel",
-        help_text="Preço do aluguel por período (ex: diária)."
+        help_text="Preço do aluguel por período (ex: diária).",
     )
     ativo = models.BooleanField(
         default=True,
