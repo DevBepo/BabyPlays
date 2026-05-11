@@ -8,12 +8,12 @@ class BrinquedoService:
     @staticmethod
     def list_all():
         """Retorna um queryset com todos os brinquedos."""
-        return Brinquedo.objects.all()
+        return Brinquedo.objects.select_related("categoria")
 
     @staticmethod
     def list_public_catalog():
         """Retorna brinquedos ativos para exibicao no catalogo publico."""
-        return Brinquedo.objects.filter(ativo=True)
+        return Brinquedo.objects.select_related("categoria").filter(ativo=True)
 
     @staticmethod
     def unidades_disponiveis(brinquedo):
