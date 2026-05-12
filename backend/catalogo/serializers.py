@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Brinquedo, Categoria
+from .models import Brinquedo, Categoria, ImagemBrinquedo
 from .services import BrinquedoService
 
 
@@ -18,9 +18,30 @@ class CategoriaField(serializers.PrimaryKeyRelatedField):
         return CategoriaResumoSerializer(value).data
 
 
+class ImagemBrinquedoPublicSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ImagemBrinquedo
+        fields = ("id", "url", "alt_text", "principal", "ordem")
+        read_only_fields = fields
+
+    def get_url(self, obj):
+        if not obj.imagem:
+            return None
+
+        url = obj.imagem.url
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+
 class BrinquedoPublicSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
     categoria = CategoriaResumoSerializer(read_only=True)
+    imagem_principal = serializers.SerializerMethodField()
+    imagens = serializers.SerializerMethodField()
 
     class Meta:
         model = Brinquedo
@@ -31,11 +52,35 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "preco_aluguel",
             "categoria",
             "quantidade_disponivel",
+            "imagem_principal",
+            "imagens",
         )
         read_only_fields = fields
 
     def get_quantidade_disponivel(self, obj):
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_imagens_ativas(self, obj):
+        imagens = getattr(obj, "imagens_publicas", None)
+        if imagens is not None:
+            return imagens
+        return obj.imagens.filter(ativo=True).order_by("-principal", "ordem", "id")
+
+    def get_imagem_principal(self, obj):
+        for imagem in self.get_imagens_ativas(obj):
+            if imagem.principal:
+                return ImagemBrinquedoPublicSerializer(
+                    imagem,
+                    context=self.context,
+                ).data
+        return None
+
+    def get_imagens(self, obj):
+        return ImagemBrinquedoPublicSerializer(
+            self.get_imagens_ativas(obj),
+            many=True,
+            context=self.context,
+        ).data
 
 
 class BrinquedoAdminSerializer(serializers.ModelSerializer):

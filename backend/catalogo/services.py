@@ -1,4 +1,6 @@
-from .models import Brinquedo, UnidadeBrinquedo
+from django.db.models import Prefetch
+
+from .models import Brinquedo, ImagemBrinquedo, UnidadeBrinquedo
 
 class BrinquedoService:
     """
@@ -13,7 +15,22 @@ class BrinquedoService:
     @staticmethod
     def list_public_catalog():
         """Retorna brinquedos ativos para exibicao no catalogo publico."""
-        return Brinquedo.objects.select_related("categoria").filter(ativo=True)
+        imagens_publicas = ImagemBrinquedo.objects.filter(ativo=True).order_by(
+            "-principal",
+            "ordem",
+            "id",
+        )
+        return (
+            Brinquedo.objects.select_related("categoria")
+            .prefetch_related(
+                Prefetch(
+                    "imagens",
+                    queryset=imagens_publicas,
+                    to_attr="imagens_publicas",
+                )
+            )
+            .filter(ativo=True)
+        )
 
     @staticmethod
     def unidades_disponiveis(brinquedo):

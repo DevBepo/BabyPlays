@@ -1,14 +1,38 @@
+import shutil
+import tempfile
+from io import BytesIO
+
+from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.test import override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Brinquedo, Categoria, UnidadeBrinquedo
+from .models import Brinquedo, Categoria, ImagemBrinquedo, UnidadeBrinquedo
 from .services import BrinquedoService
 
 
 class BrinquedoAPITests(APITestCase):
     brinquedos_url = "/api/brinquedos/"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root_temporario = tempfile.mkdtemp()
+        cls.override_media_root = override_settings(
+            MEDIA_ROOT=cls.media_root_temporario,
+        )
+        cls.override_media_root.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.override_media_root.disable()
+        shutil.rmtree(cls.media_root_temporario, ignore_errors=True)
+        super().tearDownClass()
 
     def setUp(self):
         self.brinquedo = Brinquedo.objects.create(
@@ -33,6 +57,27 @@ class BrinquedoAPITests(APITestCase):
             "preco_aluguel": "220.00",
             "ativo": True,
         }
+
+    def imagem_upload(self, nome="brinquedo.jpg", formato="JPEG", tamanho=(80, 80)):
+        arquivo = BytesIO()
+        Image.new("RGB", tamanho, color="blue").save(arquivo, format=formato)
+        arquivo.seek(0)
+        return SimpleUploadedFile(
+            nome,
+            arquivo.read(),
+            content_type=f"image/{formato.lower()}",
+        )
+
+    def criar_imagem_brinquedo(self, **kwargs):
+        dados = {
+            "brinquedo": self.brinquedo,
+            "imagem": self.imagem_upload(),
+        }
+        dados.update(kwargs)
+        imagem = ImagemBrinquedo(**dados)
+        imagem.full_clean()
+        imagem.save()
+        return imagem
 
     def test_usuario_anonimo_lista_apenas_brinquedos_ativos(self):
         Brinquedo.objects.create(
@@ -275,3 +320,156 @@ class BrinquedoAPITests(APITestCase):
         quantidade = BrinquedoService.quantidade_disponivel(self.brinquedo)
 
         self.assertEqual(quantidade, 1)
+
+    def test_cria_imagem_valida_associada_a_brinquedo(self):
+        imagem = self.criar_imagem_brinquedo(
+            alt_text="Piscina de bolinhas azul",
+            principal=True,
+        )
+
+        self.assertEqual(imagem.brinquedo, self.brinquedo)
+        self.assertTrue(imagem.imagem.name.startswith("catalogo/brinquedos/"))
+        self.assertTrue(imagem.principal)
+
+    def test_bloqueia_mais_de_uma_imagem_principal_para_mesmo_brinquedo(self):
+        self.criar_imagem_brinquedo(principal=True)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                ImagemBrinquedo.objects.create(
+                    brinquedo=self.brinquedo,
+                    imagem=self.imagem_upload("segunda.jpg"),
+                    principal=True,
+                )
+
+    def test_permite_imagem_principal_em_brinquedos_diferentes(self):
+        outro_brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica",
+            descricao="Cama elastica infantil.",
+            preco_aluguel="220.00",
+        )
+
+        self.criar_imagem_brinquedo(principal=True)
+        outra_imagem = self.criar_imagem_brinquedo(
+            brinquedo=outro_brinquedo,
+            imagem=self.imagem_upload("cama.jpg"),
+            principal=True,
+        )
+
+        self.assertEqual(outra_imagem.brinquedo, outro_brinquedo)
+        self.assertTrue(outra_imagem.principal)
+
+    def test_api_publica_retorna_imagens_ativas(self):
+        imagem = self.criar_imagem_brinquedo(
+            alt_text="Imagem ativa",
+            principal=True,
+            ativo=True,
+        )
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["imagens"]), 1)
+        self.assertEqual(response.data["imagens"][0]["id"], imagem.id)
+        self.assertEqual(response.data["imagens"][0]["alt_text"], "Imagem ativa")
+
+    def test_api_publica_nao_retorna_imagens_inativas(self):
+        self.criar_imagem_brinquedo(ativo=False)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imagens"], [])
+        self.assertIsNone(response.data["imagem_principal"])
+
+    def test_api_publica_retorna_imagem_principal(self):
+        imagem = self.criar_imagem_brinquedo(principal=True)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imagem_principal"]["id"], imagem.id)
+        self.assertTrue(response.data["imagem_principal"]["principal"])
+
+    def test_api_publica_ordena_imagens_por_principal_ordem_e_id(self):
+        imagem_ordem_2 = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("ordem-2.jpg"),
+            ordem=2,
+        )
+        imagem_ordem_1 = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("ordem-1.jpg"),
+            ordem=1,
+        )
+        imagem_principal = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("principal.jpg"),
+            principal=True,
+            ordem=99,
+        )
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data["imagens"]],
+            [imagem_principal.id, imagem_ordem_1.id, imagem_ordem_2.id],
+        )
+
+    def test_api_publica_nao_expoe_caminho_interno_do_arquivo(self):
+        self.criar_imagem_brinquedo(principal=True)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        imagem = response.data["imagem_principal"]
+        self.assertEqual(
+            set(imagem.keys()),
+            {"id", "url", "alt_text", "principal", "ordem"},
+        )
+        self.assertNotIn(str(settings.MEDIA_ROOT), imagem["url"])
+        self.assertNotIn("\\", imagem["url"])
+
+    def test_upload_bloqueia_extensao_invalida(self):
+        imagem = ImagemBrinquedo(
+            brinquedo=self.brinquedo,
+            imagem=self.imagem_upload("brinquedo.gif"),
+        )
+
+        with self.assertRaises(ValidationError):
+            imagem.full_clean()
+
+    def test_upload_bloqueia_svg(self):
+        arquivo = SimpleUploadedFile(
+            "brinquedo.svg",
+            b"<svg><script>alert('x')</script></svg>",
+            content_type="image/svg+xml",
+        )
+        imagem = ImagemBrinquedo(brinquedo=self.brinquedo, imagem=arquivo)
+
+        with self.assertRaises(ValidationError):
+            imagem.full_clean()
+
+    def test_upload_bloqueia_arquivo_acima_do_limite(self):
+        arquivo = self.imagem_upload()
+        arquivo.size = 3 * 1024 * 1024 + 1
+        imagem = ImagemBrinquedo(brinquedo=self.brinquedo, imagem=arquivo)
+
+        with self.assertRaises(ValidationError):
+            imagem.full_clean()
+
+    def test_upload_bloqueia_extensao_falsa_que_nao_e_imagem_real(self):
+        arquivo = SimpleUploadedFile(
+            "brinquedo.jpg",
+            b"isto nao e uma imagem",
+            content_type="image/jpeg",
+        )
+        imagem = ImagemBrinquedo(brinquedo=self.brinquedo, imagem=arquivo)
+
+        with self.assertRaises(ValidationError):
+            imagem.full_clean()
+
+    def test_brinquedo_sem_imagem_continua_retornando_normalmente(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imagens"], [])
+        self.assertIsNone(response.data["imagem_principal"])
+        self.assertEqual(response.data["nome"], self.brinquedo.nome)

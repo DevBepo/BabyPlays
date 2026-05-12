@@ -1,6 +1,7 @@
 # Senhas e Banco de Dados
 **/.env
 **/*.sqlite3
+backend/media/
 # Arquivos de Cache do Python
 **/__pycache__/
 **/.mypy_cache/
