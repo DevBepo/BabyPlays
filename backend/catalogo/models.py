@@ -1,6 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
 
@@ -129,3 +130,58 @@ class UnidadeBrinquedo(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.brinquedo.nome}"
+
+
+class KitFesta(models.Model):
+    nome = models.CharField(max_length=200, verbose_name="Nome")
+    descricao = models.TextField(verbose_name="Descricao")
+    preco_aluguel = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        verbose_name="Preco do aluguel",
+    )
+    ativo = models.BooleanField(default=True, verbose_name="Ativo no catalogo")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de exibicao")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        ordering = ("ordem", "nome")
+        verbose_name = "Kit festa"
+        verbose_name_plural = "Kits festa"
+
+    def __str__(self):
+        return self.nome
+
+
+class ItemKitFesta(models.Model):
+    kit = models.ForeignKey(
+        KitFesta,
+        related_name="itens",
+        on_delete=models.CASCADE,
+        verbose_name="Kit festa",
+    )
+    brinquedo = models.ForeignKey(
+        Brinquedo,
+        on_delete=models.PROTECT,
+        verbose_name="Brinquedo",
+    )
+    quantidade = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="Quantidade",
+    )
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem")
+
+    class Meta:
+        ordering = ("ordem", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["kit", "brinquedo"],
+                name="catalogo_item_kit_festa_brinquedo_unico",
+            )
+        ]
+        verbose_name = "Item do kit festa"
+        verbose_name_plural = "Itens dos kits festa"
+
+    def __str__(self):
+        return f"{self.kit.nome} - {self.brinquedo.nome} ({self.quantidade})"

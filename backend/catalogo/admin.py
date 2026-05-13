@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import Brinquedo, Categoria, ImagemBrinquedo, UnidadeBrinquedo
+from .models import (
+    Brinquedo,
+    Categoria,
+    ImagemBrinquedo,
+    ItemKitFesta,
+    KitFesta,
+    UnidadeBrinquedo,
+)
 from .services import BrinquedoService
 
 
@@ -50,3 +57,21 @@ class ImagemBrinquedoAdmin(admin.ModelAdmin):
     list_filter = ("ativo", "principal")
     search_fields = ("brinquedo__nome", "alt_text")
     ordering = ("brinquedo__nome", "-principal", "ordem", "id")
+
+
+class ItemKitFestaInline(admin.TabularInline):
+    model = ItemKitFesta
+    extra = 1
+    fields = ("brinquedo", "quantidade", "ordem")
+    autocomplete_fields = ("brinquedo",)
+    ordering = ("ordem", "id")
+
+
+@admin.register(KitFesta)
+class KitFestaAdmin(admin.ModelAdmin):
+    list_display = ("nome", "preco_aluguel", "ativo", "ordem", "atualizado_em")
+    list_filter = ("ativo",)
+    search_fields = ("nome", "descricao", "itens__brinquedo__nome")
+    ordering = ("ordem", "nome")
+    fields = ("nome", "descricao", "preco_aluguel", "ativo", "ordem")
+    inlines = (ItemKitFestaInline,)

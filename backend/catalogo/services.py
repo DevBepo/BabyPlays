@@ -1,6 +1,6 @@
 from django.db.models import Prefetch
 
-from .models import Brinquedo, ImagemBrinquedo, UnidadeBrinquedo
+from .models import Brinquedo, ImagemBrinquedo, ItemKitFesta, KitFesta, UnidadeBrinquedo
 
 class BrinquedoService:
     """
@@ -44,3 +44,32 @@ class BrinquedoService:
     def quantidade_disponivel(brinquedo):
         """Retorna a quantidade de unidades fisicas disponiveis."""
         return BrinquedoService.unidades_disponiveis(brinquedo).count()
+
+
+class KitFestaService:
+    @staticmethod
+    def _itens_otimizados():
+        return ItemKitFesta.objects.select_related(
+            "brinquedo",
+            "brinquedo__categoria",
+        ).prefetch_related(
+            Prefetch(
+                "brinquedo__imagens",
+                queryset=ImagemBrinquedo.objects.filter(ativo=True).order_by(
+                    "-principal",
+                    "ordem",
+                    "id",
+                ),
+                to_attr="imagens_publicas",
+            )
+        )
+
+    @staticmethod
+    def list_all():
+        return KitFesta.objects.prefetch_related(
+            Prefetch("itens", queryset=KitFestaService._itens_otimizados())
+        )
+
+    @staticmethod
+    def list_public_catalog():
+        return KitFestaService.list_all().filter(ativo=True)
