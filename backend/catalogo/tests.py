@@ -12,7 +12,14 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Brinquedo, Categoria, ImagemBrinquedo, UnidadeBrinquedo
+from .models import (
+    Brinquedo,
+    Categoria,
+    ImagemBrinquedo,
+    ItemKitFesta,
+    KitFesta,
+    UnidadeBrinquedo,
+)
 from .services import BrinquedoService
 
 
@@ -473,3 +480,161 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.data["imagens"], [])
         self.assertIsNone(response.data["imagem_principal"])
         self.assertEqual(response.data["nome"], self.brinquedo.nome)
+
+
+class KitFestaAPITests(APITestCase):
+    kits_url = "/api/kits-festa/"
+
+    def setUp(self):
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Piscina de bolinhas",
+            descricao="Brinquedo para festas infantis.",
+            preco_aluguel="150.00",
+        )
+        self.outro_brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica",
+            descricao="Brinquedo para festas maiores.",
+            preco_aluguel="220.00",
+        )
+        self.kit = KitFesta.objects.create(
+            nome="Kit Diversao",
+            descricao="Kit pronto para festa infantil.",
+            preco_aluguel="350.00",
+            ordem=1,
+        )
+        self.usuario_comum = get_user_model().objects.create_user(
+            username="cliente-kit",
+            password="senha-segura-123",
+        )
+        self.usuario_admin = get_user_model().objects.create_user(
+            username="admin-kit",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+
+    def payload_valido(self):
+        return {
+            "nome": "Kit Premium",
+            "descricao": "Kit pronto premium.",
+            "preco_aluguel": "500.00",
+            "ativo": True,
+            "ordem": 2,
+        }
+
+    def test_usuario_anonimo_lista_apenas_kits_ativos(self):
+        KitFesta.objects.create(
+            nome="Kit Inativo",
+            descricao="Kit fora do catalogo publico.",
+            preco_aluguel="250.00",
+            ativo=False,
+        )
+
+        response = self.client.get(self.kits_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["nome"], self.kit.nome)
+
+    def test_usuario_anonimo_ve_detalhe_de_kit_ativo(self):
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.kit.id)
+        self.assertEqual(response.data["nome"], self.kit.nome)
+
+    def test_usuario_anonimo_nao_ve_detalhe_de_kit_inativo(self):
+        self.kit.ativo = False
+        self.kit.save(update_fields=["ativo"])
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_usuario_anonimo_nao_consegue_criar_kit(self):
+        response = self.client.post(self.kits_url, self.payload_valido(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(KitFesta.objects.count(), 1)
+
+    def test_usuario_comum_autenticado_nao_consegue_criar_kit(self):
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        response = self.client.post(self.kits_url, self.payload_valido(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(KitFesta.objects.count(), 1)
+
+    def test_usuario_admin_consegue_criar_kit(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(self.kits_url, self.payload_valido(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(KitFesta.objects.count(), 2)
+        self.assertEqual(response.data["nome"], "Kit Premium")
+        self.assertTrue(response.data["ativo"])
+
+    def test_api_publica_retorna_itens_do_kit(self):
+        ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=2,
+            ordem=1,
+        )
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["itens"]), 1)
+        item = response.data["itens"][0]
+        self.assertEqual(item["quantidade"], 2)
+        self.assertEqual(item["ordem"], 1)
+        self.assertEqual(item["brinquedo"]["id"], self.brinquedo.id)
+        self.assertEqual(item["brinquedo"]["nome"], self.brinquedo.nome)
+
+    def test_itens_do_kit_sao_retornados_ordenados_por_ordem_depois_id(self):
+        item_ordem_2 = ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+            ordem=2,
+        )
+        item_ordem_1 = ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.outro_brinquedo,
+            quantidade=1,
+            ordem=1,
+        )
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data["itens"]],
+            [item_ordem_1.id, item_ordem_2.id],
+        )
+
+    def test_item_kit_festa_rejeita_quantidade_menor_que_um(self):
+        item = ItemKitFesta(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=0,
+        )
+
+        with self.assertRaises(ValidationError):
+            item.full_clean()
+
+    def test_nao_permite_mesmo_brinquedo_duas_vezes_no_mesmo_kit(self):
+        ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                ItemKitFesta.objects.create(
+                    kit=self.kit,
+                    brinquedo=self.brinquedo,
+                    quantidade=2,
+                )

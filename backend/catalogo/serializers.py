@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Brinquedo, Categoria, ImagemBrinquedo
+from .models import Brinquedo, Categoria, ImagemBrinquedo, ItemKitFesta, KitFesta
 from .services import BrinquedoService
 
 
@@ -110,3 +110,60 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
 
 
 BrinquedoSerializer = BrinquedoAdminSerializer
+
+
+class BrinquedoKitResumoSerializer(serializers.ModelSerializer):
+    categoria = CategoriaResumoSerializer(read_only=True)
+    imagem_principal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Brinquedo
+        fields = ("id", "nome", "categoria", "imagem_principal")
+        read_only_fields = fields
+
+    def get_imagem_principal(self, obj):
+        imagens = getattr(obj, "imagens_publicas", None)
+        if imagens is None:
+            imagens = obj.imagens.filter(ativo=True).order_by("-principal", "ordem", "id")
+
+        for imagem in imagens:
+            if imagem.principal:
+                return ImagemBrinquedoPublicSerializer(
+                    imagem,
+                    context=self.context,
+                ).data
+        return None
+
+
+class ItemKitFestaPublicSerializer(serializers.ModelSerializer):
+    brinquedo = BrinquedoKitResumoSerializer(read_only=True)
+
+    class Meta:
+        model = ItemKitFesta
+        fields = ("id", "quantidade", "ordem", "brinquedo")
+        read_only_fields = fields
+
+
+class KitFestaPublicSerializer(serializers.ModelSerializer):
+    itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = KitFesta
+        fields = ("id", "nome", "descricao", "preco_aluguel", "itens")
+        read_only_fields = fields
+
+
+class KitFestaAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KitFesta
+        fields = (
+            "id",
+            "nome",
+            "descricao",
+            "preco_aluguel",
+            "ativo",
+            "ordem",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = ("id", "criado_em", "atualizado_em")
