@@ -3,10 +3,12 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
+    ConfiguracaoKitPersonalizavelAdminSerializer,
+    ConfiguracaoKitPersonalizavelPublicSerializer,
     KitFestaAdminSerializer,
     KitFestaPublicSerializer,
 )
-from .services import BrinquedoService, KitFestaService
+from .services import BrinquedoService, KitFestaService, KitPersonalizavelService
 
 class BrinquedoViewSet(viewsets.ModelViewSet):
     """
@@ -56,6 +58,27 @@ class KitFestaViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             return KitFestaService.list_public_catalog()
         return KitFestaService.list_all()
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAdminUser]
+        return [permission() for permission in permission_classes]
+
+
+class KitPersonalizavelViewSet(viewsets.ModelViewSet):
+    serializer_class = ConfiguracaoKitPersonalizavelAdminSerializer
+
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return ConfiguracaoKitPersonalizavelPublicSerializer
+        return ConfiguracaoKitPersonalizavelAdminSerializer
+
+    def get_queryset(self):
+        if self.action in ["list", "retrieve"]:
+            return KitPersonalizavelService.list_public_catalog()
+        return KitPersonalizavelService.list_all()
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:

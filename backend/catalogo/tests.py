@@ -15,9 +15,11 @@ from rest_framework.test import APITestCase
 from .models import (
     Brinquedo,
     Categoria,
+    ConfiguracaoKitPersonalizavel,
     ImagemBrinquedo,
     ItemKitFesta,
     KitFesta,
+    RegraCategoriaKitPersonalizavel,
     UnidadeBrinquedo,
 )
 from .services import BrinquedoService
@@ -638,3 +640,306 @@ class KitFestaAPITests(APITestCase):
                     brinquedo=self.brinquedo,
                     quantidade=2,
                 )
+
+
+class KitPersonalizavelAPITests(APITestCase):
+    kits_personalizaveis_url = "/api/kits-personalizaveis/"
+
+    def setUp(self):
+        self.categoria_grandes = Categoria.objects.create(
+            nome="Brinquedos grandes",
+            slug="brinquedos-grandes",
+            ordem=1,
+        )
+        self.categoria_bebes = Categoria.objects.create(
+            nome="Bebes",
+            slug="bebes",
+            ordem=2,
+        )
+        self.brinquedo_grande = Brinquedo.objects.create(
+            nome="Cama elastica",
+            descricao="Brinquedo para festas maiores.",
+            categoria=self.categoria_grandes,
+            preco_aluguel="220.00",
+        )
+        self.brinquedo_bebe = Brinquedo.objects.create(
+            nome="Piscina de bolinhas",
+            descricao="Brinquedo para bebes.",
+            categoria=self.categoria_bebes,
+            preco_aluguel="150.00",
+        )
+        self.brinquedo_inativo = Brinquedo.objects.create(
+            nome="Escorregador inativo",
+            descricao="Fora do catalogo publico.",
+            categoria=self.categoria_grandes,
+            preco_aluguel="120.00",
+            ativo=False,
+        )
+        self.configuracao = ConfiguracaoKitPersonalizavel.objects.create(
+            nome="Monte seu kit",
+            descricao="Escolha os brinquedos para sua festa.",
+            preco_base="50.00",
+            quantidade_minima_brinquedos=2,
+            quantidade_maxima_brinquedos=4,
+            modo_elegibilidade=(
+                ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS
+            ),
+            ordem=1,
+        )
+        self.configuracao.categorias_permitidas.add(self.categoria_grandes)
+        self.usuario_comum = get_user_model().objects.create_user(
+            username="cliente-kit-personalizavel",
+            password="senha-segura-123",
+        )
+        self.usuario_admin = get_user_model().objects.create_user(
+            username="admin-kit-personalizavel",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+
+    def payload_valido(self):
+        return {
+            "nome": "Monte seu kit premium",
+            "descricao": "Escolha uma combinacao premium.",
+            "ativo": True,
+            "ordem": 2,
+            "preco_base": "80.00",
+            "quantidade_minima_brinquedos": 1,
+            "quantidade_maxima_brinquedos": 3,
+            "modo_elegibilidade": (
+                ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS
+            ),
+            "categorias_permitidas": [],
+            "brinquedos_permitidos": [self.brinquedo_bebe.id],
+        }
+
+    def test_usuario_anonimo_lista_apenas_configuracoes_ativas(self):
+        ConfiguracaoKitPersonalizavel.objects.create(
+            nome="Config inativa",
+            descricao="Nao deve aparecer.",
+            ativo=False,
+            preco_base="0.00",
+            quantidade_minima_brinquedos=1,
+            quantidade_maxima_brinquedos=2,
+            modo_elegibilidade=(
+                ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS
+            ),
+        )
+
+        response = self.client.get(self.kits_personalizaveis_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["nome"], self.configuracao.nome)
+
+    def test_usuario_anonimo_ve_detalhe_de_configuracao_ativa(self):
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.configuracao.id)
+        self.assertEqual(response.data["nome"], self.configuracao.nome)
+
+    def test_usuario_anonimo_nao_ve_detalhe_de_configuracao_inativa(self):
+        self.configuracao.ativo = False
+        self.configuracao.save(update_fields=["ativo"])
+
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_usuario_anonimo_nao_consegue_criar_configuracao(self):
+        response = self.client.post(
+            self.kits_personalizaveis_url,
+            self.payload_valido(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(ConfiguracaoKitPersonalizavel.objects.count(), 1)
+
+    def test_usuario_comum_autenticado_nao_consegue_criar_configuracao(self):
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        response = self.client.post(
+            self.kits_personalizaveis_url,
+            self.payload_valido(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(ConfiguracaoKitPersonalizavel.objects.count(), 1)
+
+    def test_usuario_admin_consegue_criar_configuracao(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            self.kits_personalizaveis_url,
+            self.payload_valido(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ConfiguracaoKitPersonalizavel.objects.count(), 2)
+        self.assertEqual(response.data["nome"], "Monte seu kit premium")
+        self.assertTrue(response.data["ativo"])
+
+    def test_configuracao_rejeita_quantidade_minima_maior_que_maxima(self):
+        configuracao = ConfiguracaoKitPersonalizavel(
+            nome="Config invalida",
+            descricao="Limites invalidos.",
+            preco_base="0.00",
+            quantidade_minima_brinquedos=5,
+            quantidade_maxima_brinquedos=2,
+            modo_elegibilidade=(
+                ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS
+            ),
+        )
+
+        with self.assertRaises(ValidationError):
+            configuracao.full_clean()
+
+    def test_regra_categoria_rejeita_quantidade_minima_maior_que_maxima(self):
+        regra = RegraCategoriaKitPersonalizavel(
+            configuracao=self.configuracao,
+            categoria=self.categoria_grandes,
+            quantidade_minima=3,
+            quantidade_maxima=1,
+        )
+
+        with self.assertRaises(ValidationError):
+            regra.full_clean()
+
+    def test_nao_permite_repetir_categoria_em_regras_da_mesma_configuracao(self):
+        RegraCategoriaKitPersonalizavel.objects.create(
+            configuracao=self.configuracao,
+            categoria=self.categoria_grandes,
+            quantidade_minima=1,
+            quantidade_maxima=2,
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                RegraCategoriaKitPersonalizavel.objects.create(
+                    configuracao=self.configuracao,
+                    categoria=self.categoria_grandes,
+                    quantidade_minima=1,
+                    quantidade_maxima=3,
+                )
+
+    def test_api_publica_nao_expoe_campos_administrativos(self):
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("ativo", response.data)
+        self.assertNotIn("criado_em", response.data)
+        self.assertNotIn("atualizado_em", response.data)
+        self.assertNotIn("brinquedos_permitidos", response.data)
+
+    def test_api_publica_retorna_categorias_permitidas(self):
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["categorias_permitidas"],
+            [
+                {
+                    "id": self.categoria_grandes.id,
+                    "nome": self.categoria_grandes.nome,
+                    "slug": self.categoria_grandes.slug,
+                }
+            ],
+        )
+
+    def test_api_publica_retorna_regras_por_categoria(self):
+        regra = RegraCategoriaKitPersonalizavel.objects.create(
+            configuracao=self.configuracao,
+            categoria=self.categoria_grandes,
+            quantidade_minima=1,
+            quantidade_maxima=2,
+            ordem=1,
+        )
+
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["regras_categoria"]), 1)
+        regra_response = response.data["regras_categoria"][0]
+        self.assertEqual(regra_response["id"], regra.id)
+        self.assertEqual(regra_response["categoria"]["id"], self.categoria_grandes.id)
+        self.assertEqual(regra_response["quantidade_minima"], 1)
+        self.assertEqual(regra_response["quantidade_maxima"], 2)
+
+    def test_api_publica_retorna_brinquedos_elegiveis_no_modo_categorias(self):
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        brinquedos = response.data["brinquedos_elegiveis"]
+        self.assertEqual(len(brinquedos), 1)
+        self.assertEqual(brinquedos[0]["id"], self.brinquedo_grande.id)
+        self.assertEqual(brinquedos[0]["preco_aluguel"], "220.00")
+        self.assertIn("quantidade_disponivel", brinquedos[0])
+
+    def test_api_publica_retorna_brinquedos_elegiveis_no_modo_brinquedos(self):
+        self.configuracao.modo_elegibilidade = (
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS
+        )
+        self.configuracao.save(update_fields=["modo_elegibilidade"])
+        self.configuracao.brinquedos_permitidos.add(self.brinquedo_bebe)
+
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        brinquedos = response.data["brinquedos_elegiveis"]
+        self.assertEqual(len(brinquedos), 1)
+        self.assertEqual(brinquedos[0]["id"], self.brinquedo_bebe.id)
+
+    def test_api_publica_retorna_uniao_sem_duplicidade_no_modo_categorias_e_brinquedos(
+        self,
+    ):
+        self.configuracao.modo_elegibilidade = (
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS_E_BRINQUEDOS
+        )
+        self.configuracao.save(update_fields=["modo_elegibilidade"])
+        self.configuracao.brinquedos_permitidos.add(
+            self.brinquedo_grande,
+            self.brinquedo_bebe,
+        )
+
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids_brinquedos = [
+            brinquedo["id"] for brinquedo in response.data["brinquedos_elegiveis"]
+        ]
+        self.assertEqual(
+            sorted(ids_brinquedos),
+            sorted([self.brinquedo_grande.id, self.brinquedo_bebe.id]),
+        )
+        self.assertEqual(len(ids_brinquedos), len(set(ids_brinquedos)))
+
+    def test_brinquedos_inativos_nao_aparecem_em_brinquedos_elegiveis(self):
+        response = self.client.get(
+            f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids_brinquedos = [
+            brinquedo["id"] for brinquedo in response.data["brinquedos_elegiveis"]
+        ]
+        self.assertNotIn(self.brinquedo_inativo.id, ids_brinquedos)

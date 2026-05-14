@@ -1,6 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
@@ -185,3 +186,128 @@ class ItemKitFesta(models.Model):
 
     def __str__(self):
         return f"{self.kit.nome} - {self.brinquedo.nome} ({self.quantidade})"
+
+
+class ConfiguracaoKitPersonalizavel(models.Model):
+    class ModoElegibilidade(models.TextChoices):
+        CATEGORIAS = "categorias", "Categorias"
+        BRINQUEDOS = "brinquedos", "Brinquedos"
+        CATEGORIAS_E_BRINQUEDOS = (
+            "categorias_e_brinquedos",
+            "Categorias e brinquedos",
+        )
+
+    nome = models.CharField(max_length=200, verbose_name="Nome")
+    descricao = models.TextField(verbose_name="Descricao")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo no catalogo")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de exibicao")
+    preco_base = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+        verbose_name="Preco base",
+    )
+    quantidade_minima_brinquedos = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="Quantidade minima de brinquedos",
+    )
+    quantidade_maxima_brinquedos = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="Quantidade maxima de brinquedos",
+    )
+    modo_elegibilidade = models.CharField(
+        max_length=30,
+        choices=ModoElegibilidade.choices,
+        verbose_name="Modo de elegibilidade",
+    )
+    categorias_permitidas = models.ManyToManyField(
+        Categoria,
+        blank=True,
+        related_name="configuracoes_kits_personalizaveis",
+        verbose_name="Categorias permitidas",
+    )
+    brinquedos_permitidos = models.ManyToManyField(
+        Brinquedo,
+        blank=True,
+        related_name="configuracoes_kits_personalizaveis",
+        verbose_name="Brinquedos permitidos",
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        ordering = ("ordem", "nome")
+        verbose_name = "Configuracao de kit personalizavel"
+        verbose_name_plural = "Configuracoes de kits personalizaveis"
+
+    def clean(self):
+        super().clean()
+        if (
+            self.quantidade_minima_brinquedos
+            and self.quantidade_maxima_brinquedos
+            and self.quantidade_minima_brinquedos
+            > self.quantidade_maxima_brinquedos
+        ):
+            raise ValidationError(
+                {
+                    "quantidade_minima_brinquedos": (
+                        "A quantidade minima nao pode ser maior que a maxima."
+                    )
+                }
+            )
+
+    def __str__(self):
+        return self.nome
+
+
+class RegraCategoriaKitPersonalizavel(models.Model):
+    configuracao = models.ForeignKey(
+        ConfiguracaoKitPersonalizavel,
+        related_name="regras_categoria",
+        on_delete=models.CASCADE,
+        verbose_name="Configuracao",
+    )
+    categoria = models.ForeignKey(
+        Categoria,
+        on_delete=models.PROTECT,
+        verbose_name="Categoria",
+    )
+    quantidade_minima = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="Quantidade minima",
+    )
+    quantidade_maxima = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="Quantidade maxima",
+    )
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem")
+
+    class Meta:
+        ordering = ("ordem", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["configuracao", "categoria"],
+                name="catalogo_regra_categoria_kit_personalizavel_unica",
+            )
+        ]
+        verbose_name = "Regra por categoria do kit personalizavel"
+        verbose_name_plural = "Regras por categoria dos kits personalizaveis"
+
+    def clean(self):
+        super().clean()
+        if (
+            self.quantidade_minima
+            and self.quantidade_maxima
+            and self.quantidade_minima > self.quantidade_maxima
+        ):
+            raise ValidationError(
+                {
+                    "quantidade_minima": (
+                        "A quantidade minima nao pode ser maior que a maxima."
+                    )
+                }
+            )
+
+    def __str__(self):
+        return f"{self.configuracao.nome} - {self.categoria.nome}"
