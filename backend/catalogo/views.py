@@ -1,5 +1,7 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.response import Response
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
@@ -7,6 +9,7 @@ from .serializers import (
     ConfiguracaoKitPersonalizavelPublicSerializer,
     KitFestaAdminSerializer,
     KitFestaPublicSerializer,
+    ValidarSelecaoKitPersonalizavelSerializer,
 )
 from .services import BrinquedoService, KitFestaService, KitPersonalizavelService
 
@@ -81,8 +84,19 @@ class KitPersonalizavelViewSet(viewsets.ModelViewSet):
         return KitPersonalizavelService.list_all()
 
     def get_permissions(self):
-        if self.action in ["list", "retrieve"]:
+        if self.action in ["list", "retrieve", "validar_selecao"]:
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
+
+    @action(detail=True, methods=["post"], url_path="validar-selecao")
+    def validar_selecao(self, request, pk=None):
+        configuracao = self.get_object()
+        serializer = ValidarSelecaoKitPersonalizavelSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        resumo = KitPersonalizavelService.validar_selecao(
+            configuracao,
+            serializer.validated_data["itens"],
+        )
+        return Response(resumo)

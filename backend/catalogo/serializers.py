@@ -295,3 +295,20 @@ class ConfiguracaoKitPersonalizavelAdminSerializer(serializers.ModelSerializer):
                 }
             )
         return attrs
+
+
+class ItemSelecaoKitPersonalizavelSerializer(serializers.Serializer):
+    brinquedo_id = serializers.IntegerField(min_value=1)
+    quantidade = serializers.IntegerField(min_value=1)
+
+
+class ValidarSelecaoKitPersonalizavelSerializer(serializers.Serializer):
+    itens = ItemSelecaoKitPersonalizavelSerializer(many=True, allow_empty=False)
+
+    def validate_itens(self, itens):
+        brinquedos_ids = [item["brinquedo_id"] for item in itens]
+        if len(brinquedos_ids) != len(set(brinquedos_ids)):
+            raise serializers.ValidationError(
+                "Nao envie o mesmo brinquedo mais de uma vez."
+            )
+        return itens

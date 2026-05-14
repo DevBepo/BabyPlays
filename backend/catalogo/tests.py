@@ -943,3 +943,244 @@ class KitPersonalizavelAPITests(APITestCase):
             brinquedo["id"] for brinquedo in response.data["brinquedos_elegiveis"]
         ]
         self.assertNotIn(self.brinquedo_inativo.id, ids_brinquedos)
+
+    def test_validar_selecao_retorna_resumo_com_preco_estimado_do_backend(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo_grande,
+            codigo="CAMA-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo_grande,
+            codigo="CAMA-002",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        RegraCategoriaKitPersonalizavel.objects.create(
+            configuracao=self.configuracao,
+            categoria=self.categoria_grandes,
+            quantidade_minima=1,
+            quantidade_maxima=2,
+        )
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 2,
+                }
+            ],
+            "preco_estimado": "0.01",
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["configuracao_id"], self.configuracao.id)
+        self.assertEqual(response.data["quantidade_total"], 2)
+        self.assertEqual(str(response.data["preco_base"]), "50.00")
+        self.assertEqual(str(response.data["preco_itens"]), "440.00")
+        self.assertEqual(str(response.data["preco_estimado"]), "490.00")
+        self.assertEqual(len(response.data["itens"]), 1)
+        item = response.data["itens"][0]
+        self.assertEqual(item["brinquedo_id"], self.brinquedo_grande.id)
+        self.assertEqual(item["quantidade"], 2)
+        self.assertEqual(str(item["preco_unitario"]), "220.00")
+        self.assertEqual(str(item["subtotal"]), "440.00")
+
+    def test_validar_selecao_rejeita_brinquedo_fora_da_configuracao(self):
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_bebe.id,
+                    "quantidade": 2,
+                }
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_validar_selecao_rejeita_quantidade_total_menor_que_minima(self):
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 1,
+                }
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_validar_selecao_rejeita_quantidade_total_maior_que_maxima(self):
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 5,
+                }
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_validar_selecao_nao_bloqueia_por_estoque_atual_disponivel(self):
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 2,
+                }
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["quantidade_total"], 2)
+        self.assertEqual(str(response.data["preco_estimado"]), "490.00")
+
+    def test_validar_selecao_rejeita_brinquedo_repetido_no_payload(self):
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 1,
+                },
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 1,
+                },
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_validar_selecao_rejeita_regra_minima_por_categoria(self):
+        self.configuracao.modo_elegibilidade = (
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS_E_BRINQUEDOS
+        )
+        self.configuracao.save(update_fields=["modo_elegibilidade"])
+        self.configuracao.brinquedos_permitidos.add(self.brinquedo_bebe)
+        RegraCategoriaKitPersonalizavel.objects.create(
+            configuracao=self.configuracao,
+            categoria=self.categoria_grandes,
+            quantidade_minima=1,
+            quantidade_maxima=2,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo_bebe,
+            codigo="BEBE-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo_bebe,
+            codigo="BEBE-002",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_bebe.id,
+                    "quantidade": 2,
+                }
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_validar_selecao_rejeita_regra_maxima_por_categoria(self):
+        RegraCategoriaKitPersonalizavel.objects.create(
+            configuracao=self.configuracao,
+            categoria=self.categoria_grandes,
+            quantidade_minima=1,
+            quantidade_maxima=2,
+        )
+        for indice in range(1, 4):
+            UnidadeBrinquedo.objects.create(
+                brinquedo=self.brinquedo_grande,
+                codigo=f"CAMA-{indice:03d}",
+                status=UnidadeBrinquedo.Status.DISPONIVEL,
+            )
+        payload = {
+            "itens": [
+                {
+                    "brinquedo_id": self.brinquedo_grande.id,
+                    "quantidade": 3,
+                }
+            ]
+        }
+
+        response = self.client.post(
+            (
+                f"{self.kits_personalizaveis_url}{self.configuracao.id}/"
+                "validar-selecao/"
+            ),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
