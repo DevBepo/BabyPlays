@@ -1,17 +1,19 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ItemCarrinho
+from .models import ItemCarrinho, Pedido
 from .serializers import (
     AdicionarItemCarrinhoSerializer,
     AlterarItemCarrinhoSerializer,
     CarrinhoSerializer,
+    ConverterCarrinhoPedidoSerializer,
     ItemCarrinhoSerializer,
+    PedidoSerializer,
 )
-from .services import CarrinhoService
+from .services import CarrinhoService, PedidoService
 
 
 class CarrinhoMixin:
@@ -65,3 +67,34 @@ class LimparCarrinhoView(CarrinhoMixin, APIView):
         carrinho = self.get_carrinho()
         CarrinhoService.limpar(carrinho)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
+    def post(self, request):
+        carrinho = self.get_carrinho()
+        serializer = ConverterCarrinhoPedidoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pedido = PedidoService.converter_carrinho(
+            carrinho,
+            serializer.dados_para_pedido(),
+        )
+        return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
+
+
+class PedidoListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        pedidos = Pedido.objects.filter(usuario=request.user).prefetch_related("itens")
+        return Response(PedidoSerializer(pedidos, many=True).data)
+
+
+class PedidoDetalheView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pedido_id):
+        pedido = get_object_or_404(
+            Pedido.objects.filter(usuario=request.user).prefetch_related("itens"),
+            id=pedido_id,
+        )
+        return Response(PedidoSerializer(pedido).data)

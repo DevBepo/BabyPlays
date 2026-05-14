@@ -1,13 +1,15 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils.dateparse import parse_date
+from django.utils import timezone
 from rest_framework import serializers
 
 from catalogo.models import Brinquedo, ConfiguracaoKitPersonalizavel, KitFesta
 from catalogo.serializers import ValidarSelecaoKitPersonalizavelSerializer
 from catalogo.services import KitPersonalizavelService
 
-from .models import Carrinho, ItemCarrinho
+from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
 
 
 class CarrinhoService:
@@ -327,3 +329,98 @@ class CarrinhoService:
     @staticmethod
     def limpar(carrinho):
         carrinho.itens.all().delete()
+
+
+class PedidoService:
+    @staticmethod
+    def _validar_dados_cliente(dados):
+        erros = {}
+        for campo in (
+            "nome_cliente_snapshot",
+            "telefone_cliente_snapshot",
+            "email_cliente_snapshot",
+            "data_evento_pretendida",
+        ):
+            if not dados.get(campo):
+                erros[campo] = "Este campo e obrigatorio."
+
+        data_evento = dados.get("data_evento_pretendida")
+        if isinstance(data_evento, str):
+            data_evento = parse_date(data_evento)
+            dados["data_evento_pretendida"] = data_evento
+
+        if data_evento and data_evento < timezone.localdate():
+            erros["data_evento_pretendida"] = (
+                "A data pretendida do evento nao pode estar no passado."
+            )
+        if dados.get("data_evento_pretendida") is None and "data_evento_pretendida" not in erros:
+            erros["data_evento_pretendida"] = "Informe uma data valida."
+
+        if erros:
+            raise serializers.ValidationError(erros)
+
+    @staticmethod
+    @transaction.atomic
+    def converter_carrinho(carrinho, dados_cliente):
+        PedidoService._validar_dados_cliente(dados_cliente)
+
+        carrinho = (
+            Carrinho.objects.select_for_update()
+            .select_related("usuario")
+            .get(id=carrinho.id)
+        )
+        if carrinho.status != Carrinho.Status.ATIVO:
+            raise serializers.ValidationError(
+                {"carrinho": "Somente carrinho ativo pode ser convertido em pedido."}
+            )
+
+        itens = list(
+            carrinho.itens.select_related(
+                "brinquedo",
+                "kit_festa",
+                "configuracao_kit_personalizavel",
+            )
+        )
+        if not itens:
+            raise serializers.ValidationError(
+                {"carrinho": "Carrinho vazio nao pode ser convertido em pedido."}
+            )
+
+        subtotal = sum(
+            (item.subtotal_snapshot for item in itens),
+            Decimal("0.00"),
+        )
+        pedido = Pedido.objects.create(
+            carrinho_origem=carrinho,
+            usuario=carrinho.usuario,
+            session_key_snapshot=carrinho.session_key,
+            nome_cliente_snapshot=dados_cliente["nome_cliente_snapshot"],
+            telefone_cliente_snapshot=dados_cliente["telefone_cliente_snapshot"],
+            email_cliente_snapshot=dados_cliente["email_cliente_snapshot"],
+            observacoes_cliente=dados_cliente.get("observacoes_cliente", ""),
+            data_evento_pretendida=dados_cliente["data_evento_pretendida"],
+            subtotal_itens_snapshot=subtotal,
+        )
+
+        for item in itens:
+            item_pedido = ItemPedido(
+                pedido=pedido,
+                tipo_item=item.tipo_item,
+                brinquedo=item.brinquedo,
+                kit_festa=item.kit_festa,
+                configuracao_kit_personalizavel=(
+                    item.configuracao_kit_personalizavel
+                ),
+                quantidade=item.quantidade,
+                nome_snapshot=item.nome_snapshot,
+                preco_unitario_snapshot=item.preco_unitario_snapshot,
+                subtotal_snapshot=item.subtotal_snapshot,
+                snapshot=item.snapshot,
+            )
+            item_pedido.full_clean()
+            item_pedido.save()
+
+        carrinho.status = Carrinho.Status.CONVERTIDO
+        carrinho.save(update_fields=["status", "atualizado_em"])
+
+        return pedido
