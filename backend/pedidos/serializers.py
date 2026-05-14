@@ -1,6 +1,7 @@
 from rest_framework import serializers
+from django.utils import timezone
 
-from .models import Carrinho, ItemCarrinho
+from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
 from .services import CarrinhoService
 
 
@@ -107,3 +108,73 @@ class AdicionarItemCarrinhoSerializer(serializers.Serializer):
 
 class AlterarItemCarrinhoSerializer(serializers.Serializer):
     quantidade = serializers.IntegerField(min_value=1)
+
+
+class ItemPedidoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ItemPedido
+        fields = (
+            "id",
+            "tipo_item",
+            "brinquedo",
+            "kit_festa",
+            "configuracao_kit_personalizavel",
+            "quantidade",
+            "nome_snapshot",
+            "preco_unitario_snapshot",
+            "subtotal_snapshot",
+            "snapshot",
+            "criado_em",
+        )
+        read_only_fields = fields
+
+
+class PedidoSerializer(serializers.ModelSerializer):
+    itens = ItemPedidoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pedido
+        fields = (
+            "id",
+            "status",
+            "nome_cliente_snapshot",
+            "telefone_cliente_snapshot",
+            "email_cliente_snapshot",
+            "observacoes_cliente",
+            "data_evento_pretendida",
+            "subtotal_itens_snapshot",
+            "itens",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = fields
+
+
+class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
+    nome = serializers.CharField(max_length=200, trim_whitespace=True)
+    telefone = serializers.CharField(max_length=30, trim_whitespace=True)
+    email = serializers.EmailField(max_length=254)
+    data_evento_pretendida = serializers.DateField()
+    observacoes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+
+    def validate_data_evento_pretendida(self, value):
+        if value < timezone.localdate():
+            raise serializers.ValidationError(
+                "A data pretendida do evento nao pode estar no passado."
+            )
+        return value
+
+    def dados_para_pedido(self):
+        return {
+            "nome_cliente_snapshot": self.validated_data["nome"],
+            "telefone_cliente_snapshot": self.validated_data["telefone"],
+            "email_cliente_snapshot": self.validated_data["email"],
+            "observacoes_cliente": self.validated_data.get("observacoes", ""),
+            "data_evento_pretendida": self.validated_data[
+                "data_evento_pretendida"
+            ],
+        }
