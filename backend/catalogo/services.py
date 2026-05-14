@@ -1,4 +1,5 @@
 from django.db.models import Count, Prefetch, Q
+from rest_framework import serializers
 
 from .models import (
     Brinquedo,
@@ -139,3 +140,114 @@ class KitPersonalizavelService:
             .distinct()
             .order_by("nome", "id")
         )
+
+    @staticmethod
+    def validar_selecao(configuracao, itens):
+        brinquedos_por_id = {
+            brinquedo.id: brinquedo
+            for brinquedo in KitPersonalizavelService.brinquedos_elegiveis(
+                configuracao
+            )
+        }
+        regras_por_categoria_id = {
+            regra.categoria_id: regra
+            for regra in configuracao.regras_categoria.select_related("categoria")
+        }
+
+        quantidade_total = sum(item["quantidade"] for item in itens)
+        if quantidade_total < configuracao.quantidade_minima_brinquedos:
+            raise serializers.ValidationError(
+                {
+                    "itens": (
+                        "Selecione pelo menos "
+                        f"{configuracao.quantidade_minima_brinquedos} brinquedo(s)."
+                    )
+                }
+            )
+        if quantidade_total > configuracao.quantidade_maxima_brinquedos:
+            raise serializers.ValidationError(
+                {
+                    "itens": (
+                        "Selecione no maximo "
+                        f"{configuracao.quantidade_maxima_brinquedos} brinquedo(s)."
+                    )
+                }
+            )
+
+        resumo_itens = []
+        quantidades_por_categoria = {}
+        preco_itens = configuracao.preco_base * 0
+
+        for item in itens:
+            brinquedo_id = item["brinquedo_id"]
+            quantidade = item["quantidade"]
+            brinquedo = brinquedos_por_id.get(brinquedo_id)
+
+            if brinquedo is None:
+                raise serializers.ValidationError(
+                    {
+                        "itens": (
+                            f"O brinquedo {brinquedo_id} nao esta disponivel "
+                            "para esta configuracao."
+                        )
+                    }
+                )
+
+            subtotal = brinquedo.preco_aluguel * quantidade
+            preco_itens += subtotal
+            categoria = brinquedo.categoria
+            categoria_id = categoria.id if categoria else None
+            if categoria_id:
+                quantidades_por_categoria[categoria_id] = (
+                    quantidades_por_categoria.get(categoria_id, 0) + quantidade
+                )
+
+            resumo_itens.append(
+                {
+                    "brinquedo_id": brinquedo.id,
+                    "nome": brinquedo.nome,
+                    "categoria": (
+                        {
+                            "id": categoria.id,
+                            "nome": categoria.nome,
+                            "slug": categoria.slug,
+                        }
+                        if categoria
+                        else None
+                    ),
+                    "quantidade": quantidade,
+                    "preco_unitario": brinquedo.preco_aluguel,
+                    "subtotal": subtotal,
+                }
+            )
+
+        for categoria_id, regra in regras_por_categoria_id.items():
+            quantidade_categoria = quantidades_por_categoria.get(categoria_id, 0)
+            if quantidade_categoria < regra.quantidade_minima:
+                raise serializers.ValidationError(
+                    {
+                        "itens": (
+                            f"Selecione pelo menos {regra.quantidade_minima} "
+                            f"brinquedo(s) da categoria {regra.categoria.nome}."
+                        )
+                    }
+                )
+            if quantidade_categoria > regra.quantidade_maxima:
+                raise serializers.ValidationError(
+                    {
+                        "itens": (
+                            f"Selecione no maximo {regra.quantidade_maxima} "
+                            f"brinquedo(s) da categoria {regra.categoria.nome}."
+                        )
+                    }
+                )
+
+        return {
+            "configuracao_id": configuracao.id,
+            "configuracao_nome": configuracao.nome,
+            "quantidade_total": quantidade_total,
+            "preco_base": configuracao.preco_base,
+            "preco_itens": preco_itens,
+            "preco_estimado": configuracao.preco_base + preco_itens,
+            "itens": resumo_itens,
+        }
