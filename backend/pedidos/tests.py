@@ -336,7 +336,31 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(item.tipo_item, ItemCarrinho.TipoItem.BRINQUEDO)
         self.assertEqual(item.brinquedo, self.brinquedo)
         self.assertEqual(item.snapshot["brinquedo"]["nome"], "Cama elastica")
+        self.assertNotIn("snapshot", response.data["itens"][0])
         self.assertEqual(response.data["itens"][0]["nome_snapshot"], "Cama elastica")
+
+    def test_resposta_da_conversao_nao_expoe_snapshot_do_item_pedido(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item_response = response.data["itens"][0]
+        self.assertNotIn("snapshot", item_response)
+        self.assertEqual(item_response["nome_snapshot"], "Cama elastica")
+        self.assertEqual(item_response["preco_unitario_snapshot"], "220.00")
+        self.assertEqual(item_response["subtotal_snapshot"], "220.00")
+
+    def test_snapshot_do_item_pedido_continua_salvo_no_banco_apos_conversao(self):
+        self.adicionar_brinquedo(quantidade=2)
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemPedido.objects.get()
+        self.assertEqual(item.snapshot["tipo_item"], "brinquedo")
+        self.assertEqual(item.snapshot["brinquedo"]["nome"], "Cama elastica")
+        self.assertEqual(item.snapshot["quantidade"], 2)
 
     def test_converte_carrinho_com_kit_festa_preservando_snapshot(self):
         self.adicionar_kit_festa()
@@ -498,6 +522,19 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(detalhe_response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(lista_response.status_code, status.HTTP_200_OK)
         self.assertEqual(lista_response.data, [])
+
+    def test_leitura_de_pedido_nao_expoe_snapshot_do_item_pedido(self):
+        self.client.force_authenticate(user=self.usuario)
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        lista_response = self.client.get(self.pedidos_url)
+        detalhe_response = self.client.get(f"{self.pedidos_url}{pedido_id}/")
+
+        self.assertEqual(lista_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detalhe_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("snapshot", lista_response.data[0]["itens"][0])
+        self.assertNotIn("snapshot", detalhe_response.data["itens"][0])
 
     def test_usuario_anonimo_nao_acessa_lista_de_pedidos(self):
         response = self.client.get(self.pedidos_url)

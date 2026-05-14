@@ -123,7 +123,6 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
             "nome_snapshot",
             "preco_unitario_snapshot",
             "subtotal_snapshot",
-            "snapshot",
             "criado_em",
         )
         read_only_fields = fields
