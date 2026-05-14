@@ -2,9 +2,11 @@ from django.contrib import admin
 from .models import (
     Brinquedo,
     Categoria,
+    ConfiguracaoKitPersonalizavel,
     ImagemBrinquedo,
     ItemKitFesta,
     KitFesta,
+    RegraCategoriaKitPersonalizavel,
     UnidadeBrinquedo,
 )
 from .services import BrinquedoService
@@ -75,3 +77,47 @@ class KitFestaAdmin(admin.ModelAdmin):
     ordering = ("ordem", "nome")
     fields = ("nome", "descricao", "preco_aluguel", "ativo", "ordem")
     inlines = (ItemKitFestaInline,)
+
+
+class RegraCategoriaKitPersonalizavelInline(admin.TabularInline):
+    model = RegraCategoriaKitPersonalizavel
+    extra = 1
+    fields = ("categoria", "quantidade_minima", "quantidade_maxima", "ordem")
+    autocomplete_fields = ("categoria",)
+    ordering = ("ordem", "id")
+
+
+@admin.register(ConfiguracaoKitPersonalizavel)
+class ConfiguracaoKitPersonalizavelAdmin(admin.ModelAdmin):
+    list_display = (
+        "nome",
+        "modo_elegibilidade",
+        "preco_base",
+        "quantidade_minima_brinquedos",
+        "quantidade_maxima_brinquedos",
+        "ativo",
+        "ordem",
+        "atualizado_em",
+    )
+    list_filter = ("ativo", "modo_elegibilidade")
+    search_fields = (
+        "nome",
+        "descricao",
+        "categorias_permitidas__nome",
+        "brinquedos_permitidos__nome",
+    )
+    ordering = ("ordem", "nome")
+    fields = (
+        "nome",
+        "descricao",
+        "preco_base",
+        "ativo",
+        "ordem",
+        "quantidade_minima_brinquedos",
+        "quantidade_maxima_brinquedos",
+        "modo_elegibilidade",
+        "categorias_permitidas",
+        "brinquedos_permitidos",
+    )
+    filter_horizontal = ("categorias_permitidas", "brinquedos_permitidos")
+    inlines = (RegraCategoriaKitPersonalizavelInline,)

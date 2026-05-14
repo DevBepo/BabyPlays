@@ -1,6 +1,14 @@
 from rest_framework import serializers
-from .models import Brinquedo, Categoria, ImagemBrinquedo, ItemKitFesta, KitFesta
-from .services import BrinquedoService
+from .models import (
+    Brinquedo,
+    Categoria,
+    ConfiguracaoKitPersonalizavel,
+    ImagemBrinquedo,
+    ItemKitFesta,
+    KitFesta,
+    RegraCategoriaKitPersonalizavel,
+)
+from .services import BrinquedoService, KitPersonalizavelService
 
 
 class CategoriaResumoSerializer(serializers.ModelSerializer):
@@ -58,6 +66,9 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_quantidade_disponivel(self, obj):
+        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
+        if quantidade_anotada is not None:
+            return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
 
     def get_imagens_ativas(self, obj):
@@ -106,6 +117,9 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "data_cadastro", "quantidade_disponivel")
 
     def get_quantidade_disponivel(self, obj):
+        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
+        if quantidade_anotada is not None:
+            return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
 
 
@@ -133,6 +147,28 @@ class BrinquedoKitResumoSerializer(serializers.ModelSerializer):
                     context=self.context,
                 ).data
         return None
+
+
+class BrinquedoElegivelKitPersonalizavelSerializer(BrinquedoKitResumoSerializer):
+    quantidade_disponivel = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Brinquedo
+        fields = (
+            "id",
+            "nome",
+            "categoria",
+            "preco_aluguel",
+            "imagem_principal",
+            "quantidade_disponivel",
+        )
+        read_only_fields = fields
+
+    def get_quantidade_disponivel(self, obj):
+        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
+        if quantidade_anotada is not None:
+            return quantidade_anotada
+        return BrinquedoService.quantidade_disponivel(obj)
 
 
 class ItemKitFestaPublicSerializer(serializers.ModelSerializer):
@@ -167,3 +203,95 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
             "atualizado_em",
         )
         read_only_fields = ("id", "criado_em", "atualizado_em")
+
+
+class RegraCategoriaKitPersonalizavelPublicSerializer(serializers.ModelSerializer):
+    categoria = CategoriaResumoSerializer(read_only=True)
+
+    class Meta:
+        model = RegraCategoriaKitPersonalizavel
+        fields = (
+            "id",
+            "categoria",
+            "quantidade_minima",
+            "quantidade_maxima",
+            "ordem",
+        )
+        read_only_fields = fields
+
+
+class ConfiguracaoKitPersonalizavelPublicSerializer(serializers.ModelSerializer):
+    categorias_permitidas = CategoriaResumoSerializer(many=True, read_only=True)
+    regras_categoria = RegraCategoriaKitPersonalizavelPublicSerializer(
+        many=True,
+        read_only=True,
+    )
+    brinquedos_elegiveis = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ConfiguracaoKitPersonalizavel
+        fields = (
+            "id",
+            "nome",
+            "descricao",
+            "preco_base",
+            "quantidade_minima_brinquedos",
+            "quantidade_maxima_brinquedos",
+            "modo_elegibilidade",
+            "categorias_permitidas",
+            "regras_categoria",
+            "brinquedos_elegiveis",
+        )
+        read_only_fields = fields
+
+    def get_brinquedos_elegiveis(self, obj):
+        return BrinquedoElegivelKitPersonalizavelSerializer(
+            KitPersonalizavelService.brinquedos_elegiveis(obj),
+            many=True,
+            context=self.context,
+        ).data
+
+
+class ConfiguracaoKitPersonalizavelAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConfiguracaoKitPersonalizavel
+        fields = (
+            "id",
+            "nome",
+            "descricao",
+            "ativo",
+            "ordem",
+            "preco_base",
+            "quantidade_minima_brinquedos",
+            "quantidade_maxima_brinquedos",
+            "modo_elegibilidade",
+            "categorias_permitidas",
+            "brinquedos_permitidos",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = ("id", "criado_em", "atualizado_em")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        quantidade_minima = attrs.get(
+            "quantidade_minima_brinquedos",
+            getattr(self.instance, "quantidade_minima_brinquedos", None),
+        )
+        quantidade_maxima = attrs.get(
+            "quantidade_maxima_brinquedos",
+            getattr(self.instance, "quantidade_maxima_brinquedos", None),
+        )
+        if (
+            quantidade_minima is not None
+            and quantidade_maxima is not None
+            and quantidade_minima > quantidade_maxima
+        ):
+            raise serializers.ValidationError(
+                {
+                    "quantidade_minima_brinquedos": (
+                        "A quantidade minima nao pode ser maior que a maxima."
+                    )
+                }
+            )
+        return attrs

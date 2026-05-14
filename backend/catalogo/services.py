@@ -1,6 +1,13 @@
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch, Q
 
-from .models import Brinquedo, ImagemBrinquedo, ItemKitFesta, KitFesta, UnidadeBrinquedo
+from .models import (
+    Brinquedo,
+    ConfiguracaoKitPersonalizavel,
+    ImagemBrinquedo,
+    ItemKitFesta,
+    KitFesta,
+    UnidadeBrinquedo,
+)
 
 class BrinquedoService:
     """
@@ -73,3 +80,62 @@ class KitFestaService:
     @staticmethod
     def list_public_catalog():
         return KitFestaService.list_all().filter(ativo=True)
+
+
+class KitPersonalizavelService:
+    @staticmethod
+    def _imagens_publicas():
+        return ImagemBrinquedo.objects.filter(ativo=True).order_by(
+            "-principal",
+            "ordem",
+            "id",
+        )
+
+    @staticmethod
+    def list_all():
+        return ConfiguracaoKitPersonalizavel.objects.prefetch_related(
+            "categorias_permitidas",
+            "brinquedos_permitidos",
+            "regras_categoria__categoria",
+        )
+
+    @staticmethod
+    def list_public_catalog():
+        return KitPersonalizavelService.list_all().filter(ativo=True)
+
+    @staticmethod
+    def brinquedos_elegiveis(configuracao):
+        modo = configuracao.modo_elegibilidade
+        filtros = Q()
+
+        if modo in [
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS,
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS_E_BRINQUEDOS,
+        ]:
+            filtros |= Q(categoria__in=configuracao.categorias_permitidas.all())
+
+        if modo in [
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS,
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS_E_BRINQUEDOS,
+        ]:
+            filtros |= Q(id__in=configuracao.brinquedos_permitidos.values("id"))
+
+        return (
+            Brinquedo.objects.filter(filtros, ativo=True)
+            .select_related("categoria")
+            .annotate(
+                quantidade_disponivel_anotada=Count(
+                    "unidades",
+                    filter=Q(unidades__status=UnidadeBrinquedo.Status.DISPONIVEL),
+                )
+            )
+            .prefetch_related(
+                Prefetch(
+                    "imagens",
+                    queryset=KitPersonalizavelService._imagens_publicas(),
+                    to_attr="imagens_publicas",
+                )
+            )
+            .distinct()
+            .order_by("nome", "id")
+        )
