@@ -9,6 +9,7 @@ from .models import (
     KitFesta,
     UnidadeBrinquedo,
 )
+from pedidos.models import ReservaUnidade
 
 class BrinquedoService:
     """
@@ -250,4 +251,135 @@ class KitPersonalizavelService:
             "preco_itens": preco_itens,
             "preco_estimado": configuracao.preco_base + preco_itens,
             "itens": resumo_itens,
+        }
+
+
+class DisponibilidadeService:
+    @staticmethod
+    def unidades_livres(brinquedo, data_inicio, data_fim):
+        return (
+            UnidadeBrinquedo.objects.filter(
+                brinquedo=brinquedo,
+                status=UnidadeBrinquedo.Status.DISPONIVEL,
+            )
+            .exclude(
+                reservas__status=ReservaUnidade.Status.ATIVA,
+                reservas__data_inicio__lt=data_fim,
+                reservas__data_fim__gt=data_inicio,
+            )
+            .distinct()
+        )
+
+    @staticmethod
+    def quantidade_disponivel_brinquedo(brinquedo, data_inicio, data_fim):
+        return DisponibilidadeService.unidades_livres(
+            brinquedo,
+            data_inicio,
+            data_fim,
+        ).count()
+
+    @staticmethod
+    def verificar_brinquedo(brinquedo, data_inicio, data_fim, quantidade):
+        quantidade_disponivel = (
+            DisponibilidadeService.quantidade_disponivel_brinquedo(
+                brinquedo,
+                data_inicio,
+                data_fim,
+            )
+        )
+        return {
+            "disponivel": quantidade_disponivel >= quantidade,
+            "data_inicio": data_inicio,
+            "data_fim": data_fim,
+            "quantidade_solicitada": quantidade,
+            "quantidade_disponivel": quantidade_disponivel,
+        }
+
+    @staticmethod
+    def _verificar_itens(itens, data_inicio, data_fim):
+        resultado_itens = []
+        disponivel = True
+
+        for item in itens:
+            brinquedo = item["brinquedo"]
+            quantidade_necessaria = item["quantidade_necessaria"]
+            quantidade_disponivel = (
+                DisponibilidadeService.quantidade_disponivel_brinquedo(
+                    brinquedo,
+                    data_inicio,
+                    data_fim,
+                )
+            )
+            item_disponivel = quantidade_disponivel >= quantidade_necessaria
+            disponivel = disponivel and item_disponivel
+            resultado_itens.append(
+                {
+                    "brinquedo_id": brinquedo.id,
+                    "nome": brinquedo.nome,
+                    "quantidade_necessaria": quantidade_necessaria,
+                    "quantidade_disponivel": quantidade_disponivel,
+                    "disponivel": item_disponivel,
+                }
+            )
+
+        return disponivel, resultado_itens
+
+    @staticmethod
+    def verificar_kit_festa(kit_festa, data_inicio, data_fim, quantidade):
+        itens = [
+            {
+                "brinquedo": item.brinquedo,
+                "quantidade_necessaria": item.quantidade * quantidade,
+            }
+            for item in kit_festa.itens.select_related("brinquedo").all()
+        ]
+        disponivel, resultado_itens = DisponibilidadeService._verificar_itens(
+            itens,
+            data_inicio,
+            data_fim,
+        )
+        return {
+            "disponivel": disponivel,
+            "data_inicio": data_inicio,
+            "data_fim": data_fim,
+            "quantidade_solicitada": quantidade,
+            "itens": resultado_itens,
+        }
+
+    @staticmethod
+    def verificar_kit_personalizavel(
+        configuracao,
+        data_inicio,
+        data_fim,
+        quantidade,
+        itens_selecionados,
+    ):
+        resumo = KitPersonalizavelService.validar_selecao(
+            configuracao,
+            itens_selecionados,
+        )
+        brinquedos_por_id = {
+            brinquedo.id: brinquedo
+            for brinquedo in Brinquedo.objects.filter(
+                id__in=[item["brinquedo_id"] for item in resumo["itens"]]
+            )
+        }
+        itens = [
+            {
+                "brinquedo": brinquedos_por_id[item["brinquedo_id"]],
+                "quantidade_necessaria": item["quantidade"] * quantidade,
+            }
+            for item in resumo["itens"]
+        ]
+        disponivel, resultado_itens = DisponibilidadeService._verificar_itens(
+            itens,
+            data_inicio,
+            data_fim,
+        )
+        return {
+            "disponivel": disponivel,
+            "data_inicio": data_inicio,
+            "data_fim": data_fim,
+            "quantidade_solicitada": quantidade,
+            "itens": resultado_itens,
         }

@@ -312,3 +312,28 @@ class ValidarSelecaoKitPersonalizavelSerializer(serializers.Serializer):
                 "Nao envie o mesmo brinquedo mais de uma vez."
             )
         return itens
+
+
+class DisponibilidadePeriodoSerializer(serializers.Serializer):
+    data_inicio = serializers.DateField(required=True)
+    data_fim = serializers.DateField(required=True)
+    quantidade = serializers.IntegerField(min_value=1, required=False, default=1)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        data_inicio = attrs.get("data_inicio")
+        data_fim = attrs.get("data_fim")
+
+        if data_inicio and data_fim and data_fim <= data_inicio:
+            raise serializers.ValidationError(
+                {"data_fim": "A data final deve ser posterior a data inicial."}
+            )
+
+        return attrs
+
+
+class DisponibilidadeKitPersonalizavelSerializer(DisponibilidadePeriodoSerializer):
+    itens = ItemSelecaoKitPersonalizavelSerializer(many=True, allow_empty=False)
+
+    def validate_itens(self, itens):
+        return ValidarSelecaoKitPersonalizavelSerializer().validate_itens(itens)
