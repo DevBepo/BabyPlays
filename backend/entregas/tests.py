@@ -1,18 +1,22 @@
+import json
 from decimal import Decimal
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import ConfiguracaoTaxaEntregaRetirada
 from .providers import (
     CepNaoEncontradoError,
+    EnderecoInterpretado,
     EnderecoIncompletoError,
     FakeCepProvider,
     FakeRotaProvider,
+    GoogleRoutesRotaProvider,
     RotaProviderError,
 )
 from .services import (
@@ -29,6 +33,40 @@ ENDERECO_DESTINO = {
     "cidade": "Sao Paulo",
     "uf": "SP",
 }
+
+ORIGEM_INTERPRETADA = EnderecoInterpretado(
+    cep="02020000",
+    logradouro="Rua de Origem",
+    numero="100",
+    complemento="",
+    bairro="Santana",
+    cidade="Sao Paulo",
+    uf="SP",
+)
+
+DESTINO_INTERPRETADO = EnderecoInterpretado(
+    cep="01001000",
+    logradouro="Praca da Se",
+    numero="123",
+    complemento="Apto 45",
+    bairro="Se",
+    cidade="Sao Paulo",
+    uf="SP",
+)
+
+
+class FakeHttpResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
 
 
 def criar_configuracao(**extra):
@@ -91,6 +129,121 @@ class ConfiguracaoTaxaEntregaRetiradaModelTests(TestCase):
 
         with self.assertRaises(IntegrityError):
             criar_configuracao(origem_cep="03030000")
+
+
+class GoogleRoutesRotaProviderTests(TestCase):
+    @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
+    def test_provider_transforma_distancia_metros_em_km(self):
+        provider = GoogleRoutesRotaProvider()
+
+        with patch(
+            "entregas.providers.urlopen",
+            return_value=FakeHttpResponse({"routes": [{"distanceMeters": 12345}]}),
+        ) as mock_urlopen:
+            distancia = provider.calcular_distancia_ida_km(
+                ORIGEM_INTERPRETADA,
+                DESTINO_INTERPRETADO,
+            )
+
+        request = mock_urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(distancia, Decimal("12.345"))
+        self.assertEqual(mock_urlopen.call_args.kwargs["timeout"], 5)
+        self.assertEqual(request.headers["X-goog-api-key"], "google-test-key")
+        self.assertEqual(request.headers["X-goog-fieldmask"], "routes.distanceMeters")
+        self.assertEqual(payload["travelMode"], "DRIVE")
+        self.assertIn("Rua de Origem, 100", payload["origin"]["address"])
+        self.assertIn("Praca da Se, 123", payload["destination"]["address"])
+
+    @override_settings(GOOGLE_ROUTES_API_KEY="")
+    def test_provider_falha_de_forma_segura_sem_chave_configurada(self):
+        provider = GoogleRoutesRotaProvider()
+
+        with self.assertRaises(RotaProviderError) as contexto:
+            provider.calcular_distancia_ida_km(ORIGEM_INTERPRETADA, DESTINO_INTERPRETADO)
+
+        self.assertEqual(
+            str(contexto.exception),
+            "Provider de rota nao configurado para calcular a distancia.",
+        )
+
+    @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
+    def test_provider_falha_de_forma_segura_em_timeout(self):
+        provider = GoogleRoutesRotaProvider()
+
+        with patch("entregas.providers.urlopen", side_effect=TimeoutError):
+            with self.assertRaises(RotaProviderError) as contexto:
+                provider.calcular_distancia_ida_km(
+                    ORIGEM_INTERPRETADA,
+                    DESTINO_INTERPRETADO,
+                )
+
+        self.assertEqual(
+            str(contexto.exception),
+            "Nao foi possivel calcular a rota para este endereco.",
+        )
+
+    @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
+    def test_provider_falha_de_forma_segura_em_status_http_invalido(self):
+        provider = GoogleRoutesRotaProvider()
+        erro_http = HTTPError(
+            url=provider.api_url,
+            code=500,
+            msg="Internal Server Error",
+            hdrs=None,
+            fp=None,
+        )
+
+        with patch("entregas.providers.urlopen", side_effect=erro_http):
+            with self.assertRaises(RotaProviderError) as contexto:
+                provider.calcular_distancia_ida_km(
+                    ORIGEM_INTERPRETADA,
+                    DESTINO_INTERPRETADO,
+                )
+
+        self.assertEqual(
+            str(contexto.exception),
+            "Nao foi possivel calcular a rota para este endereco.",
+        )
+
+    @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
+    def test_provider_falha_se_api_retornar_resposta_sem_rota(self):
+        provider = GoogleRoutesRotaProvider()
+
+        with patch(
+            "entregas.providers.urlopen",
+            return_value=FakeHttpResponse({"routes": []}),
+        ):
+            with self.assertRaises(RotaProviderError):
+                provider.calcular_distancia_ida_km(
+                    ORIGEM_INTERPRETADA,
+                    DESTINO_INTERPRETADO,
+                )
+
+    @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
+    def test_provider_falha_se_distancia_vier_ausente_ou_invalida(self):
+        respostas_invalidas = [
+            {"routes": [{}]},
+            {"routes": [{"distanceMeters": 0}]},
+            {"routes": [{"distanceMeters": -1}]},
+            {"routes": [{"distanceMeters": "abc"}]},
+            {"routes": [{"distanceMeters": "NaN"}]},
+            {"routes": [{"distanceMeters": "Infinity"}]},
+        ]
+
+        for resposta in respostas_invalidas:
+            with self.subTest(resposta=resposta):
+                provider = GoogleRoutesRotaProvider()
+
+                with patch(
+                    "entregas.providers.urlopen",
+                    return_value=FakeHttpResponse(resposta),
+                ):
+                    with self.assertRaises(RotaProviderError):
+                        provider.calcular_distancia_ida_km(
+                            ORIGEM_INTERPRETADA,
+                            DESTINO_INTERPRETADO,
+                        )
 
 
 class TaxaEntregaRetiradaServiceTests(TestCase):

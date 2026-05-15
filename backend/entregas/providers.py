@@ -1,8 +1,8 @@
 import json
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 
@@ -70,13 +70,98 @@ class CepProvider:
         }
 
 
-class RotaProvider:
+class GoogleRoutesRotaProvider:
+    api_url = "https://routes.googleapis.com/directions/v2:computeRoutes"
+    timeout_segundos = 5
+
     def calcular_distancia_ida_km(self, origem, destino):
-        if not getattr(settings, "ROTA_PROVIDER_API_KEY", ""):
+        api_key = str(getattr(settings, "GOOGLE_ROUTES_API_KEY", "") or "").strip()
+        if not api_key:
             raise RotaProviderError(
                 "Provider de rota nao configurado para calcular a distancia."
             )
-        raise RotaProviderError("Provider de rota real ainda nao implementado.")
+
+        payload = self._montar_payload(origem, destino)
+        request = Request(
+            self.api_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": api_key,
+                "X-Goog-FieldMask": "routes.distanceMeters",
+            },
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self.timeout_segundos) as response:
+                resposta = json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            ) from exc
+
+        distancia_metros = self._extrair_distancia_metros(resposta)
+        return self._converter_metros_para_km(distancia_metros)
+
+    def _montar_payload(self, origem, destino):
+        return {
+            "origin": {"address": self._formatar_endereco(origem)},
+            "destination": {"address": self._formatar_endereco(destino)},
+            "travelMode": "DRIVE",
+            "routingPreference": "TRAFFIC_UNAWARE",
+            "units": "METRIC",
+        }
+
+    def _formatar_endereco(self, endereco):
+        partes = [
+            f"{endereco.logradouro}, {endereco.numero}",
+            endereco.bairro,
+            f"{endereco.cidade} - {endereco.uf}",
+            endereco.cep,
+            "Brasil",
+        ]
+        return ", ".join(str(parte).strip() for parte in partes if str(parte).strip())
+
+    def _extrair_distancia_metros(self, resposta):
+        rotas = resposta.get("routes") if isinstance(resposta, dict) else None
+        if not rotas or not isinstance(rotas, list):
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            )
+
+        primeira_rota = rotas[0]
+        if not isinstance(primeira_rota, dict):
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            )
+
+        distancia_metros = primeira_rota.get("distanceMeters")
+        if distancia_metros is None:
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            )
+
+        return distancia_metros
+
+    def _converter_metros_para_km(self, distancia_metros):
+        try:
+            distancia_km = Decimal(str(distancia_metros)) / Decimal("1000")
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            ) from exc
+
+        if not distancia_km.is_finite() or distancia_km <= 0:
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            )
+
+        return distancia_km
+
+
+class RotaProvider(GoogleRoutesRotaProvider):
+    pass
 
 
 class FakeCepProvider:
