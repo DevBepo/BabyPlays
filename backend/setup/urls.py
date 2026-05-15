@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/token/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/', include('catalogo.urls')),
     path('api/', include('pedidos.urls')),
+    path('api/', include('entregas.urls')),
 ]
 
 if settings.DEBUG:
