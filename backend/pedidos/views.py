@@ -6,14 +6,22 @@ from rest_framework.views import APIView
 
 from .models import ItemCarrinho, Pedido
 from .serializers import (
+    AceitarContratoSerializer,
+    AceiteContratoSerializer,
     AdicionarItemCarrinhoSerializer,
     AlterarItemCarrinhoSerializer,
     CarrinhoSerializer,
+    ContratoSerializer,
     ConverterCarrinhoPedidoSerializer,
     ItemCarrinhoSerializer,
     PedidoSerializer,
 )
-from .services import CarrinhoService, PedidoService
+from .services import (
+    CarrinhoService,
+    ContratoService,
+    ContratoVigenteAusenteError,
+    PedidoService,
+)
 
 
 class CarrinhoMixin:
@@ -79,6 +87,57 @@ class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
             serializer.dados_para_pedido(),
         )
         return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
+
+
+class ContratoVigenteView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            contrato = ContratoService.obter_contrato_vigente()
+        except ContratoVigenteAusenteError:
+            return Response(
+                {"detail": "Contrato vigente indisponivel."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(ContratoSerializer(contrato).data)
+
+
+class PedidoContratoView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, pedido_id):
+        try:
+            contrato = ContratoService.obter_contrato_do_pedido(request, pedido_id)
+        except ContratoVigenteAusenteError:
+            return Response(
+                {"detail": "Contrato vigente indisponivel."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(ContratoSerializer(contrato).data)
+
+
+class AceitarContratoPedidoView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, pedido_id):
+        serializer = AceitarContratoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            aceite = ContratoService.registrar_aceite(
+                request,
+                pedido_id,
+                serializer.validated_data,
+            )
+        except ContratoVigenteAusenteError:
+            return Response(
+                {"detail": "Contrato vigente indisponivel."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(
+            AceiteContratoSerializer(aceite).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class PedidoListView(APIView):

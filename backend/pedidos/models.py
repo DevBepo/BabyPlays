@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 
 class Carrinho(models.Model):
@@ -249,6 +250,108 @@ class Pedido(models.Model):
 
     def __str__(self):
         return f"Pedido {self.id} - {self.nome_cliente_snapshot}"
+
+
+class Contrato(models.Model):
+    titulo = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Titulo",
+    )
+    versao = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Versao",
+    )
+    texto = models.TextField(verbose_name="Texto do contrato")
+    ativo = models.BooleanField(default=False, verbose_name="Ativo")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        ordering = ("-ativo", "-atualizado_em", "-id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ativo"],
+                condition=Q(ativo=True),
+                name="pedidos_um_contrato_ativo",
+            )
+        ]
+        verbose_name = "Contrato"
+        verbose_name_plural = "Contratos"
+
+    def clean(self):
+        super().clean()
+        erros = {}
+
+        if self.ativo:
+            contratos_ativos = Contrato.objects.filter(ativo=True)
+            if self.pk:
+                contratos_ativos = contratos_ativos.exclude(pk=self.pk)
+            if contratos_ativos.exists():
+                erros["ativo"] = (
+                    "Ja existe um contrato ativo. Desative o contrato vigente antes "
+                    "de ativar outra versao."
+                )
+
+        if self.pk and AceiteContrato.objects.filter(contrato_id=self.pk).exists():
+            contrato_original = Contrato.objects.get(pk=self.pk)
+            if self.versao != contrato_original.versao:
+                erros["versao"] = (
+                    "Contrato com aceite registrado nao pode ter a versao alterada."
+                )
+            if self.texto != contrato_original.texto:
+                erros["texto"] = (
+                    "Contrato com aceite registrado nao pode ter o texto alterado."
+                )
+
+        if erros:
+            raise ValidationError(erros)
+
+    def __str__(self):
+        titulo = f" - {self.titulo}" if self.titulo else ""
+        return f"Contrato {self.versao}{titulo}"
+
+
+class AceiteContrato(models.Model):
+    pedido = models.OneToOneField(
+        Pedido,
+        related_name="aceite_contrato",
+        on_delete=models.PROTECT,
+        verbose_name="Pedido",
+    )
+    contrato = models.ForeignKey(
+        Contrato,
+        related_name="aceites",
+        on_delete=models.PROTECT,
+        verbose_name="Contrato",
+    )
+    contrato_versao_snapshot = models.CharField(
+        max_length=50,
+        verbose_name="Versao do contrato snapshot",
+    )
+    contrato_texto_snapshot = models.TextField(
+        verbose_name="Texto do contrato snapshot",
+    )
+    nome_cliente_snapshot = models.CharField(
+        max_length=200,
+        verbose_name="Nome do cliente snapshot",
+    )
+    email_cliente_snapshot = models.EmailField(
+        max_length=254,
+        verbose_name="E-mail do cliente snapshot",
+    )
+    aceito_em = models.DateTimeField(verbose_name="Aceito em")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
+    user_agent = models.TextField(blank=True, verbose_name="User-agent")
+
+    class Meta:
+        ordering = ("-aceito_em", "-id")
+        verbose_name = "Aceite de contrato"
+        verbose_name_plural = "Aceites de contrato"
+
+    def __str__(self):
+        return f"Aceite do pedido {self.pedido_id} - {self.contrato_versao_snapshot}"
 
 
 class ItemPedido(models.Model):

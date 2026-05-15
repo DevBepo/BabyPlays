@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.http import Http404
 from django.db import transaction
 from django.utils.dateparse import parse_date
 from django.utils import timezone
@@ -21,7 +22,14 @@ from entregas.services import (
     quantizar_decimal,
 )
 
-from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
+from .models import (
+    AceiteContrato,
+    Carrinho,
+    Contrato,
+    ItemCarrinho,
+    ItemPedido,
+    Pedido,
+)
 
 
 class CarrinhoService:
@@ -476,3 +484,91 @@ class PedidoService:
         carrinho.save(update_fields=["status", "atualizado_em"])
 
         return pedido
+
+
+class ContratoVigenteAusenteError(Exception):
+    pass
+
+
+class ContratoService:
+    @staticmethod
+    def obter_contrato_vigente():
+        contrato = Contrato.objects.filter(ativo=True).first()
+        if not contrato:
+            raise ContratoVigenteAusenteError("Contrato vigente indisponivel.")
+        return contrato
+
+    @staticmethod
+    def obter_pedido_do_request(request, pedido_id):
+        queryset = Pedido.objects.select_related("usuario").filter(id=pedido_id)
+        usuario = request.user if request.user.is_authenticated else None
+
+        if usuario:
+            pedido = queryset.filter(usuario=usuario).first()
+        else:
+            session_key = request.session.session_key
+            pedido = None
+            if session_key:
+                pedido = queryset.filter(
+                    usuario__isnull=True,
+                    session_key_snapshot=session_key,
+                ).first()
+
+        if not pedido:
+            raise Http404("Pedido nao encontrado.")
+        return pedido
+
+    @staticmethod
+    def obter_contrato_do_pedido(request, pedido_id):
+        ContratoService.obter_pedido_do_request(request, pedido_id)
+        return ContratoService.obter_contrato_vigente()
+
+    @staticmethod
+    def _obter_ip(request):
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR") or None
+
+    @staticmethod
+    def _obter_user_agent(request):
+        return request.META.get("HTTP_USER_AGENT", "")
+
+    @staticmethod
+    @transaction.atomic
+    def registrar_aceite(request, pedido_id, dados):
+        pedido = (
+            Pedido.objects.select_for_update()
+            .select_related("usuario")
+            .get(id=ContratoService.obter_pedido_do_request(request, pedido_id).id)
+        )
+        contrato = ContratoService.obter_contrato_vigente()
+
+        if hasattr(pedido, "aceite_contrato"):
+            raise serializers.ValidationError(
+                {"detail": "Contrato ja aceito para este pedido."}
+            )
+
+        if dados.get("contrato_id") != contrato.id:
+            raise serializers.ValidationError(
+                {"contrato_id": "Contrato divergente do contrato vigente."}
+            )
+        if dados.get("contrato_versao") != contrato.versao:
+            raise serializers.ValidationError(
+                {"contrato_versao": "Versao divergente do contrato vigente."}
+            )
+
+        aceite = AceiteContrato(
+            pedido=pedido,
+            contrato=contrato,
+            contrato_versao_snapshot=contrato.versao,
+            contrato_texto_snapshot=contrato.texto,
+            nome_cliente_snapshot=pedido.nome_cliente_snapshot,
+            email_cliente_snapshot=pedido.email_cliente_snapshot,
+            aceito_em=timezone.now(),
+            ip=ContratoService._obter_ip(request),
+            user_agent=ContratoService._obter_user_agent(request),
+        )
+        aceite.full_clean()
+        aceite.save()
+        return aceite

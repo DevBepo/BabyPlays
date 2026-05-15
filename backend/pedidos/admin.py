@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
+from .models import (
+    AceiteContrato,
+    Carrinho,
+    Contrato,
+    ItemCarrinho,
+    ItemPedido,
+    Pedido,
+)
 
 
 class ItemCarrinhoInline(admin.TabularInline):
@@ -113,3 +120,93 @@ class ItemPedidoAdmin(admin.ModelAdmin):
         "pedido__email_cliente_snapshot",
     )
     readonly_fields = ("criado_em",)
+
+
+@admin.register(Contrato)
+class ContratoAdmin(admin.ModelAdmin):
+    list_display = ("versao", "titulo", "ativo", "criado_em", "atualizado_em")
+    list_filter = ("ativo",)
+    search_fields = ("versao", "titulo")
+    fieldsets = (
+        (
+            "Identificacao",
+            {
+                "fields": (
+                    "titulo",
+                    "versao",
+                    "ativo",
+                )
+            },
+        ),
+        (
+            "Conteudo",
+            {
+                "fields": ("texto",),
+            },
+        ),
+        (
+            "Auditoria",
+            {
+                "fields": ("criado_em", "atualizado_em"),
+            },
+        ),
+    )
+    readonly_fields = ("criado_em", "atualizado_em")
+
+
+@admin.register(AceiteContrato)
+class AceiteContratoAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "pedido",
+        "contrato",
+        "contrato_versao_snapshot",
+        "nome_cliente_snapshot",
+        "email_cliente_snapshot",
+        "aceito_em",
+        "ip",
+    )
+    list_filter = ("contrato_versao_snapshot", "aceito_em")
+    search_fields = (
+        "pedido__id",
+        "contrato_versao_snapshot",
+        "nome_cliente_snapshot",
+        "email_cliente_snapshot",
+        "ip",
+    )
+    readonly_fields = (
+        "pedido",
+        "contrato",
+        "contrato_versao_snapshot",
+        "contrato_texto_snapshot",
+        "nome_cliente_snapshot",
+        "email_cliente_snapshot",
+        "aceito_em",
+        "ip",
+        "user_agent",
+    )
+    fieldsets = (
+        (
+            "Vinculos",
+            {
+                "fields": ("pedido", "contrato"),
+            },
+        ),
+        (
+            "Snapshot aceito",
+            {
+                "fields": (
+                    "contrato_versao_snapshot",
+                    "contrato_texto_snapshot",
+                    "nome_cliente_snapshot",
+                    "email_cliente_snapshot",
+                ),
+            },
+        ),
+        (
+            "Auditoria",
+            {
+                "fields": ("aceito_em", "ip", "user_agent"),
+            },
+        ),
+    )
