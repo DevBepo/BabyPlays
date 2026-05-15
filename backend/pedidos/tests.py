@@ -20,7 +20,14 @@ from catalogo.models import (
 )
 from entregas.providers import RotaProviderError
 
-from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
+from .models import (
+    AceiteContrato,
+    Carrinho,
+    Contrato,
+    ItemCarrinho,
+    ItemPedido,
+    Pedido,
+)
 from .services import PedidoService
 
 
@@ -55,6 +62,7 @@ class CarrinhoAPITests(APITestCase):
     limpar_url = "/api/carrinho/limpar/"
     converter_pedido_url = "/api/pedidos/converter-carrinho/"
     pedidos_url = "/api/pedidos/"
+    contrato_vigente_url = "/api/contrato/vigente/"
 
     def setUp(self):
         self.categoria = Categoria.objects.create(
@@ -173,6 +181,36 @@ class CarrinhoAPITests(APITestCase):
                 self.payload_pedido(**extra),
                 format="json",
             )
+
+    def criar_contrato(self, **extra):
+        dados = {
+            "titulo": "Contrato de locacao",
+            "versao": "2026-05",
+            "texto": "Texto vigente do contrato.",
+            "ativo": True,
+        }
+        dados.update(extra)
+        contrato = Contrato(**dados)
+        contrato.full_clean()
+        contrato.save()
+        return contrato
+
+    def aceitar_contrato(self, pedido_id, contrato=None, client=None, **extra):
+        client = client or self.client
+        contrato = contrato or Contrato.objects.get(ativo=True)
+        payload = {
+            "aceito": True,
+            "contrato_id": contrato.id,
+            "contrato_versao": contrato.versao,
+        }
+        payload.update(extra)
+        return client.post(
+            f"{self.pedidos_url}{pedido_id}/aceitar-contrato/",
+            payload,
+            format="json",
+            REMOTE_ADDR="203.0.113.10",
+            HTTP_USER_AGENT="Teste Browser",
+        )
 
     def test_carrinho_anonimo_e_criado_e_recuperado_por_sessao(self):
         primeira_response = self.client.get(self.carrinho_url)
@@ -744,6 +782,208 @@ class CarrinhoAPITests(APITestCase):
         response = self.client.get(self.pedidos_url)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_contrato_vigente_retorna_apenas_contrato_ativo(self):
+        Contrato.objects.create(
+            titulo="Contrato antigo",
+            versao="2026-04",
+            texto="Texto antigo.",
+            ativo=False,
+        )
+        contrato = self.criar_contrato()
+
+        response = self.client.get(self.contrato_vigente_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], contrato.id)
+        self.assertEqual(response.data["versao"], "2026-05")
+        self.assertEqual(response.data["titulo"], "Contrato de locacao")
+        self.assertEqual(response.data["texto"], "Texto vigente do contrato.")
+
+    def test_get_contrato_vigente_sem_contrato_ativo_retorna_erro_seguro(self):
+        response = self.client.get(self.contrato_vigente_url)
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["detail"], "Contrato vigente indisponivel.")
+
+    def test_nao_permite_mais_de_um_contrato_ativo(self):
+        self.criar_contrato()
+        outro = Contrato(
+            titulo="Contrato novo",
+            versao="2026-06",
+            texto="Novo texto.",
+            ativo=True,
+        )
+
+        with self.assertRaises(ValidationError):
+            outro.full_clean()
+
+    def test_cliente_autenticado_acessa_contrato_do_proprio_pedido(self):
+        contrato = self.criar_contrato()
+        self.client.force_authenticate(user=self.usuario)
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        response = self.client.get(f"{self.pedidos_url}{pedido_id}/contrato/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], contrato.id)
+
+    def test_cliente_autenticado_nao_acessa_contrato_de_pedido_de_outro_usuario(self):
+        self.criar_contrato()
+        self.client.force_authenticate(user=self.usuario)
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        outro_cliente = APIClient()
+        outro_cliente.force_authenticate(user=self.outro_usuario)
+
+        response = outro_cliente.get(f"{self.pedidos_url}{pedido_id}/contrato/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_anonimo_acessa_contrato_do_proprio_pedido_pela_mesma_sessao(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        response = self.client.get(f"{self.pedidos_url}{pedido_id}/contrato/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], contrato.id)
+
+    def test_anonimo_nao_acessa_contrato_de_pedido_de_outra_sessao(self):
+        self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        outro_cliente = APIClient()
+
+        response = outro_cliente.get(f"{self.pedidos_url}{pedido_id}/contrato/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_aceite_cria_registro_para_pedido_correto(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        response = self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        aceite = AceiteContrato.objects.get()
+        self.assertEqual(aceite.pedido_id, pedido_id)
+        self.assertEqual(aceite.contrato, contrato)
+        self.assertEqual(response.data["pedido"], pedido_id)
+        self.assertEqual(response.data["contrato"], contrato.id)
+
+    def test_aceite_salva_snapshots_e_auditoria(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        response = self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        aceite = AceiteContrato.objects.get()
+        self.assertEqual(aceite.contrato_versao_snapshot, contrato.versao)
+        self.assertEqual(aceite.contrato_texto_snapshot, contrato.texto)
+        self.assertEqual(aceite.nome_cliente_snapshot, "Cliente Teste")
+        self.assertEqual(aceite.email_cliente_snapshot, "cliente@email.com")
+        self.assertIsNotNone(aceite.aceito_em)
+        self.assertEqual(aceite.ip, "203.0.113.10")
+        self.assertEqual(aceite.user_agent, "Teste Browser")
+        self.assertEqual(response.data["versao_aceita"], contrato.versao)
+        self.assertNotIn("contrato_texto_snapshot", response.data)
+        self.assertNotIn("ip", response.data)
+
+    def test_frontend_nao_consegue_forjar_dados_de_auditoria_do_aceite(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        response = self.aceitar_contrato(
+            pedido_id,
+            contrato=contrato,
+            contrato_texto_snapshot="Texto forjado",
+            aceito_em="2020-01-01T00:00:00Z",
+            ip="198.51.100.1",
+            user_agent="Forjado",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AceiteContrato.objects.count(), 0)
+        self.assertIn("detail", response.data)
+
+    def test_divergencia_de_contrato_id_ou_versao_e_rejeitada(self):
+        contrato = self.criar_contrato()
+        contrato_antigo = Contrato.objects.create(
+            titulo="Contrato antigo",
+            versao="2026-04",
+            texto="Texto antigo.",
+            ativo=False,
+        )
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+
+        response_id = self.aceitar_contrato(
+            pedido_id,
+            contrato=contrato,
+            contrato_id=contrato_antigo.id,
+        )
+        response_versao = self.aceitar_contrato(
+            pedido_id,
+            contrato=contrato,
+            contrato_versao="2026-04",
+        )
+
+        self.assertEqual(response_id.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response_versao.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AceiteContrato.objects.count(), 0)
+
+    def test_segundo_aceite_no_mesmo_pedido_e_bloqueado(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        primeiro = self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        segundo = self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        self.assertEqual(primeiro.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(segundo.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AceiteContrato.objects.count(), 1)
+        self.assertEqual(
+            segundo.data["detail"],
+            "Contrato ja aceito para este pedido.",
+        )
+
+    def test_contrato_alterado_depois_nao_altera_snapshot_do_aceite(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        contrato.titulo = "Titulo atualizado"
+        contrato.ativo = False
+        contrato.full_clean()
+        contrato.save()
+
+        aceite = AceiteContrato.objects.get()
+        self.assertEqual(aceite.contrato_versao_snapshot, "2026-05")
+        self.assertEqual(aceite.contrato_texto_snapshot, "Texto vigente do contrato.")
+
+    def test_contrato_com_aceite_nao_pode_alterar_texto_ou_versao(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        contrato.versao = "2026-06"
+        with self.assertRaises(ValidationError):
+            contrato.full_clean()
+
+        contrato.refresh_from_db()
+        contrato.texto = "Texto alterado."
+        with self.assertRaises(ValidationError):
+            contrato.full_clean()
 
 
 class ItemCarrinhoModelTests(APITestCase):

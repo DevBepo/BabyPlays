@@ -1,7 +1,14 @@
 from rest_framework import serializers
 from django.utils import timezone
 
-from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
+from .models import (
+    AceiteContrato,
+    Carrinho,
+    Contrato,
+    ItemCarrinho,
+    ItemPedido,
+    Pedido,
+)
 from .services import CarrinhoService
 
 
@@ -151,6 +158,77 @@ class PedidoSerializer(serializers.ModelSerializer):
             "itens",
             "criado_em",
             "atualizado_em",
+        )
+        read_only_fields = fields
+
+
+class ContratoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contrato
+        fields = (
+            "id",
+            "versao",
+            "titulo",
+            "texto",
+        )
+        read_only_fields = fields
+
+
+class AceitarContratoSerializer(serializers.Serializer):
+    aceito = serializers.BooleanField()
+    contrato_id = serializers.IntegerField(min_value=1)
+    contrato_versao = serializers.CharField(max_length=50, trim_whitespace=True)
+
+    campos_proibidos = {
+        "contrato_texto_snapshot",
+        "contrato_versao_snapshot",
+        "nome_cliente_snapshot",
+        "email_cliente_snapshot",
+        "aceito_em",
+        "ip",
+        "user_agent",
+        "pedido",
+        "pedido_id",
+        "contrato",
+    }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        campos_enviados = set(getattr(self, "initial_data", {}).keys())
+        campos_forjados = sorted(campos_enviados.intersection(self.campos_proibidos))
+        if campos_forjados:
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Dados de auditoria do aceite sao registrados pelo backend."
+                    )
+                }
+            )
+
+        if attrs["aceito"] is not True:
+            raise serializers.ValidationError(
+                {"aceito": "O contrato precisa ser aceito explicitamente."}
+            )
+
+        return attrs
+
+
+class AceiteContratoSerializer(serializers.ModelSerializer):
+    pedido = serializers.IntegerField(source="pedido_id", read_only=True)
+    contrato = serializers.IntegerField(source="contrato_id", read_only=True)
+    versao_aceita = serializers.CharField(
+        source="contrato_versao_snapshot",
+        read_only=True,
+    )
+
+    class Meta:
+        model = AceiteContrato
+        fields = (
+            "id",
+            "pedido",
+            "contrato",
+            "versao_aceita",
+            "aceito_em",
         )
         read_only_fields = fields
 
