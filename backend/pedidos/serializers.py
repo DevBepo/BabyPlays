@@ -142,6 +142,12 @@ class PedidoSerializer(serializers.ModelSerializer):
             "observacoes_cliente",
             "data_evento_pretendida",
             "subtotal_itens_snapshot",
+            "endereco_entrega_snapshot",
+            "distancia_ida_km_snapshot",
+            "distancia_total_km_snapshot",
+            "valor_por_km_snapshot",
+            "taxa_entrega_retirada_snapshot",
+            "total_estimado_snapshot",
             "itens",
             "criado_em",
             "atualizado_em",
@@ -154,11 +160,50 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
     telefone = serializers.CharField(max_length=30, trim_whitespace=True)
     email = serializers.EmailField(max_length=254)
     data_evento_pretendida = serializers.DateField()
+    cep = serializers.CharField(max_length=9)
+    numero = serializers.CharField(max_length=20, trim_whitespace=True)
+    complemento = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
     observacoes = serializers.CharField(
         required=False,
         allow_blank=True,
         trim_whitespace=True,
     )
+
+    campos_proibidos = {
+        "distancia_km",
+        "distancia_ida_km",
+        "distancia_total_km",
+        "distancia_ida_km_snapshot",
+        "distancia_total_km_snapshot",
+        "valor_por_km",
+        "valor_por_km_snapshot",
+        "taxa",
+        "frete",
+        "taxa_entrega_retirada_snapshot",
+        "total",
+        "total_estimado",
+        "total_estimado_snapshot",
+    }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        campos_enviados = set(getattr(self, "initial_data", {}).keys())
+        campos_forjados = sorted(campos_enviados.intersection(self.campos_proibidos))
+        if campos_forjados:
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Taxa, distancia, valor por km e total sao calculados "
+                        "no backend."
+                    )
+                }
+            )
+        return attrs
 
     def validate_data_evento_pretendida(self, value):
         if value < timezone.localdate():
@@ -166,6 +211,18 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
                 "A data pretendida do evento nao pode estar no passado."
             )
         return value
+
+    def validate_cep(self, value):
+        cep = "".join(caractere for caractere in str(value) if caractere.isdigit())
+        if len(cep) != 8:
+            raise serializers.ValidationError("CEP invalido.")
+        return cep
+
+    def validate_numero(self, value):
+        numero = str(value or "").strip()
+        if not numero:
+            raise serializers.ValidationError("Numero e obrigatorio.")
+        return numero
 
     def dados_para_pedido(self):
         return {
@@ -176,4 +233,7 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
             "data_evento_pretendida": self.validated_data[
                 "data_evento_pretendida"
             ],
+            "cep": self.validated_data["cep"],
+            "numero": self.validated_data["numero"],
+            "complemento": self.validated_data.get("complemento", ""),
         }

@@ -8,6 +8,18 @@ from rest_framework import serializers
 from catalogo.models import Brinquedo, ConfiguracaoKitPersonalizavel, KitFesta
 from catalogo.serializers import ValidarSelecaoKitPersonalizavelSerializer
 from catalogo.services import KitPersonalizavelService
+from entregas.providers import (
+    CepInvalidoError,
+    CepNaoEncontradoError,
+    EnderecoIncompletoError,
+    RotaProviderError,
+)
+from entregas.services import (
+    ConfiguracaoTaxaAusenteError,
+    DistanciaInvalidaError,
+    TaxaEntregaRetiradaService,
+    quantizar_decimal,
+)
 
 from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
 
@@ -340,6 +352,8 @@ class PedidoService:
             "telefone_cliente_snapshot",
             "email_cliente_snapshot",
             "data_evento_pretendida",
+            "cep",
+            "numero",
         ):
             if not dados.get(campo):
                 erros[campo] = "Este campo e obrigatorio."
@@ -360,8 +374,34 @@ class PedidoService:
             raise serializers.ValidationError(erros)
 
     @staticmethod
+    def _calcular_taxa_entrega(dados_cliente, taxa_service=None):
+        service = taxa_service or TaxaEntregaRetiradaService()
+        try:
+            return service.calcular(
+                cep=dados_cliente["cep"],
+                numero=dados_cliente["numero"],
+                complemento=dados_cliente.get("complemento", ""),
+            )
+        except (CepInvalidoError, CepNaoEncontradoError) as exc:
+            raise serializers.ValidationError(
+                {"cep": "CEP invalido ou nao encontrado."}
+            ) from exc
+        except EnderecoIncompletoError as exc:
+            raise serializers.ValidationError(
+                {"endereco": "Endereco incompleto para calcular a taxa."}
+            ) from exc
+        except ConfiguracaoTaxaAusenteError as exc:
+            raise serializers.ValidationError(
+                {"taxa_entrega": "Taxa de entrega e retirada indisponivel."}
+            ) from exc
+        except (RotaProviderError, DistanciaInvalidaError) as exc:
+            raise serializers.ValidationError(
+                {"taxa_entrega": "Nao foi possivel calcular a taxa de entrega."}
+            ) from exc
+
+    @staticmethod
     @transaction.atomic
-    def converter_carrinho(carrinho, dados_cliente):
+    def converter_carrinho(carrinho, dados_cliente, taxa_service=None):
         PedidoService._validar_dados_cliente(dados_cliente)
 
         carrinho = (
@@ -390,6 +430,12 @@ class PedidoService:
             (item.subtotal_snapshot for item in itens),
             Decimal("0.00"),
         )
+        calculo_taxa = PedidoService._calcular_taxa_entrega(
+            dados_cliente,
+            taxa_service=taxa_service,
+        )
+        taxa_entrega = quantizar_decimal(calculo_taxa["taxa"])
+        total_estimado = quantizar_decimal(subtotal + taxa_entrega)
         pedido = Pedido.objects.create(
             carrinho_origem=carrinho,
             usuario=carrinho.usuario,
@@ -400,6 +446,12 @@ class PedidoService:
             observacoes_cliente=dados_cliente.get("observacoes_cliente", ""),
             data_evento_pretendida=dados_cliente["data_evento_pretendida"],
             subtotal_itens_snapshot=subtotal,
+            endereco_entrega_snapshot=calculo_taxa["endereco_interpretado"],
+            distancia_ida_km_snapshot=calculo_taxa["distancia_ida_km"],
+            distancia_total_km_snapshot=calculo_taxa["distancia_total_km"],
+            valor_por_km_snapshot=calculo_taxa["valor_por_km"],
+            taxa_entrega_retirada_snapshot=taxa_entrega,
+            total_estimado_snapshot=total_estimado,
         )
 
         for item in itens:
