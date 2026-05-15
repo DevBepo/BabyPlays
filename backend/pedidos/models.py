@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -201,6 +203,41 @@ class Pedido(models.Model):
         max_digits=9,
         decimal_places=2,
         verbose_name="Subtotal dos itens snapshot",
+    )
+    endereco_entrega_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Endereco de entrega snapshot",
+    )
+    distancia_ida_km_snapshot = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Distancia de ida em km snapshot",
+    )
+    distancia_total_km_snapshot = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Distancia total em km snapshot",
+    )
+    valor_por_km_snapshot = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Valor por km snapshot",
+    )
+    taxa_entrega_retirada_snapshot = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Taxa de entrega e retirada snapshot",
+    )
+    total_estimado_snapshot = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Total estimado snapshot",
     )
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")

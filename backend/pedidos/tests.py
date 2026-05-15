@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
+from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.serializers import ValidationError as DRFValidationError
@@ -16,9 +18,35 @@ from catalogo.models import (
     RegraCategoriaKitPersonalizavel,
     UnidadeBrinquedo,
 )
+from entregas.providers import RotaProviderError
 
 from .models import Carrinho, ItemCarrinho, ItemPedido, Pedido
 from .services import PedidoService
+
+
+class FakeTaxaEntregaRetiradaService:
+    def __init__(self, erro=None):
+        self.erro = erro
+
+    def calcular(self, cep, numero, complemento=""):
+        if self.erro:
+            raise self.erro
+        return {
+            "nome": "Taxa de entrega e retirada",
+            "endereco_interpretado": {
+                "cep": cep,
+                "logradouro": "Praca da Se",
+                "numero": numero,
+                "complemento": complemento,
+                "bairro": "Se",
+                "cidade": "Sao Paulo",
+                "uf": "SP",
+            },
+            "distancia_ida_km": Decimal("8.00"),
+            "distancia_total_km": Decimal("16.00"),
+            "valor_por_km": Decimal("3.00"),
+            "taxa": Decimal("48.00"),
+        }
 
 
 class CarrinhoAPITests(APITestCase):
@@ -127,6 +155,8 @@ class CarrinhoAPITests(APITestCase):
             "telefone": "11999999999",
             "email": "cliente@email.com",
             "data_evento_pretendida": str(timezone.localdate() + timedelta(days=30)),
+            "cep": "01001-000",
+            "numero": "123",
             "observacoes": "Preferencia por atendimento no periodo da tarde",
         }
         payload.update(extra)
@@ -134,11 +164,15 @@ class CarrinhoAPITests(APITestCase):
 
     def converter_carrinho_em_pedido(self, client=None, **extra):
         client = client or self.client
-        return client.post(
-            self.converter_pedido_url,
-            self.payload_pedido(**extra),
-            format="json",
-        )
+        with patch(
+            "pedidos.services.TaxaEntregaRetiradaService",
+            return_value=FakeTaxaEntregaRetiradaService(),
+        ):
+            return client.post(
+                self.converter_pedido_url,
+                self.payload_pedido(**extra),
+                format="json",
+            )
 
     def test_carrinho_anonimo_e_criado_e_recuperado_por_sessao(self):
         primeira_response = self.client.get(self.carrinho_url)
@@ -395,6 +429,176 @@ class CarrinhoAPITests(APITestCase):
         pedido = Pedido.objects.get()
         self.assertEqual(str(pedido.subtotal_itens_snapshot), "790.00")
         self.assertEqual(response.data["subtotal_itens_snapshot"], "790.00")
+
+    def test_conversao_com_taxa_valida_cria_pedido(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Pedido.objects.count(), 1)
+        self.assertEqual(response.data["taxa_entrega_retirada_snapshot"], "48.00")
+
+    def test_pedido_salva_endereco_interpretado_em_snapshot(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido(complemento="Apto 45")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertEqual(
+            pedido.endereco_entrega_snapshot,
+            {
+                "cep": "01001000",
+                "logradouro": "Praca da Se",
+                "numero": "123",
+                "complemento": "Apto 45",
+                "bairro": "Se",
+                "cidade": "Sao Paulo",
+                "uf": "SP",
+            },
+        )
+        self.assertEqual(
+            response.data["endereco_entrega_snapshot"],
+            pedido.endereco_entrega_snapshot,
+        )
+
+    def test_pedido_salva_distancia_ida_km_snapshot(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.distancia_ida_km_snapshot, Decimal("8.00"))
+        self.assertEqual(response.data["distancia_ida_km_snapshot"], "8.00")
+
+    def test_pedido_salva_distancia_total_km_snapshot(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.distancia_total_km_snapshot, Decimal("16.00"))
+        self.assertEqual(response.data["distancia_total_km_snapshot"], "16.00")
+
+    def test_pedido_salva_valor_por_km_snapshot(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.valor_por_km_snapshot, Decimal("3.00"))
+        self.assertEqual(response.data["valor_por_km_snapshot"], "3.00")
+
+    def test_pedido_salva_taxa_entrega_retirada_snapshot(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.taxa_entrega_retirada_snapshot, Decimal("48.00"))
+        self.assertEqual(response.data["taxa_entrega_retirada_snapshot"], "48.00")
+
+    def test_pedido_salva_total_estimado_snapshot_corretamente(self):
+        self.adicionar_brinquedo(quantidade=2)
+
+        response = self.converter_carrinho_em_pedido()
+
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.subtotal_itens_snapshot, Decimal("440.00"))
+        self.assertEqual(pedido.total_estimado_snapshot, Decimal("488.00"))
+        self.assertEqual(response.data["total_estimado_snapshot"], "488.00")
+
+    def test_frontend_nao_consegue_forjar_taxa_distancia_valor_por_km_ou_total(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido(
+            taxa_entrega_retirada_snapshot="0.01",
+            distancia_ida_km_snapshot="1.00",
+            distancia_total_km_snapshot="2.00",
+            valor_por_km_snapshot="0.01",
+            total_estimado_snapshot="0.02",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertIn("detail", response.data)
+
+    def test_falha_no_calculo_da_taxa_impede_criacao_do_pedido(self):
+        self.adicionar_brinquedo()
+
+        with patch(
+            "pedidos.services.TaxaEntregaRetiradaService",
+            return_value=FakeTaxaEntregaRetiradaService(erro=RotaProviderError()),
+        ):
+            response = self.client.post(
+                self.converter_pedido_url,
+                self.payload_pedido(),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertIn("taxa_entrega", response.data)
+
+    def test_falha_no_calculo_da_taxa_nao_converte_o_carrinho(self):
+        self.adicionar_brinquedo()
+        carrinho = Carrinho.objects.get()
+
+        with patch(
+            "pedidos.services.TaxaEntregaRetiradaService",
+            return_value=FakeTaxaEntregaRetiradaService(erro=RotaProviderError()),
+        ):
+            response = self.client.post(
+                self.converter_pedido_url,
+                self.payload_pedido(),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        carrinho.refresh_from_db()
+        self.assertEqual(carrinho.status, Carrinho.Status.ATIVO)
+
+    def test_conversao_exige_cep(self):
+        self.adicionar_brinquedo()
+        payload = self.payload_pedido()
+        payload.pop("cep")
+
+        response = self.client.post(self.converter_pedido_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cep", response.data)
+
+    def test_conversao_exige_numero(self):
+        self.adicionar_brinquedo()
+        payload = self.payload_pedido()
+        payload.pop("numero")
+
+        response = self.client.post(self.converter_pedido_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("numero", response.data)
+
+    def test_complemento_e_opcional_na_conversao(self):
+        self.adicionar_brinquedo()
+        payload = self.payload_pedido()
+        payload.pop("complemento", None)
+
+        with patch(
+            "pedidos.services.TaxaEntregaRetiradaService",
+            return_value=FakeTaxaEntregaRetiradaService(),
+        ):
+            response = self.client.post(
+                self.converter_pedido_url,
+                payload,
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            Pedido.objects.get().endereco_entrega_snapshot["complemento"],
+            "",
+        )
 
     def test_carrinho_vazio_nao_converte(self):
         response = self.converter_carrinho_em_pedido()
