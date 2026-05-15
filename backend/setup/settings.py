@@ -103,6 +103,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'catalogo',
     'pedidos',
+    'entregas',
     'rest_framework',
     'corsheaders',
 ]
