@@ -7,6 +7,7 @@ from .models import (
     ItemCarrinho,
     ItemPedido,
     Pedido,
+    ReservaUnidade,
 )
 
 
@@ -166,6 +167,7 @@ class AceiteContratoAdmin(admin.ModelAdmin):
         "aceito_em",
         "ip",
     )
+
     list_filter = ("contrato_versao_snapshot", "aceito_em")
     search_fields = (
         "pedido__id",
@@ -210,3 +212,25 @@ class AceiteContratoAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+
+@admin.register(ReservaUnidade)
+class ReservaUnidadeAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "pedido",
+        "item_pedido",
+        "unidade_brinquedo",
+        "status",
+        "data_inicio",
+        "data_fim",
+        "criado_em",
+    )
+    list_filter = ("status", "data_inicio", "data_fim")
+    search_fields = (
+        "pedido__id",
+        "pedido__nome_cliente_snapshot",
+        "unidade_brinquedo__codigo",
+        "unidade_brinquedo__brinquedo__nome",
+    )
+    readonly_fields = ("criado_em", "atualizado_em")

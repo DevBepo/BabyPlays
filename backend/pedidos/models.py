@@ -416,3 +416,58 @@ class ItemPedido(models.Model):
 
     def __str__(self):
         return f"{self.nome_snapshot} ({self.quantidade})"
+
+
+class ReservaUnidade(models.Model):
+    class Status(models.TextChoices):
+        ATIVA = "ativa", "Ativa"
+        CANCELADA = "cancelada", "Cancelada"
+
+    pedido = models.ForeignKey(
+        Pedido,
+        related_name="reservas_unidades",
+        on_delete=models.PROTECT,
+        verbose_name="Pedido",
+    )
+    item_pedido = models.ForeignKey(
+        ItemPedido,
+        null=True,
+        blank=True,
+        related_name="reservas_unidades",
+        on_delete=models.PROTECT,
+        verbose_name="Item do pedido",
+    )
+    unidade_brinquedo = models.ForeignKey(
+        "catalogo.UnidadeBrinquedo",
+        related_name="reservas",
+        on_delete=models.PROTECT,
+        verbose_name="Unidade do brinquedo",
+    )
+    data_inicio = models.DateField(verbose_name="Data de inicio")
+    data_fim = models.DateField(verbose_name="Data de fim")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ATIVA,
+        db_index=True,
+        verbose_name="Status",
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        ordering = ("data_inicio", "data_fim", "criado_em")
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(data_fim__gt=models.F("data_inicio")),
+                name="pedidos_reserva_unidade_periodo_valido",
+            )
+        ]
+        verbose_name = "Reserva de unidade"
+        verbose_name_plural = "Reservas de unidades"
+
+    def __str__(self):
+        return (
+            f"Reserva {self.id} - pedido {self.pedido_id} - "
+            f"{self.unidade_brinquedo_id}"
+        )

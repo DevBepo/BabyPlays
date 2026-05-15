@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from datetime import date
 from io import BytesIO
 
 from django.conf import settings
@@ -11,6 +12,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
+from pedidos.models import Pedido, ReservaUnidade
 
 from .models import (
     Brinquedo,
@@ -23,6 +25,326 @@ from .models import (
     UnidadeBrinquedo,
 )
 from .services import BrinquedoService
+
+
+class DisponibilidadePeriodoAPITests(APITestCase):
+    data_inicio = date(2026, 6, 20)
+    data_fim = date(2026, 6, 22)
+
+    def setUp(self):
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Piscina de bolinhas",
+            descricao="Brinquedo para festas infantis.",
+            preco_aluguel="150.00",
+        )
+        self.outro_brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica",
+            descricao="Brinquedo para festas maiores.",
+            preco_aluguel="220.00",
+        )
+        self.kit = KitFesta.objects.create(
+            nome="Kit Diversao",
+            descricao="Kit pronto para festa.",
+            preco_aluguel="350.00",
+        )
+        self.configuracao = ConfiguracaoKitPersonalizavel.objects.create(
+            nome="Monte seu kit",
+            descricao="Escolha os brinquedos para sua festa.",
+            preco_base="50.00",
+            quantidade_minima_brinquedos=2,
+            quantidade_maxima_brinquedos=4,
+            modo_elegibilidade=(
+                ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS
+            ),
+        )
+        self.configuracao.brinquedos_permitidos.add(
+            self.brinquedo,
+            self.outro_brinquedo,
+        )
+
+    def disponibilidade_brinquedo_url(self, brinquedo=None):
+        brinquedo = brinquedo or self.brinquedo
+        return f"/api/brinquedos/{brinquedo.id}/disponibilidade/"
+
+    def disponibilidade_kit_url(self, kit=None):
+        kit = kit or self.kit
+        return f"/api/kits-festa/{kit.id}/disponibilidade/"
+
+    def disponibilidade_kit_personalizavel_url(self, configuracao=None):
+        configuracao = configuracao or self.configuracao
+        return f"/api/kits-personalizaveis/{configuracao.id}/disponibilidade/"
+
+    def parametros_periodo(self, **kwargs):
+        parametros = {
+            "data_inicio": self.data_inicio.isoformat(),
+            "data_fim": self.data_fim.isoformat(),
+            "quantidade": 1,
+        }
+        parametros.update(kwargs)
+        return parametros
+
+    def criar_unidade(self, brinquedo=None, status_unidade=None, codigo="UNI-001"):
+        return UnidadeBrinquedo.objects.create(
+            brinquedo=brinquedo or self.brinquedo,
+            codigo=codigo,
+            status=status_unidade or UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+    def criar_pedido(self):
+        return Pedido.objects.create(
+            nome_cliente_snapshot="Cliente Teste",
+            telefone_cliente_snapshot="11999999999",
+            email_cliente_snapshot="cliente@email.com",
+            data_evento_pretendida=self.data_inicio,
+            subtotal_itens_snapshot="150.00",
+        )
+
+    def criar_reserva(self, unidade, data_inicio=None, data_fim=None, status_reserva=None):
+        return ReservaUnidade.objects.create(
+            pedido=self.criar_pedido(),
+            unidade_brinquedo=unidade,
+            data_inicio=data_inicio or self.data_inicio,
+            data_fim=data_fim or self.data_fim,
+            status=status_reserva or ReservaUnidade.Status.ATIVA,
+        )
+
+    def test_brinquedo_com_unidade_disponivel_no_periodo_retorna_disponivel(self):
+        self.criar_unidade()
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_solicitada"], 1)
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+
+    def test_brinquedo_sem_unidades_suficientes_retorna_indisponivel(self):
+        self.criar_unidade()
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(quantidade=2),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+
+    def test_unidade_com_reserva_ativa_conflitante_nao_conta(self):
+        unidade = self.criar_unidade()
+        self.criar_reserva(unidade)
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_disponivel"], 0)
+
+    def test_reserva_cancelada_nao_bloqueia_disponibilidade(self):
+        unidade = self.criar_unidade()
+        self.criar_reserva(unidade, status_reserva=ReservaUnidade.Status.CANCELADA)
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+
+    def test_periodos_sobrepostos_conflitam(self):
+        unidade = self.criar_unidade()
+        self.criar_reserva(
+            unidade,
+            data_inicio=date(2026, 6, 10),
+            data_fim=date(2026, 6, 12),
+        )
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(
+                data_inicio="2026-06-11",
+                data_fim="2026-06-13",
+            ),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_disponivel"], 0)
+
+    def test_periodos_encostados_nao_conflitam(self):
+        unidade = self.criar_unidade()
+        self.criar_reserva(
+            unidade,
+            data_inicio=date(2026, 6, 10),
+            data_fim=date(2026, 6, 12),
+        )
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(
+                data_inicio="2026-06-12",
+                data_fim="2026-06-14",
+            ),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+
+    def test_unidades_com_status_nao_disponivel_nao_contam(self):
+        status_indisponiveis = [
+            UnidadeBrinquedo.Status.RESERVADA,
+            UnidadeBrinquedo.Status.EM_LOCACAO,
+            UnidadeBrinquedo.Status.HIGIENIZACAO,
+            UnidadeBrinquedo.Status.MANUTENCAO,
+            UnidadeBrinquedo.Status.STANDBY,
+            UnidadeBrinquedo.Status.BAIXADA,
+        ]
+        for indice, status_unidade in enumerate(status_indisponiveis, start=1):
+            self.criar_unidade(status_unidade=status_unidade, codigo=f"UNI-{indice}")
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        self.assertEqual(response.data["quantidade_disponivel"], 0)
+
+    def test_data_fim_menor_ou_igual_data_inicio_e_rejeitada(self):
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(data_fim=self.data_inicio.isoformat()),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("data_fim", response.data)
+
+    def test_quantidade_menor_que_um_e_rejeitada(self):
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(quantidade=0),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("quantidade", response.data)
+
+    def test_kit_festa_indisponivel_se_faltar_unidade_de_qualquer_item(self):
+        ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=2,
+        )
+        self.criar_unidade(brinquedo=self.brinquedo)
+
+        response = self.client.get(
+            self.disponibilidade_kit_url(),
+            self.parametros_periodo(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        self.assertFalse(response.data["itens"][0]["disponivel"])
+        self.assertEqual(response.data["itens"][0]["quantidade_necessaria"], 2)
+        self.assertEqual(response.data["itens"][0]["quantidade_disponivel"], 1)
+
+    def test_kit_festa_disponivel_quando_todos_itens_tem_unidades_suficientes(self):
+        ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.outro_brinquedo,
+            quantidade=1,
+        )
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="PISCINA-001")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="CAMA-001")
+
+        response = self.client.get(
+            self.disponibilidade_kit_url(),
+            self.parametros_periodo(quantidade=1),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["disponivel"])
+        self.assertTrue(all(item["disponivel"] for item in response.data["itens"]))
+
+    def test_kit_personalizado_indisponivel_se_faltar_unidade_selecionada(self):
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="PISCINA-001")
+        payload = self.parametros_periodo()
+        payload["itens"] = [
+            {"brinquedo_id": self.brinquedo.id, "quantidade": 1},
+            {"brinquedo_id": self.outro_brinquedo.id, "quantidade": 1},
+        ]
+
+        response = self.client.post(
+            self.disponibilidade_kit_personalizavel_url(),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        itens_por_id = {item["brinquedo_id"]: item for item in response.data["itens"]}
+        self.assertFalse(itens_por_id[self.outro_brinquedo.id]["disponivel"])
+
+    def test_kit_personalizado_disponivel_quando_selecao_tem_unidades_suficientes(self):
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="PISCINA-001")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="CAMA-001")
+        payload = self.parametros_periodo()
+        payload["itens"] = [
+            {"brinquedo_id": self.brinquedo.id, "quantidade": 1},
+            {"brinquedo_id": self.outro_brinquedo.id, "quantidade": 1},
+        ]
+
+        response = self.client.post(
+            self.disponibilidade_kit_personalizavel_url(),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["disponivel"])
+        self.assertTrue(all(item["disponivel"] for item in response.data["itens"]))
+
+    def test_kit_personalizado_continua_validando_regras_de_selecao(self):
+        payload = self.parametros_periodo()
+        payload["itens"] = [
+            {"brinquedo_id": self.brinquedo.id, "quantidade": 1},
+        ]
+
+        response = self.client.post(
+            self.disponibilidade_kit_personalizavel_url(),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_consulta_nao_cria_reservas_nem_altera_status_da_unidade(self):
+        unidade = self.criar_unidade()
+
+        response = self.client.get(
+            self.disponibilidade_brinquedo_url(),
+            self.parametros_periodo(),
+        )
+
+        unidade.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(ReservaUnidade.objects.count(), 0)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
 
 
 class BrinquedoAPITests(APITestCase):
