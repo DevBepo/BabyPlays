@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,12 +15,14 @@ from .serializers import (
     ConverterCarrinhoPedidoSerializer,
     ItemCarrinhoSerializer,
     PedidoSerializer,
+    ReservaPedidoResultadoSerializer,
 )
 from .services import (
     CarrinhoService,
     ContratoService,
     ContratoVigenteAusenteError,
     PedidoService,
+    ReservaPedidoService,
 )
 
 
@@ -157,3 +159,12 @@ class PedidoDetalheView(APIView):
             id=pedido_id,
         )
         return Response(PedidoSerializer(pedido).data)
+
+
+class AdminReservarUnidadesPedidoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        resultado = ReservaPedidoService.reservar_unidades(pedido)
+        return Response(ReservaPedidoResultadoSerializer(resultado).data)
