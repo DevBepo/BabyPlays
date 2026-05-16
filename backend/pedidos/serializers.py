@@ -8,6 +8,7 @@ from .models import (
     ItemCarrinho,
     ItemPedido,
     Pedido,
+    ReservaUnidade,
 )
 from .services import CarrinhoService
 
@@ -162,6 +163,38 @@ class PedidoSerializer(serializers.ModelSerializer):
             "atualizado_em",
         )
         read_only_fields = fields
+
+
+class ReservaUnidadePedidoSerializer(serializers.ModelSerializer):
+    unidade_brinquedo = serializers.IntegerField(
+        source="unidade_brinquedo_id",
+        read_only=True,
+    )
+    brinquedo = serializers.IntegerField(
+        source="unidade_brinquedo.brinquedo_id",
+        read_only=True,
+    )
+    item_pedido = serializers.IntegerField(source="item_pedido_id", read_only=True)
+
+    class Meta:
+        model = ReservaUnidade
+        fields = (
+            "id",
+            "item_pedido",
+            "unidade_brinquedo",
+            "brinquedo",
+            "data_inicio",
+            "data_fim",
+            "status",
+        )
+        read_only_fields = fields
+
+
+class ReservaPedidoResultadoSerializer(serializers.Serializer):
+    pedido_id = serializers.IntegerField()
+    status = serializers.CharField()
+    reservas_criadas = ReservaUnidadePedidoSerializer(many=True)
+    reservas = ReservaUnidadePedidoSerializer(many=True)
 
 
 class ContratoSerializer(serializers.ModelSerializer):

@@ -27,6 +27,7 @@ from .models import (
     ItemCarrinho,
     ItemPedido,
     Pedido,
+    ReservaUnidade,
 )
 from .services import PedidoService
 
@@ -73,18 +74,18 @@ class CarrinhoAPITests(APITestCase):
             nome="Cama elastica",
             descricao="Brinquedo para festas maiores.",
             categoria=self.categoria,
-            preco_aluguel="220.00",
+            preco_aluguel=Decimal("220.00"),
         )
         self.outro_brinquedo = Brinquedo.objects.create(
             nome="Piscina de bolinhas",
             descricao="Brinquedo para bebes.",
             categoria=self.categoria,
-            preco_aluguel="150.00",
+            preco_aluguel=Decimal("150.00"),
         )
         self.kit_festa = KitFesta.objects.create(
             nome="Kit Diversao",
             descricao="Kit pronto para festa.",
-            preco_aluguel="350.00",
+            preco_aluguel=Decimal("350.00"),
         )
         ItemKitFesta.objects.create(
             kit=self.kit_festa,
@@ -1097,6 +1098,466 @@ class CarrinhoAPITests(APITestCase):
         contrato.texto = "Texto alterado."
         with self.assertRaises(ValidationError):
             contrato.full_clean()
+
+
+class ReservaUnidadesPedidoAdminTests(APITestCase):
+    def setUp(self):
+        self.url_template = "/api/admin/pedidos/{}/reservar-unidades/"
+        self.data_inicio = timezone.localdate() + timedelta(days=30)
+        self.data_fim = self.data_inicio + timedelta(days=2)
+        self.categoria = Categoria.objects.create(
+            nome="Brinquedos grandes",
+            slug="brinquedos-grandes-reserva",
+        )
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica",
+            descricao="Brinquedo para festas maiores.",
+            categoria=self.categoria,
+            preco_aluguel=Decimal("220.00"),
+        )
+        self.outro_brinquedo = Brinquedo.objects.create(
+            nome="Piscina de bolinhas",
+            descricao="Brinquedo para bebes.",
+            categoria=self.categoria,
+            preco_aluguel=Decimal("150.00"),
+        )
+        self.kit_festa = KitFesta.objects.create(
+            nome="Kit Diversao",
+            descricao="Kit pronto para festa.",
+            preco_aluguel=Decimal("350.00"),
+        )
+        ItemKitFesta.objects.create(
+            kit=self.kit_festa,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        ItemKitFesta.objects.create(
+            kit=self.kit_festa,
+            brinquedo=self.outro_brinquedo,
+            quantidade=2,
+            ordem=1,
+        )
+        self.configuracao = ConfiguracaoKitPersonalizavel.objects.create(
+            nome="Monte seu kit",
+            descricao="Escolha os brinquedos.",
+            preco_base=Decimal("50.00"),
+            quantidade_minima_brinquedos=1,
+            quantidade_maxima_brinquedos=4,
+            modo_elegibilidade=(
+                ConfiguracaoKitPersonalizavel.ModoElegibilidade.CATEGORIAS
+            ),
+        )
+        self.configuracao.categorias_permitidas.add(self.categoria)
+        self.admin = get_user_model().objects.create_user(
+            username="admin-reserva",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+        self.usuario = get_user_model().objects.create_user(
+            username="cliente-reserva",
+            password="senha-segura-123",
+        )
+        self.contrato = Contrato.objects.create(
+            titulo="Contrato de locacao",
+            versao="2026-05-reserva",
+            texto="Texto vigente do contrato.",
+            ativo=True,
+        )
+
+    def url(self, pedido=None):
+        pedido = pedido or self.pedido
+        return self.url_template.format(pedido.id)
+
+    def autenticar_admin(self):
+        self.client.force_authenticate(user=self.admin)
+
+    def criar_unidade(self, brinquedo=None, status_unidade=None, codigo=None):
+        brinquedo = brinquedo or self.brinquedo
+        codigo = codigo or f"UNI-{UnidadeBrinquedo.objects.count() + 1:03d}"
+        return UnidadeBrinquedo.objects.create(
+            brinquedo=brinquedo,
+            codigo=codigo,
+            status=status_unidade or UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+    def criar_pedido(self, status_pedido=None, aceitar=True, periodo=True):
+        data_inicio = self.data_inicio if periodo else None
+        data_fim = self.data_fim if periodo else None
+        pedido = Pedido.objects.create(
+            usuario=self.usuario,
+            nome_cliente_snapshot="Cliente Teste",
+            telefone_cliente_snapshot="11999999999",
+            email_cliente_snapshot="cliente@email.com",
+            data_evento_pretendida=self.data_inicio,
+            data_inicio_locacao=data_inicio,
+            data_fim_locacao=data_fim,
+            subtotal_itens_snapshot="220.00",
+            status=status_pedido or Pedido.Status.AGUARDANDO_ANALISE,
+        )
+        if aceitar:
+            AceiteContrato.objects.create(
+                pedido=pedido,
+                contrato=self.contrato,
+                contrato_versao_snapshot=self.contrato.versao,
+                contrato_texto_snapshot=self.contrato.texto,
+                nome_cliente_snapshot=pedido.nome_cliente_snapshot,
+                email_cliente_snapshot=pedido.email_cliente_snapshot,
+                aceito_em=timezone.now(),
+            )
+        return pedido
+
+    def criar_item_brinquedo(self, pedido=None, brinquedo=None, quantidade=1):
+        pedido = pedido or self.pedido
+        brinquedo = brinquedo or self.brinquedo
+        return ItemPedido.objects.create(
+            pedido=pedido,
+            tipo_item=ItemCarrinho.TipoItem.BRINQUEDO,
+            brinquedo=brinquedo,
+            quantidade=quantidade,
+            nome_snapshot=brinquedo.nome,
+            preco_unitario_snapshot=brinquedo.preco_aluguel,
+            subtotal_snapshot=brinquedo.preco_aluguel * quantidade,
+            snapshot={
+                "tipo_item": "brinquedo",
+                "brinquedo": {"id": brinquedo.id, "nome": brinquedo.nome},
+                "quantidade": quantidade,
+            },
+        )
+
+    def criar_item_kit_festa(self, pedido=None, quantidade=1):
+        pedido = pedido or self.pedido
+        return ItemPedido.objects.create(
+            pedido=pedido,
+            tipo_item=ItemCarrinho.TipoItem.KIT_FESTA,
+            kit_festa=self.kit_festa,
+            quantidade=quantidade,
+            nome_snapshot=self.kit_festa.nome,
+            preco_unitario_snapshot=self.kit_festa.preco_aluguel,
+            subtotal_snapshot=self.kit_festa.preco_aluguel * quantidade,
+            snapshot={
+                "tipo_item": "kit_festa",
+                "kit_festa": {
+                    "id": self.kit_festa.id,
+                    "nome": self.kit_festa.nome,
+                    "itens": [
+                        {
+                            "brinquedo_id": self.brinquedo.id,
+                            "nome": self.brinquedo.nome,
+                            "quantidade": 1,
+                        },
+                        {
+                            "brinquedo_id": self.outro_brinquedo.id,
+                            "nome": self.outro_brinquedo.nome,
+                            "quantidade": 2,
+                        },
+                    ],
+                },
+                "quantidade": quantidade,
+            },
+        )
+
+    def criar_item_kit_personalizado(self, pedido=None, quantidade=1):
+        pedido = pedido or self.pedido
+        return ItemPedido.objects.create(
+            pedido=pedido,
+            tipo_item=ItemCarrinho.TipoItem.KIT_PERSONALIZADO,
+            configuracao_kit_personalizavel=self.configuracao,
+            quantidade=quantidade,
+            nome_snapshot=self.configuracao.nome,
+            preco_unitario_snapshot=Decimal("50.00"),
+            subtotal_snapshot=Decimal("50.00"),
+            snapshot={
+                "tipo_item": "kit_personalizado",
+                "configuracao": {
+                    "id": self.configuracao.id,
+                    "nome": self.configuracao.nome,
+                },
+                "itens": [
+                    {"brinquedo_id": self.brinquedo.id, "quantidade": 2},
+                    {"brinquedo_id": self.outro_brinquedo.id, "quantidade": 1},
+                ],
+                "quantidade": quantidade,
+            },
+        )
+
+    def criar_reserva(self, unidade, pedido=None, item=None, status_reserva=None):
+        pedido = pedido or self.pedido
+        return ReservaUnidade.objects.create(
+            pedido=pedido,
+            item_pedido=item,
+            unidade_brinquedo=unidade,
+            data_inicio=self.data_inicio,
+            data_fim=self.data_fim,
+            status=status_reserva or ReservaUnidade.Status.ATIVA,
+        )
+
+    def test_admin_reserva_unidades_de_pedido_com_brinquedo_avulso(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        item = self.criar_item_brinquedo(quantidade=2)
+        self.criar_unidade(codigo="CAMA-001")
+        self.criar_unidade(codigo="CAMA-002")
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["pedido_id"], self.pedido.id)
+        self.assertEqual(len(response.data["reservas_criadas"]), 2)
+        self.assertEqual(ReservaUnidade.objects.count(), 2)
+        self.assertTrue(
+            ReservaUnidade.objects.filter(item_pedido=item).count(),
+        )
+
+    def test_admin_reserva_unidades_de_pedido_com_kit_festa_pronto(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_kit_festa()
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="CAMA-001")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="PISC-001")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="PISC-002")
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        brinquedos_reservados = list(
+            ReservaUnidade.objects.order_by(
+                "unidade_brinquedo__brinquedo_id",
+                "id",
+            ).values_list("unidade_brinquedo__brinquedo_id", flat=True)
+        )
+        self.assertEqual(
+            brinquedos_reservados,
+            [self.brinquedo.id, self.outro_brinquedo.id, self.outro_brinquedo.id],
+        )
+
+    def test_reserva_kit_festa_usa_snapshot_se_catalogo_for_alterado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_kit_festa()
+        self.kit_festa.itens.filter(brinquedo=self.outro_brinquedo).delete()
+        item_kit = self.kit_festa.itens.get(brinquedo=self.brinquedo)
+        item_kit.quantidade = 3
+        item_kit.save(update_fields=["quantidade"])
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="CAMA-001")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="PISC-001")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="PISC-002")
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reservas_por_brinquedo = list(
+            ReservaUnidade.objects.order_by(
+                "unidade_brinquedo__brinquedo_id",
+                "id",
+            ).values_list("unidade_brinquedo__brinquedo_id", flat=True)
+        )
+        self.assertEqual(
+            reservas_por_brinquedo,
+            [self.brinquedo.id, self.outro_brinquedo.id, self.outro_brinquedo.id],
+        )
+
+    def test_admin_reserva_kit_personalizado_usando_snapshot(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_kit_personalizado()
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="CAMA-001")
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="CAMA-002")
+        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="PISC-001")
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(ReservaUnidade.objects.count(), 3)
+
+    def test_reserva_cria_status_ativa_e_muda_pedido_para_reservado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+        self.criar_unidade()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reserva = ReservaUnidade.objects.get()
+        self.assertEqual(reserva.status, ReservaUnidade.Status.ATIVA)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.RESERVADO)
+        self.assertEqual(response.data["status"], Pedido.Status.RESERVADO)
+
+    def test_reserva_exige_contrato_aceito(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(aceitar=False)
+        self.criar_item_brinquedo()
+        self.criar_unidade()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("contrato", response.data)
+        self.assertEqual(ReservaUnidade.objects.count(), 0)
+
+    def test_reserva_exige_status_aguardando_analise(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.CANCELADO)
+        self.criar_item_brinquedo()
+        self.criar_unidade()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_reserva_exige_periodo_valido(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(periodo=False)
+        self.criar_item_brinquedo()
+        self.criar_unidade()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo", response.data)
+
+        self.pedido.data_inicio_locacao = self.data_inicio
+        self.pedido.data_fim_locacao = self.data_inicio
+        self.pedido.save(update_fields=["data_inicio_locacao", "data_fim_locacao"])
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("data_fim_locacao", response.data)
+
+    def test_pedido_sem_itens_nao_pode_ser_reservado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+
+    def test_unidade_com_reserva_ativa_conflitante_nao_pode_ser_reutilizada(self):
+        self.autenticar_admin()
+        outro_pedido = self.criar_pedido()
+        unidade = self.criar_unidade()
+        self.pedido = self.criar_pedido()
+        item = self.criar_item_brinquedo()
+        self.criar_reserva(unidade, pedido=outro_pedido, item=item)
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("disponibilidade", response.data)
+        self.assertEqual(ReservaUnidade.objects.count(), 1)
+
+    def test_reserva_cancelada_nao_bloqueia_nova_reserva(self):
+        self.autenticar_admin()
+        outro_pedido = self.criar_pedido()
+        unidade = self.criar_unidade()
+        self.pedido = self.criar_pedido()
+        item = self.criar_item_brinquedo()
+        self.criar_reserva(
+            unidade,
+            pedido=outro_pedido,
+            item=item,
+            status_reserva=ReservaUnidade.Status.CANCELADA,
+        )
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            ReservaUnidade.objects.filter(status=ReservaUnidade.Status.ATIVA).count(),
+            1,
+        )
+
+    def test_unidade_com_status_diferente_de_disponivel_nao_pode_ser_reservada(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+        self.criar_unidade(status_unidade=UnidadeBrinquedo.Status.HIGIENIZACAO)
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("disponibilidade", response.data)
+
+    def test_falta_de_estoque_gera_rollback_total_sem_reserva_parcial(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo(brinquedo=self.brinquedo, quantidade=1)
+        self.criar_item_brinquedo(brinquedo=self.outro_brinquedo, quantidade=1)
+        self.criar_unidade(brinquedo=self.brinquedo, codigo="CAMA-001")
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ReservaUnidade.objects.count(), 0)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.AGUARDANDO_ANALISE)
+
+    def test_segunda_chamada_idempotente_nao_cria_reservas_duplicadas(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+        self.criar_unidade()
+
+        primeira = self.client.post(self.url(), {}, format="json")
+        segunda = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(primeira.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda.status_code, status.HTTP_200_OK)
+        self.assertEqual(ReservaUnidade.objects.count(), 1)
+        self.assertEqual(segunda.data["reservas_criadas"], [])
+        self.assertEqual(len(segunda.data["reservas"]), 1)
+
+    def test_pedido_reservado_com_reservas_divergentes_retorna_erro(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("detail", response.data)
+
+    def test_usuario_comum_nao_acessa_endpoint_admin(self):
+        self.client.force_authenticate(user=self.usuario)
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonimo_nao_acessa_endpoint_admin(self):
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_bloqueia_overbooking_por_reserva_conflitante_revalidada(self):
+        self.autenticar_admin()
+        unidade = self.criar_unidade()
+        pedido_original = self.criar_pedido()
+        item_original = self.criar_item_brinquedo(
+            pedido=pedido_original,
+            quantidade=1,
+        )
+        self.criar_reserva(unidade, pedido=pedido_original, item=item_original)
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("disponibilidade", response.data)
+        self.assertEqual(
+            ReservaUnidade.objects.filter(unidade_brinquedo=unidade).count(),
+            1,
+        )
 
 
 class ItemCarrinhoModelTests(APITestCase):

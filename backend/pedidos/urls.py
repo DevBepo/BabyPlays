@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AceitarContratoPedidoView,
+    AdminReservarUnidadesPedidoView,
     CarrinhoAtualView,
     ContratoVigenteView,
     ConverterCarrinhoPedidoView,
@@ -40,5 +41,10 @@ urlpatterns = [
         "pedidos/<int:pedido_id>/aceitar-contrato/",
         AceitarContratoPedidoView.as_view(),
         name="pedido-aceitar-contrato",
+    ),
+    path(
+        "admin/pedidos/<int:pedido_id>/reservar-unidades/",
+        AdminReservarUnidadesPedidoView.as_view(),
+        name="admin-pedido-reservar-unidades",
     ),
 ]

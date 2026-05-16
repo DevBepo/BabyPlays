@@ -6,7 +6,12 @@ from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
 
-from catalogo.models import Brinquedo, ConfiguracaoKitPersonalizavel, KitFesta
+from catalogo.models import (
+    Brinquedo,
+    ConfiguracaoKitPersonalizavel,
+    KitFesta,
+    UnidadeBrinquedo,
+)
 from catalogo.serializers import ValidarSelecaoKitPersonalizavelSerializer
 from catalogo.services import KitPersonalizavelService
 from entregas.providers import (
@@ -29,6 +34,7 @@ from .models import (
     ItemCarrinho,
     ItemPedido,
     Pedido,
+    ReservaUnidade,
 )
 
 
@@ -603,3 +609,302 @@ class ContratoService:
         aceite.full_clean()
         aceite.save()
         return aceite
+
+
+class ReservaPedidoService:
+    @staticmethod
+    def _validar_pedido_reservavel(pedido):
+        if pedido.status != Pedido.Status.AGUARDANDO_ANALISE:
+            raise serializers.ValidationError(
+                {"status": "Pedido em status nao reservavel."}
+            )
+        if not hasattr(pedido, "aceite_contrato"):
+            raise serializers.ValidationError(
+                {"contrato": "Pedido sem contrato aceito."}
+            )
+        if not pedido.data_inicio_locacao or not pedido.data_fim_locacao:
+            raise serializers.ValidationError(
+                {"periodo": "Pedido sem periodo de locacao definido."}
+            )
+        if pedido.data_fim_locacao <= pedido.data_inicio_locacao:
+            raise serializers.ValidationError(
+                {"data_fim_locacao": "Periodo de locacao invalido."}
+            )
+
+    @staticmethod
+    def _adicionar_demanda(demandas, item_pedido, brinquedo_id, quantidade):
+        if quantidade <= 0:
+            return
+        demanda = demandas.setdefault(
+            brinquedo_id,
+            {
+                "quantidade": 0,
+                "origens": [],
+            },
+        )
+        demanda["quantidade"] += quantidade
+        demanda["origens"].append(
+            {
+                "item_pedido": item_pedido,
+                "quantidade": quantidade,
+            }
+        )
+
+    @staticmethod
+    def _montar_demandas(pedido):
+        itens = list(
+            pedido.itens.select_related("brinquedo", "kit_festa")
+            .prefetch_related("kit_festa__itens__brinquedo")
+            .order_by("id")
+        )
+        if not itens:
+            raise serializers.ValidationError(
+                {"itens": "Pedido sem itens nao pode ser reservado."}
+        )
+
+        demandas = {}
+        brinquedo_ids_snapshot = set()
+
+        for item in itens:
+            multiplicador = item.quantidade
+            if item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO:
+                ReservaPedidoService._adicionar_demanda(
+                    demandas,
+                    item,
+                    item.brinquedo_id,
+                    multiplicador,
+                )
+            elif item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
+                itens_snapshot = item.snapshot.get("kit_festa", {}).get("itens", [])
+                if not itens_snapshot:
+                    raise serializers.ValidationError(
+                        {"itens": "Snapshot de kit festa invalido para reserva."}
+                    )
+                for item_kit in itens_snapshot:
+                    brinquedo_id = item_kit.get("brinquedo_id")
+                    quantidade = item_kit.get("quantidade")
+                    if not brinquedo_id or not quantidade:
+                        raise serializers.ValidationError(
+                            {"itens": "Snapshot de kit festa invalido para reserva."}
+                        )
+                    brinquedo_ids_snapshot.add(brinquedo_id)
+                    ReservaPedidoService._adicionar_demanda(
+                        demandas,
+                        item,
+                        brinquedo_id,
+                        quantidade * multiplicador,
+                    )
+            elif item.tipo_item == ItemCarrinho.TipoItem.KIT_PERSONALIZADO:
+                for item_snapshot in item.snapshot.get("itens", []):
+                    brinquedo_id = item_snapshot.get("brinquedo_id")
+                    quantidade = item_snapshot.get("quantidade")
+                    if not brinquedo_id or not quantidade:
+                        raise serializers.ValidationError(
+                            {
+                                "itens": (
+                                    "Snapshot de kit personalizado invalido para "
+                                    "reserva."
+                                )
+                            }
+                        )
+                    brinquedo_ids_snapshot.add(brinquedo_id)
+                    ReservaPedidoService._adicionar_demanda(
+                        demandas,
+                        item,
+                        brinquedo_id,
+                        quantidade * multiplicador,
+                    )
+
+        if brinquedo_ids_snapshot:
+            brinquedos_existentes = set(
+                Brinquedo.objects.filter(id__in=brinquedo_ids_snapshot).values_list(
+                    "id",
+                    flat=True,
+                )
+            )
+            if brinquedos_existentes != brinquedo_ids_snapshot:
+                raise serializers.ValidationError(
+                    {
+                        "itens": (
+                            "Snapshot de kit personalizado referencia brinquedo "
+                            "inexistente."
+                        )
+                    }
+                )
+
+        return demandas
+
+    @staticmethod
+    def _reservas_ativas_do_pedido(pedido):
+        return (
+            ReservaUnidade.objects.filter(
+                pedido=pedido,
+                status=ReservaUnidade.Status.ATIVA,
+            )
+            .select_related("unidade_brinquedo")
+            .order_by("id")
+        )
+
+    @staticmethod
+    def _reservas_sao_compativeis(pedido, demandas, reservas):
+        if not reservas:
+            return False
+
+        inicio = pedido.data_inicio_locacao
+        fim = pedido.data_fim_locacao
+        contagem_por_brinquedo = {}
+        unidades_vistas = set()
+
+        for reserva in reservas:
+            if reserva.data_inicio != inicio or reserva.data_fim != fim:
+                return False
+            if reserva.unidade_brinquedo_id in unidades_vistas:
+                return False
+            unidades_vistas.add(reserva.unidade_brinquedo_id)
+            brinquedo_id = reserva.unidade_brinquedo.brinquedo_id
+            contagem_por_brinquedo[brinquedo_id] = (
+                contagem_por_brinquedo.get(brinquedo_id, 0) + 1
+            )
+
+        demanda_por_brinquedo = {
+            brinquedo_id: dados["quantidade"]
+            for brinquedo_id, dados in demandas.items()
+        }
+        return contagem_por_brinquedo == demanda_por_brinquedo
+
+    @staticmethod
+    def _item_pedido_para_reserva(demanda):
+        while demanda["origens"]:
+            origem = demanda["origens"][0]
+            if origem["quantidade"] > 0:
+                origem["quantidade"] -= 1
+                return origem["item_pedido"]
+            demanda["origens"].pop(0)
+        return None
+
+    @staticmethod
+    def _unidades_candidatas_livres(brinquedo_id, data_inicio, data_fim):
+        unidades = list(
+            UnidadeBrinquedo.objects.select_for_update()
+            .filter(
+                brinquedo_id=brinquedo_id,
+                status=UnidadeBrinquedo.Status.DISPONIVEL,
+            )
+            .exclude(
+                reservas__status=ReservaUnidade.Status.ATIVA,
+                reservas__data_inicio__lt=data_fim,
+                reservas__data_fim__gt=data_inicio,
+            )
+            .distinct()
+            .order_by("id")
+        )
+        if not unidades:
+            return []
+
+        unidade_ids_bloqueadas = set(
+            ReservaUnidade.objects.filter(
+                unidade_brinquedo_id__in=[unidade.id for unidade in unidades],
+                status=ReservaUnidade.Status.ATIVA,
+                data_inicio__lt=data_fim,
+                data_fim__gt=data_inicio,
+            ).values_list("unidade_brinquedo_id", flat=True)
+        )
+        return [
+            unidade
+            for unidade in unidades
+            if unidade.id not in unidade_ids_bloqueadas
+        ]
+
+    @staticmethod
+    def _resposta(pedido, reservas, reservas_criadas):
+        return {
+            "pedido_id": pedido.id,
+            "status": pedido.status,
+            "reservas_criadas": reservas_criadas,
+            "reservas": reservas,
+        }
+
+    @staticmethod
+    @transaction.atomic
+    def reservar_unidades(pedido):
+        pedido = (
+            Pedido.objects.select_for_update()
+            .prefetch_related("itens")
+            .get(id=pedido.id)
+        )
+        demandas = ReservaPedidoService._montar_demandas(pedido)
+        reservas_ativas = list(ReservaPedidoService._reservas_ativas_do_pedido(pedido))
+
+        if pedido.status == Pedido.Status.RESERVADO:
+            if ReservaPedidoService._reservas_sao_compativeis(
+                pedido,
+                demandas,
+                reservas_ativas,
+            ):
+                return ReservaPedidoService._resposta(
+                    pedido,
+                    reservas_ativas,
+                    [],
+                )
+            raise serializers.ValidationError(
+                {"detail": "Pedido ja reservado com reservas incompativeis."}
+            )
+
+        ReservaPedidoService._validar_pedido_reservavel(pedido)
+        if reservas_ativas:
+            if ReservaPedidoService._reservas_sao_compativeis(
+                pedido,
+                demandas,
+                reservas_ativas,
+            ):
+                raise serializers.ValidationError(
+                    {"detail": "Pedido ja possui reservas ativas compativeis."}
+                )
+            raise serializers.ValidationError(
+                {"reservas": "Pedido possui reservas ativas incompativeis."}
+            )
+
+        reservas_criadas = []
+        data_inicio = pedido.data_inicio_locacao
+        data_fim = pedido.data_fim_locacao
+
+        for brinquedo_id in sorted(demandas):
+            demanda = demandas[brinquedo_id]
+            quantidade_necessaria = demanda["quantidade"]
+            unidades_livres = ReservaPedidoService._unidades_candidatas_livres(
+                brinquedo_id,
+                data_inicio,
+                data_fim,
+            )
+            if len(unidades_livres) < quantidade_necessaria:
+                raise serializers.ValidationError(
+                    {
+                        "disponibilidade": (
+                            "Unidades insuficientes para o brinquedo "
+                            f"{brinquedo_id}."
+                        )
+                    }
+                )
+
+            for unidade in unidades_livres[:quantidade_necessaria]:
+                reserva = ReservaUnidade(
+                    pedido=pedido,
+                    item_pedido=ReservaPedidoService._item_pedido_para_reserva(
+                        demanda
+                    ),
+                    unidade_brinquedo=unidade,
+                    data_inicio=data_inicio,
+                    data_fim=data_fim,
+                    status=ReservaUnidade.Status.ATIVA,
+                )
+                reserva.full_clean()
+                reserva.save()
+                reservas_criadas.append(reserva)
+
+        pedido.status = Pedido.Status.RESERVADO
+        pedido.save(update_fields=["status", "atualizado_em"])
+        return ReservaPedidoService._resposta(
+            pedido,
+            reservas_criadas,
+            reservas_criadas,
+        )
