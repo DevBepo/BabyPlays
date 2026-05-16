@@ -83,6 +83,8 @@ class PedidoAdmin(admin.ModelAdmin):
         "data_evento_pretendida",
         "data_inicio_locacao",
         "data_fim_locacao",
+        "confirmado_em",
+        "confirmado_por",
         "subtotal_itens_snapshot",
         "criado_em",
     )
@@ -106,6 +108,8 @@ class PedidoAdmin(admin.ModelAdmin):
         "usuario",
         "session_key_snapshot",
         "subtotal_itens_snapshot",
+        "confirmado_em",
+        "confirmado_por",
         "criado_em",
         "atualizado_em",
     )

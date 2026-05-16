@@ -197,6 +197,23 @@ class ReservaPedidoResultadoSerializer(serializers.Serializer):
     reservas = ReservaUnidadePedidoSerializer(many=True)
 
 
+class ConfirmacaoPedidoSerializer(serializers.ModelSerializer):
+    confirmado_por = serializers.IntegerField(
+        source="confirmado_por_id",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Pedido
+        fields = (
+            "id",
+            "status",
+            "confirmado_em",
+            "confirmado_por",
+        )
+        read_only_fields = fields
+
+
 class ContratoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrato

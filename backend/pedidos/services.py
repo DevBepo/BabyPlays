@@ -908,3 +908,62 @@ class ReservaPedidoService:
             reservas_criadas,
             reservas_criadas,
         )
+
+
+class ConfirmacaoPedidoService:
+    @staticmethod
+    @transaction.atomic
+    def confirmar(pedido, usuario_admin):
+        pedido = (
+            Pedido.objects.select_for_update()
+            .prefetch_related("itens")
+            .get(id=pedido.id)
+        )
+
+        if pedido.status == Pedido.Status.CONFIRMADO:
+            return pedido
+
+        if pedido.status != Pedido.Status.RESERVADO:
+            raise serializers.ValidationError(
+                {"status": "Pedido em status nao confirmavel."}
+            )
+        if not hasattr(pedido, "aceite_contrato"):
+            raise serializers.ValidationError(
+                {"contrato": "Pedido sem contrato aceito."}
+            )
+        if not pedido.data_inicio_locacao or not pedido.data_fim_locacao:
+            raise serializers.ValidationError(
+                {"periodo": "Pedido sem periodo de locacao definido."}
+            )
+        if pedido.data_fim_locacao <= pedido.data_inicio_locacao:
+            raise serializers.ValidationError(
+                {"data_fim_locacao": "Periodo de locacao invalido."}
+            )
+
+        demandas = ReservaPedidoService._montar_demandas(pedido)
+        reservas_ativas = list(ReservaPedidoService._reservas_ativas_do_pedido(pedido))
+        if not reservas_ativas:
+            raise serializers.ValidationError(
+                {"reservas": "Pedido sem reservas ativas."}
+            )
+        if not ReservaPedidoService._reservas_sao_compativeis(
+            pedido,
+            demandas,
+            reservas_ativas,
+        ):
+            raise serializers.ValidationError(
+                {"reservas": "Reservas ativas incompativeis com o pedido."}
+            )
+
+        pedido.status = Pedido.Status.CONFIRMADO
+        pedido.confirmado_em = timezone.now()
+        pedido.confirmado_por = usuario_admin
+        pedido.save(
+            update_fields=[
+                "status",
+                "confirmado_em",
+                "confirmado_por",
+                "atualizado_em",
+            ]
+        )
+        return pedido
