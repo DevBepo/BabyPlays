@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AceitarContratoPedidoView,
+    AdminConfirmarPedidoView,
     AdminReservarUnidadesPedidoView,
     CarrinhoAtualView,
     ContratoVigenteView,
@@ -46,5 +47,10 @@ urlpatterns = [
         "admin/pedidos/<int:pedido_id>/reservar-unidades/",
         AdminReservarUnidadesPedidoView.as_view(),
         name="admin-pedido-reservar-unidades",
+    ),
+    path(
+        "admin/pedidos/<int:pedido_id>/confirmar/",
+        AdminConfirmarPedidoView.as_view(),
+        name="admin-pedido-confirmar",
     ),
 ]

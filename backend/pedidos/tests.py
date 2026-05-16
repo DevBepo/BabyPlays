@@ -1103,6 +1103,7 @@ class CarrinhoAPITests(APITestCase):
 class ReservaUnidadesPedidoAdminTests(APITestCase):
     def setUp(self):
         self.url_template = "/api/admin/pedidos/{}/reservar-unidades/"
+        self.confirmar_url_template = "/api/admin/pedidos/{}/confirmar/"
         self.data_inicio = timezone.localdate() + timedelta(days=30)
         self.data_fim = self.data_inicio + timedelta(days=2)
         self.categoria = Categoria.objects.create(
@@ -1167,6 +1168,10 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
     def url(self, pedido=None):
         pedido = pedido or self.pedido
         return self.url_template.format(pedido.id)
+
+    def confirmar_url(self, pedido=None):
+        pedido = pedido or self.pedido
+        return self.confirmar_url_template.format(pedido.id)
 
     def autenticar_admin(self):
         self.client.force_authenticate(user=self.admin)
@@ -1290,6 +1295,13 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
             data_fim=self.data_fim,
             status=status_reserva or ReservaUnidade.Status.ATIVA,
         )
+
+    def preparar_pedido_confirmavel(self):
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        item = self.criar_item_brinquedo()
+        unidade = self.criar_unidade()
+        reserva = self.criar_reserva(unidade, item=item)
+        return item, unidade, reserva
 
     def test_admin_reserva_unidades_de_pedido_com_brinquedo_avulso(self):
         self.autenticar_admin()
@@ -1558,6 +1570,172 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
             ReservaUnidade.objects.filter(unidade_brinquedo=unidade).count(),
             1,
         )
+
+    def test_admin_confirma_pedido_reservado_com_contrato_e_reservas_ativas(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmavel()
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.CONFIRMADO)
+        self.assertIsNotNone(self.pedido.confirmado_em)
+        self.assertEqual(self.pedido.confirmado_por, self.admin)
+        self.assertEqual(response.data["id"], self.pedido.id)
+        self.assertEqual(response.data["status"], Pedido.Status.CONFIRMADO)
+        self.assertIsNotNone(response.data["confirmado_em"])
+        self.assertEqual(response.data["confirmado_por"], self.admin.id)
+
+    def test_confirmacao_nao_altera_reservas_unidades_itens_ou_valores(self):
+        self.autenticar_admin()
+        item, unidade, reserva = self.preparar_pedido_confirmavel()
+        total_estimado = self.pedido.total_estimado_snapshot
+        taxa = self.pedido.taxa_entrega_retirada_snapshot
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reserva.refresh_from_db()
+        unidade.refresh_from_db()
+        item.refresh_from_db()
+        self.pedido.refresh_from_db()
+        self.assertEqual(reserva.status, ReservaUnidade.Status.ATIVA)
+        self.assertEqual(reserva.pedido, self.pedido)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(item.pedido, self.pedido)
+        self.assertEqual(self.pedido.total_estimado_snapshot, total_estimado)
+        self.assertEqual(self.pedido.taxa_entrega_retirada_snapshot, taxa)
+
+    def test_usuario_comum_nao_acessa_endpoint_admin_de_confirmacao(self):
+        self.client.force_authenticate(user=self.usuario)
+        self.preparar_pedido_confirmavel()
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonimo_nao_acessa_endpoint_admin_de_confirmacao(self):
+        self.preparar_pedido_confirmavel()
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_pedido_aguardando_analise_nao_pode_ser_confirmado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.AGUARDANDO_ANALISE)
+        item = self.criar_item_brinquedo()
+        self.criar_reserva(self.criar_unidade(), item=item)
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_pedido_cancelado_nao_pode_ser_confirmado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.CANCELADO)
+        item = self.criar_item_brinquedo()
+        self.criar_reserva(self.criar_unidade(), item=item)
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_pedido_sem_aceite_de_contrato_nao_pode_ser_confirmado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(
+            status_pedido=Pedido.Status.RESERVADO,
+            aceitar=False,
+        )
+        item = self.criar_item_brinquedo()
+        self.criar_reserva(self.criar_unidade(), item=item)
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("contrato", response.data)
+
+    def test_pedido_sem_reservas_ativas_nao_pode_ser_confirmado(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reservas", response.data)
+
+    def test_reservas_canceladas_nao_bastam_para_confirmar(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        item = self.criar_item_brinquedo()
+        self.criar_reserva(
+            self.criar_unidade(),
+            item=item,
+            status_reserva=ReservaUnidade.Status.CANCELADA,
+        )
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reservas", response.data)
+
+    def test_reservas_de_outro_pedido_nao_contam_para_confirmacao(self):
+        self.autenticar_admin()
+        outro_pedido = self.criar_pedido()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        self.criar_item_brinquedo()
+        item_outro = self.criar_item_brinquedo(pedido=outro_pedido)
+        self.criar_reserva(
+            self.criar_unidade(),
+            pedido=outro_pedido,
+            item=item_outro,
+        )
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reservas", response.data)
+
+    def test_reservas_incompativeis_com_periodo_impedem_confirmacao(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmavel()
+        reserva = ReservaUnidade.objects.get(pedido=self.pedido)
+        reserva.data_inicio = self.data_inicio + timedelta(days=1)
+        reserva.data_fim = self.data_fim + timedelta(days=1)
+        reserva.save(update_fields=["data_inicio", "data_fim", "atualizado_em"])
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reservas", response.data)
+
+    def test_segunda_confirmacao_nao_altera_auditoria_ja_registrada(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmavel()
+        primeira = self.client.post(self.confirmar_url(), {}, format="json")
+        self.pedido.refresh_from_db()
+        confirmado_em = self.pedido.confirmado_em
+        confirmado_por = self.pedido.confirmado_por
+
+        segundo_admin = get_user_model().objects.create_user(
+            username="admin-confirmacao-2",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=segundo_admin)
+        segunda = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(primeira.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda.status_code, status.HTTP_200_OK)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.CONFIRMADO)
+        self.assertEqual(self.pedido.confirmado_em, confirmado_em)
+        self.assertEqual(self.pedido.confirmado_por, confirmado_por)
+        self.assertEqual(segunda.data["confirmado_por"], self.admin.id)
 
 
 class ItemCarrinhoModelTests(APITestCase):

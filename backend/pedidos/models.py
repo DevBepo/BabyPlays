@@ -150,6 +150,7 @@ class Pedido(models.Model):
     class Status(models.TextChoices):
         AGUARDANDO_ANALISE = "aguardando_analise", "Aguardando analise"
         RESERVADO = "reservado", "Reservado"
+        CONFIRMADO = "confirmado", "Confirmado"
         CANCELADO = "cancelado", "Cancelado"
 
     carrinho_origem = models.ForeignKey(
@@ -250,6 +251,19 @@ class Pedido(models.Model):
         decimal_places=2,
         default=Decimal("0.00"),
         verbose_name="Total estimado snapshot",
+    )
+    confirmado_em = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Confirmado em",
+    )
+    confirmado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pedidos_confirmados",
+        verbose_name="Confirmado por",
     )
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")

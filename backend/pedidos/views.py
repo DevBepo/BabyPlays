@@ -11,6 +11,7 @@ from .serializers import (
     AdicionarItemCarrinhoSerializer,
     AlterarItemCarrinhoSerializer,
     CarrinhoSerializer,
+    ConfirmacaoPedidoSerializer,
     ContratoSerializer,
     ConverterCarrinhoPedidoSerializer,
     ItemCarrinhoSerializer,
@@ -19,6 +20,7 @@ from .serializers import (
 )
 from .services import (
     CarrinhoService,
+    ConfirmacaoPedidoService,
     ContratoService,
     ContratoVigenteAusenteError,
     PedidoService,
@@ -168,3 +170,12 @@ class AdminReservarUnidadesPedidoView(APIView):
         pedido = get_object_or_404(Pedido, id=pedido_id)
         resultado = ReservaPedidoService.reservar_unidades(pedido)
         return Response(ReservaPedidoResultadoSerializer(resultado).data)
+
+
+class AdminConfirmarPedidoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        pedido = ConfirmacaoPedidoService.confirmar(pedido, request.user)
+        return Response(ConfirmacaoPedidoSerializer(pedido).data)
