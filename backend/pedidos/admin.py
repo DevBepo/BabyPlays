@@ -81,10 +81,18 @@ class PedidoAdmin(admin.ModelAdmin):
         "telefone_cliente_snapshot",
         "email_cliente_snapshot",
         "data_evento_pretendida",
+        "data_inicio_locacao",
+        "data_fim_locacao",
         "subtotal_itens_snapshot",
         "criado_em",
     )
-    list_filter = ("status", "data_evento_pretendida", "criado_em")
+    list_filter = (
+        "status",
+        "data_evento_pretendida",
+        "data_inicio_locacao",
+        "data_fim_locacao",
+        "criado_em",
+    )
     search_fields = (
         "nome_cliente_snapshot",
         "telefone_cliente_snapshot",

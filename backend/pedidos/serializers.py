@@ -148,6 +148,8 @@ class PedidoSerializer(serializers.ModelSerializer):
             "email_cliente_snapshot",
             "observacoes_cliente",
             "data_evento_pretendida",
+            "data_inicio_locacao",
+            "data_fim_locacao",
             "subtotal_itens_snapshot",
             "endereco_entrega_snapshot",
             "distancia_ida_km_snapshot",
@@ -238,6 +240,8 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
     telefone = serializers.CharField(max_length=30, trim_whitespace=True)
     email = serializers.EmailField(max_length=254)
     data_evento_pretendida = serializers.DateField()
+    data_inicio_locacao = serializers.DateField()
+    data_fim_locacao = serializers.DateField()
     cep = serializers.CharField(max_length=9)
     numero = serializers.CharField(max_length=20, trim_whitespace=True)
     complemento = serializers.CharField(
@@ -281,6 +285,17 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
                     )
                 }
             )
+        data_inicio = attrs.get("data_inicio_locacao")
+        data_fim = attrs.get("data_fim_locacao")
+        if data_inicio and data_fim and data_fim <= data_inicio:
+            raise serializers.ValidationError(
+                {
+                    "data_fim_locacao": (
+                        "A data final da locacao deve ser posterior a data "
+                        "inicial da locacao."
+                    )
+                }
+            )
         return attrs
 
     def validate_data_evento_pretendida(self, value):
@@ -311,6 +326,8 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
             "data_evento_pretendida": self.validated_data[
                 "data_evento_pretendida"
             ],
+            "data_inicio_locacao": self.validated_data["data_inicio_locacao"],
+            "data_fim_locacao": self.validated_data["data_fim_locacao"],
             "cep": self.validated_data["cep"],
             "numero": self.validated_data["numero"],
             "complemento": self.validated_data.get("complemento", ""),

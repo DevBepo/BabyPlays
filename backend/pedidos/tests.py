@@ -158,11 +158,14 @@ class CarrinhoAPITests(APITestCase):
         return client.post(self.itens_url, payload, format="json")
 
     def payload_pedido(self, **extra):
+        data_evento = timezone.localdate() + timedelta(days=30)
         payload = {
             "nome": "Cliente Teste",
             "telefone": "11999999999",
             "email": "cliente@email.com",
-            "data_evento_pretendida": str(timezone.localdate() + timedelta(days=30)),
+            "data_evento_pretendida": str(data_evento),
+            "data_inicio_locacao": str(data_evento),
+            "data_fim_locacao": str(data_evento + timedelta(days=2)),
             "cep": "01001-000",
             "numero": "123",
             "observacoes": "Preferencia por atendimento no periodo da tarde",
@@ -403,6 +406,22 @@ class CarrinhoAPITests(APITestCase):
         pedido = Pedido.objects.get()
         self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO_ANALISE)
         self.assertEqual(pedido.nome_cliente_snapshot, "Cliente Teste")
+        self.assertEqual(
+            pedido.data_inicio_locacao,
+            timezone.localdate() + timedelta(days=30),
+        )
+        self.assertEqual(
+            pedido.data_fim_locacao,
+            timezone.localdate() + timedelta(days=32),
+        )
+        self.assertEqual(
+            response.data["data_inicio_locacao"],
+            str(timezone.localdate() + timedelta(days=30)),
+        )
+        self.assertEqual(
+            response.data["data_fim_locacao"],
+            str(timezone.localdate() + timedelta(days=32)),
+        )
         self.assertEqual(pedido.itens.count(), 1)
         item = pedido.itens.get()
         self.assertEqual(item.tipo_item, ItemCarrinho.TipoItem.BRINQUEDO)
@@ -718,6 +737,91 @@ class CarrinhoAPITests(APITestCase):
         self.assertIn("data_evento_pretendida", response.data)
         self.assertEqual(Pedido.objects.count(), 0)
 
+    def test_conversao_valida_salva_data_inicio_locacao(self):
+        self.adicionar_brinquedo()
+        data_inicio = timezone.localdate() + timedelta(days=31)
+
+        response = self.converter_carrinho_em_pedido(
+            data_inicio_locacao=str(data_inicio),
+            data_fim_locacao=str(data_inicio + timedelta(days=2)),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Pedido.objects.get().data_inicio_locacao, data_inicio)
+        self.assertEqual(response.data["data_inicio_locacao"], str(data_inicio))
+
+    def test_conversao_valida_salva_data_fim_locacao(self):
+        self.adicionar_brinquedo()
+        data_inicio = timezone.localdate() + timedelta(days=31)
+        data_fim = data_inicio + timedelta(days=3)
+
+        response = self.converter_carrinho_em_pedido(
+            data_inicio_locacao=str(data_inicio),
+            data_fim_locacao=str(data_fim),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Pedido.objects.get().data_fim_locacao, data_fim)
+        self.assertEqual(response.data["data_fim_locacao"], str(data_fim))
+
+    def test_conversao_exige_data_inicio_locacao(self):
+        self.adicionar_brinquedo()
+        payload = self.payload_pedido()
+        payload.pop("data_inicio_locacao")
+
+        response = self.client.post(self.converter_pedido_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("data_inicio_locacao", response.data)
+
+    def test_conversao_exige_data_fim_locacao(self):
+        self.adicionar_brinquedo()
+        payload = self.payload_pedido()
+        payload.pop("data_fim_locacao")
+
+        response = self.client.post(self.converter_pedido_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("data_fim_locacao", response.data)
+
+    def test_conversao_rejeita_periodo_locacao_invalido(self):
+        self.adicionar_brinquedo()
+        data_inicio = timezone.localdate() + timedelta(days=30)
+
+        response = self.converter_carrinho_em_pedido(
+            data_inicio_locacao=str(data_inicio),
+            data_fim_locacao=str(data_inicio),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("data_fim_locacao", response.data)
+
+    def test_erro_de_periodo_invalido_nao_cria_pedido(self):
+        self.adicionar_brinquedo()
+        data_inicio = timezone.localdate() + timedelta(days=30)
+
+        response = self.converter_carrinho_em_pedido(
+            data_inicio_locacao=str(data_inicio),
+            data_fim_locacao=str(data_inicio),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_erro_de_periodo_invalido_nao_converte_carrinho(self):
+        self.adicionar_brinquedo()
+        carrinho = Carrinho.objects.get()
+        data_inicio = timezone.localdate() + timedelta(days=30)
+
+        response = self.converter_carrinho_em_pedido(
+            data_inicio_locacao=str(data_inicio),
+            data_fim_locacao=str(data_inicio),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        carrinho.refresh_from_db()
+        self.assertEqual(carrinho.status, Carrinho.Status.ATIVO)
+
     def test_criacao_de_pedido_nao_reserva_unidade_fisica(self):
         unidade = UnidadeBrinquedo.objects.create(
             brinquedo=self.brinquedo,
@@ -747,6 +851,15 @@ class CarrinhoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["status"], Pedido.Status.AGUARDANDO_ANALISE)
+        self.assertEqual(Pedido.objects.get().status, Pedido.Status.AGUARDANDO_ANALISE)
+
+    def test_status_reservado_existe_mas_nao_e_usado_automaticamente(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Pedido.Status.RESERVADO, "reservado")
         self.assertEqual(Pedido.objects.get().status, Pedido.Status.AGUARDANDO_ANALISE)
 
     def test_usuario_autenticado_lista_apenas_os_proprios_pedidos(self):
@@ -1023,6 +1136,8 @@ class ItemCarrinhoModelTests(APITestCase):
             telefone_cliente_snapshot="11999999999",
             email_cliente_snapshot="cliente@email.com",
             data_evento_pretendida=timezone.localdate() + timedelta(days=30),
+            data_inicio_locacao=timezone.localdate() + timedelta(days=30),
+            data_fim_locacao=timezone.localdate() + timedelta(days=32),
             subtotal_itens_snapshot="220.00",
         )
         brinquedo = Brinquedo.objects.create(

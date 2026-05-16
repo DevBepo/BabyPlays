@@ -360,6 +360,8 @@ class PedidoService:
             "telefone_cliente_snapshot",
             "email_cliente_snapshot",
             "data_evento_pretendida",
+            "data_inicio_locacao",
+            "data_fim_locacao",
             "cep",
             "numero",
         ):
@@ -377,6 +379,33 @@ class PedidoService:
             )
         if dados.get("data_evento_pretendida") is None and "data_evento_pretendida" not in erros:
             erros["data_evento_pretendida"] = "Informe uma data valida."
+
+        data_inicio_locacao = dados.get("data_inicio_locacao")
+        if isinstance(data_inicio_locacao, str):
+            data_inicio_locacao = parse_date(data_inicio_locacao)
+            dados["data_inicio_locacao"] = data_inicio_locacao
+
+        data_fim_locacao = dados.get("data_fim_locacao")
+        if isinstance(data_fim_locacao, str):
+            data_fim_locacao = parse_date(data_fim_locacao)
+            dados["data_fim_locacao"] = data_fim_locacao
+
+        if (
+            data_inicio_locacao
+            and data_fim_locacao
+            and data_fim_locacao <= data_inicio_locacao
+        ):
+            erros["data_fim_locacao"] = (
+                "A data final da locacao deve ser posterior a data inicial "
+                "da locacao."
+            )
+        if (
+            dados.get("data_inicio_locacao") is None
+            and "data_inicio_locacao" not in erros
+        ):
+            erros["data_inicio_locacao"] = "Informe uma data valida."
+        if dados.get("data_fim_locacao") is None and "data_fim_locacao" not in erros:
+            erros["data_fim_locacao"] = "Informe uma data valida."
 
         if erros:
             raise serializers.ValidationError(erros)
@@ -453,6 +482,8 @@ class PedidoService:
             email_cliente_snapshot=dados_cliente["email_cliente_snapshot"],
             observacoes_cliente=dados_cliente.get("observacoes_cliente", ""),
             data_evento_pretendida=dados_cliente["data_evento_pretendida"],
+            data_inicio_locacao=dados_cliente["data_inicio_locacao"],
+            data_fim_locacao=dados_cliente["data_fim_locacao"],
             subtotal_itens_snapshot=subtotal,
             endereco_entrega_snapshot=calculo_taxa["endereco_interpretado"],
             distancia_ida_km_snapshot=calculo_taxa["distancia_ida_km"],

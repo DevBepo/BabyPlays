@@ -149,6 +149,7 @@ class ItemCarrinho(models.Model):
 class Pedido(models.Model):
     class Status(models.TextChoices):
         AGUARDANDO_ANALISE = "aguardando_analise", "Aguardando analise"
+        RESERVADO = "reservado", "Reservado"
         CANCELADO = "cancelado", "Cancelado"
 
     carrinho_origem = models.ForeignKey(
@@ -199,6 +200,16 @@ class Pedido(models.Model):
     )
     data_evento_pretendida = models.DateField(
         verbose_name="Data pretendida do evento",
+    )
+    data_inicio_locacao = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de inicio da locacao",
+    )
+    data_fim_locacao = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de fim da locacao",
     )
     subtotal_itens_snapshot = models.DecimalField(
         max_digits=9,
