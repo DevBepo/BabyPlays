@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from rest_framework import serializers
 
@@ -53,6 +54,32 @@ class BrinquedoService:
     def quantidade_disponivel(brinquedo):
         """Retorna a quantidade de unidades fisicas disponiveis."""
         return BrinquedoService.unidades_disponiveis(brinquedo).count()
+
+
+class UnidadeBrinquedoOperacaoService:
+    STATUS_LIBERAVEIS = {
+        UnidadeBrinquedo.Status.HIGIENIZACAO,
+        UnidadeBrinquedo.Status.STANDBY,
+    }
+
+    @staticmethod
+    @transaction.atomic
+    def liberar_disponibilidade(unidade, usuario_admin):
+        unidade = UnidadeBrinquedo.objects.select_for_update().get(id=unidade.id)
+
+        if unidade.status not in UnidadeBrinquedoOperacaoService.STATUS_LIBERAVEIS:
+            raise serializers.ValidationError(
+                {
+                    "status": (
+                        "Unidade so pode ser liberada para disponivel quando "
+                        "estiver em higienizacao ou standby."
+                    )
+                }
+            )
+
+        unidade.status = UnidadeBrinquedo.Status.DISPONIVEL
+        unidade.save(update_fields=["status", "atualizado_em"])
+        return unidade
 
 
 class KitFestaService:

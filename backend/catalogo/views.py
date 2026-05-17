@@ -1,7 +1,11 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import UnidadeBrinquedo
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
@@ -11,6 +15,7 @@ from .serializers import (
     DisponibilidadePeriodoSerializer,
     KitFestaAdminSerializer,
     KitFestaPublicSerializer,
+    UnidadeBrinquedoOperacaoSerializer,
     ValidarSelecaoKitPersonalizavelSerializer,
 )
 from .services import (
@@ -18,6 +23,7 @@ from .services import (
     DisponibilidadeService,
     KitFestaService,
     KitPersonalizavelService,
+    UnidadeBrinquedoOperacaoService,
 )
 
 class BrinquedoViewSet(viewsets.ModelViewSet):
@@ -67,6 +73,18 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
             serializer.validated_data["quantidade"],
         )
         return Response(resultado)
+
+
+class AdminLiberarDisponibilidadeUnidadeView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, unidade_id):
+        unidade = get_object_or_404(UnidadeBrinquedo, id=unidade_id)
+        unidade = UnidadeBrinquedoOperacaoService.liberar_disponibilidade(
+            unidade,
+            request.user,
+        )
+        return Response(UnidadeBrinquedoOperacaoSerializer(unidade).data)
 
 
 class KitFestaViewSet(viewsets.ModelViewSet):

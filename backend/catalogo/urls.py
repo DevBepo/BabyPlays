@@ -1,6 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import BrinquedoViewSet, KitFestaViewSet, KitPersonalizavelViewSet
+from .views import (
+    AdminLiberarDisponibilidadeUnidadeView,
+    BrinquedoViewSet,
+    KitFestaViewSet,
+    KitPersonalizavelViewSet,
+)
 
 router = DefaultRouter()
 router.register(r'brinquedos', BrinquedoViewSet, basename ='brinquedos')
@@ -12,5 +17,10 @@ router.register(
 )
 
 urlpatterns = [
+    path(
+        'admin/unidades/<int:unidade_id>/liberar-disponibilidade/',
+        AdminLiberarDisponibilidadeUnidadeView.as_view(),
+        name='admin-unidade-liberar-disponibilidade',
+    ),
     path('', include(router.urls)),
 ]
