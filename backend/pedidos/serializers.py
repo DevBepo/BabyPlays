@@ -214,6 +214,26 @@ class ConfirmacaoPedidoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UnidadeOperacaoLocacaoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class ReservaOperacaoLocacaoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class OperacaoLocacaoResultadoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    reservas_encerradas = ReservaOperacaoLocacaoSerializer(
+        many=True,
+        required=False,
+    )
+    unidades_atualizadas = UnidadeOperacaoLocacaoSerializer(many=True)
+
+
 class ContratoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrato

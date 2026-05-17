@@ -1104,6 +1104,12 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
     def setUp(self):
         self.url_template = "/api/admin/pedidos/{}/reservar-unidades/"
         self.confirmar_url_template = "/api/admin/pedidos/{}/confirmar/"
+        self.iniciar_locacao_url_template = (
+            "/api/admin/pedidos/{}/iniciar-locacao/"
+        )
+        self.registrar_retirada_url_template = (
+            "/api/admin/pedidos/{}/registrar-retirada/"
+        )
         self.data_inicio = timezone.localdate() + timedelta(days=30)
         self.data_fim = self.data_inicio + timedelta(days=2)
         self.categoria = Categoria.objects.create(
@@ -1172,6 +1178,14 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
     def confirmar_url(self, pedido=None):
         pedido = pedido or self.pedido
         return self.confirmar_url_template.format(pedido.id)
+
+    def iniciar_locacao_url(self, pedido=None):
+        pedido = pedido or self.pedido
+        return self.iniciar_locacao_url_template.format(pedido.id)
+
+    def registrar_retirada_url(self, pedido=None):
+        pedido = pedido or self.pedido
+        return self.registrar_retirada_url_template.format(pedido.id)
 
     def autenticar_admin(self):
         self.client.force_authenticate(user=self.admin)
@@ -1301,6 +1315,20 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
         item = self.criar_item_brinquedo()
         unidade = self.criar_unidade()
         reserva = self.criar_reserva(unidade, item=item)
+        return item, unidade, reserva
+
+    def preparar_pedido_confirmado(self):
+        item, unidade, reserva = self.preparar_pedido_confirmavel()
+        self.pedido.status = Pedido.Status.CONFIRMADO
+        self.pedido.save(update_fields=["status", "atualizado_em"])
+        return item, unidade, reserva
+
+    def preparar_pedido_em_locacao(self):
+        item, unidade, reserva = self.preparar_pedido_confirmado()
+        unidade.status = UnidadeBrinquedo.Status.EM_LOCACAO
+        unidade.save(update_fields=["status", "atualizado_em"])
+        self.pedido.status = Pedido.Status.EM_LOCACAO
+        self.pedido.save(update_fields=["status", "atualizado_em"])
         return item, unidade, reserva
 
     def test_admin_reserva_unidades_de_pedido_com_brinquedo_avulso(self):
@@ -1736,6 +1764,225 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
         self.assertEqual(self.pedido.confirmado_em, confirmado_em)
         self.assertEqual(self.pedido.confirmado_por, confirmado_por)
         self.assertEqual(segunda.data["confirmado_por"], self.admin.id)
+
+    def test_admin_inicia_locacao_de_pedido_confirmado(self):
+        self.autenticar_admin()
+        item, unidade, reserva = self.preparar_pedido_confirmado()
+        total_estimado = self.pedido.total_estimado_snapshot
+
+        response = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.pedido.refresh_from_db()
+        reserva.refresh_from_db()
+        unidade.refresh_from_db()
+        item.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.EM_LOCACAO)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.EM_LOCACAO)
+        self.assertEqual(reserva.status, ReservaUnidade.Status.ATIVA)
+        self.assertEqual(item.pedido, self.pedido)
+        self.assertEqual(self.pedido.total_estimado_snapshot, total_estimado)
+        self.assertEqual(response.data["id"], self.pedido.id)
+        self.assertEqual(response.data["status"], Pedido.Status.EM_LOCACAO)
+        self.assertEqual(
+            response.data["unidades_atualizadas"],
+            [{"id": unidade.id, "status": UnidadeBrinquedo.Status.EM_LOCACAO}],
+        )
+
+    def test_iniciar_locacao_exige_pedido_confirmado(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmavel()
+
+        response = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.RESERVADO)
+
+    def test_iniciar_locacao_exige_reservas_ativas(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.CONFIRMADO)
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reservas", response.data)
+
+    def test_usuario_comum_nao_acessa_endpoint_admin_de_iniciar_locacao(self):
+        self.client.force_authenticate(user=self.usuario)
+        self.preparar_pedido_confirmado()
+
+        response = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonimo_nao_acessa_endpoint_admin_de_iniciar_locacao(self):
+        self.preparar_pedido_confirmado()
+
+        response = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_segunda_chamada_de_iniciar_locacao_retorna_erro_seguro(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmado()
+        primeira = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+        segunda = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(primeira.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", segunda.data)
+        self.assertEqual(
+            ReservaUnidade.objects.filter(status=ReservaUnidade.Status.ATIVA).count(),
+            1,
+        )
+
+    def test_iniciar_locacao_faz_rollback_se_unidade_estiver_inconsistente(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.CONFIRMADO)
+        item = self.criar_item_brinquedo(quantidade=2)
+        unidade_disponivel = self.criar_unidade(codigo="CAMA-001")
+        unidade_inconsistente = self.criar_unidade(codigo="CAMA-002")
+        primeira_reserva = self.criar_reserva(unidade_disponivel, item=item)
+        segunda_reserva = self.criar_reserva(unidade_inconsistente, item=item)
+        unidade_inconsistente.status = UnidadeBrinquedo.Status.HIGIENIZACAO
+        unidade_inconsistente.save(update_fields=["status", "atualizado_em"])
+
+        response = self.client.post(self.iniciar_locacao_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unidades", response.data)
+        self.pedido.refresh_from_db()
+        primeira_reserva.refresh_from_db()
+        segunda_reserva.refresh_from_db()
+        unidade_disponivel.refresh_from_db()
+        unidade_inconsistente.refresh_from_db()
+        item.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.CONFIRMADO)
+        self.assertEqual(primeira_reserva.status, ReservaUnidade.Status.ATIVA)
+        self.assertEqual(segunda_reserva.status, ReservaUnidade.Status.ATIVA)
+        self.assertEqual(unidade_disponivel.status, UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(
+            unidade_inconsistente.status,
+            UnidadeBrinquedo.Status.HIGIENIZACAO,
+        )
+        self.assertEqual(item.pedido, self.pedido)
+
+    def test_admin_registra_retirada_de_pedido_em_locacao(self):
+        self.autenticar_admin()
+        item, unidade, reserva = self.preparar_pedido_em_locacao()
+        total_estimado = self.pedido.total_estimado_snapshot
+
+        response = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.pedido.refresh_from_db()
+        reserva.refresh_from_db()
+        unidade.refresh_from_db()
+        item.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.RETIRADO)
+        self.assertEqual(reserva.status, ReservaUnidade.Status.ENCERRADA)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.HIGIENIZACAO)
+        self.assertNotEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(item.pedido, self.pedido)
+        self.assertEqual(self.pedido.total_estimado_snapshot, total_estimado)
+        self.assertEqual(response.data["id"], self.pedido.id)
+        self.assertEqual(response.data["status"], Pedido.Status.RETIRADO)
+        self.assertEqual(
+            response.data["reservas_encerradas"],
+            [{"id": reserva.id, "status": ReservaUnidade.Status.ENCERRADA}],
+        )
+        self.assertEqual(
+            response.data["unidades_atualizadas"],
+            [{"id": unidade.id, "status": UnidadeBrinquedo.Status.HIGIENIZACAO}],
+        )
+
+    def test_registrar_retirada_rejeita_pedido_fora_de_em_locacao(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmado()
+
+        response = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.CONFIRMADO)
+
+    def test_registrar_retirada_exige_reservas_ativas(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.EM_LOCACAO)
+        self.criar_item_brinquedo()
+
+        response = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reservas", response.data)
+
+    def test_usuario_comum_nao_acessa_endpoint_admin_de_registrar_retirada(self):
+        self.client.force_authenticate(user=self.usuario)
+        self.preparar_pedido_em_locacao()
+
+        response = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonimo_nao_acessa_endpoint_admin_de_registrar_retirada(self):
+        self.preparar_pedido_em_locacao()
+
+        response = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_segunda_chamada_de_registrar_retirada_retorna_erro_seguro(self):
+        self.autenticar_admin()
+        self.preparar_pedido_em_locacao()
+        primeira = self.client.post(self.registrar_retirada_url(), {}, format="json")
+        segunda = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(primeira.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", segunda.data)
+        self.assertEqual(
+            ReservaUnidade.objects.filter(
+                status=ReservaUnidade.Status.ENCERRADA,
+            ).count(),
+            1,
+        )
+
+    def test_registrar_retirada_faz_rollback_se_unidade_estiver_inconsistente(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(status_pedido=Pedido.Status.EM_LOCACAO)
+        item = self.criar_item_brinquedo(quantidade=2)
+        unidade_em_locacao = self.criar_unidade(codigo="CAMA-001")
+        unidade_inconsistente = self.criar_unidade(codigo="CAMA-002")
+        primeira_reserva = self.criar_reserva(unidade_em_locacao, item=item)
+        segunda_reserva = self.criar_reserva(unidade_inconsistente, item=item)
+        unidade_em_locacao.status = UnidadeBrinquedo.Status.EM_LOCACAO
+        unidade_em_locacao.save(update_fields=["status", "atualizado_em"])
+        unidade_inconsistente.status = UnidadeBrinquedo.Status.DISPONIVEL
+        unidade_inconsistente.save(update_fields=["status", "atualizado_em"])
+
+        response = self.client.post(self.registrar_retirada_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unidades", response.data)
+        self.pedido.refresh_from_db()
+        primeira_reserva.refresh_from_db()
+        segunda_reserva.refresh_from_db()
+        unidade_em_locacao.refresh_from_db()
+        unidade_inconsistente.refresh_from_db()
+        item.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.EM_LOCACAO)
+        self.assertEqual(primeira_reserva.status, ReservaUnidade.Status.ATIVA)
+        self.assertEqual(segunda_reserva.status, ReservaUnidade.Status.ATIVA)
+        self.assertEqual(unidade_em_locacao.status, UnidadeBrinquedo.Status.EM_LOCACAO)
+        self.assertEqual(
+            unidade_inconsistente.status,
+            UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        self.assertEqual(item.pedido, self.pedido)
 
 
 class ItemCarrinhoModelTests(APITestCase):
