@@ -347,6 +347,206 @@ class DisponibilidadePeriodoAPITests(APITestCase):
         self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
 
 
+class LiberarDisponibilidadeUnidadeAdminTests(APITestCase):
+    data_inicio = date(2026, 6, 20)
+    data_fim = date(2026, 6, 22)
+
+    def setUp(self):
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica",
+            descricao="Brinquedo para festas maiores.",
+            preco_aluguel="220.00",
+        )
+        self.admin = get_user_model().objects.create_user(
+            username="admin-libera-unidade",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+        self.usuario = get_user_model().objects.create_user(
+            username="cliente-libera-unidade",
+            password="senha-segura-123",
+        )
+
+    def url(self, unidade):
+        return f"/api/admin/unidades/{unidade.id}/liberar-disponibilidade/"
+
+    def autenticar_admin(self):
+        self.client.force_authenticate(user=self.admin)
+
+    def criar_unidade(self, status_unidade, codigo="CAMA-001"):
+        return UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo=codigo,
+            status=status_unidade,
+        )
+
+    def criar_pedido(self):
+        return Pedido.objects.create(
+            usuario=self.usuario,
+            nome_cliente_snapshot="Cliente Teste",
+            telefone_cliente_snapshot="11999999999",
+            email_cliente_snapshot="cliente@email.com",
+            data_evento_pretendida=self.data_inicio,
+            data_inicio_locacao=self.data_inicio,
+            data_fim_locacao=self.data_fim,
+            subtotal_itens_snapshot="220.00",
+            status=Pedido.Status.RETIRADO,
+        )
+
+    def criar_reserva(self, unidade, pedido=None):
+        return ReservaUnidade.objects.create(
+            pedido=pedido or self.criar_pedido(),
+            unidade_brinquedo=unidade,
+            data_inicio=self.data_inicio,
+            data_fim=self.data_fim,
+            status=ReservaUnidade.Status.ENCERRADA,
+        )
+
+    def assert_unidade_liberada(self, unidade, response):
+        unidade.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(
+            response.data,
+            {
+                "id": unidade.id,
+                "codigo": unidade.codigo,
+                "status": UnidadeBrinquedo.Status.DISPONIVEL,
+            },
+        )
+
+    def assert_status_nao_liberavel(self, status_unidade):
+        self.autenticar_admin()
+        unidade = self.criar_unidade(status_unidade)
+        atualizado_em = unidade.atualizado_em
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        unidade.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+        self.assertEqual(unidade.status, status_unidade)
+        self.assertEqual(unidade.atualizado_em, atualizado_em)
+
+    def test_admin_libera_unidade_em_higienizacao_para_disponivel(self):
+        self.autenticar_admin()
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.HIGIENIZACAO)
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        self.assert_unidade_liberada(unidade, response)
+
+    def test_admin_libera_unidade_em_standby_para_disponivel(self):
+        self.autenticar_admin()
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.STANDBY)
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        self.assert_unidade_liberada(unidade, response)
+
+    def test_usuario_comum_nao_acessa_endpoint(self):
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.HIGIENIZACAO)
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        unidade.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.HIGIENIZACAO)
+
+    def test_anonimo_nao_acessa_endpoint(self):
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.HIGIENIZACAO)
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        unidade.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.HIGIENIZACAO)
+
+    def test_unidade_em_locacao_nao_pode_ser_liberada(self):
+        self.assert_status_nao_liberavel(UnidadeBrinquedo.Status.EM_LOCACAO)
+
+    def test_unidade_reservada_nao_pode_ser_liberada(self):
+        self.assert_status_nao_liberavel(UnidadeBrinquedo.Status.RESERVADA)
+
+    def test_unidade_em_manutencao_nao_pode_ser_liberada(self):
+        self.assert_status_nao_liberavel(UnidadeBrinquedo.Status.MANUTENCAO)
+
+    def test_unidade_baixada_nao_pode_ser_liberada(self):
+        self.assert_status_nao_liberavel(UnidadeBrinquedo.Status.BAIXADA)
+
+    def test_unidade_ja_disponivel_retorna_erro_sem_efeito_colateral(self):
+        self.assert_status_nao_liberavel(UnidadeBrinquedo.Status.DISPONIVEL)
+
+    def test_liberacao_nao_altera_reservas_existentes(self):
+        self.autenticar_admin()
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.HIGIENIZACAO)
+        reserva = self.criar_reserva(unidade)
+        dados_reserva = {
+            "pedido_id": reserva.pedido_id,
+            "unidade_brinquedo_id": reserva.unidade_brinquedo_id,
+            "status": reserva.status,
+            "data_inicio": reserva.data_inicio,
+            "data_fim": reserva.data_fim,
+        }
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        reserva.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            dados_reserva,
+            {
+                "pedido_id": reserva.pedido_id,
+                "unidade_brinquedo_id": reserva.unidade_brinquedo_id,
+                "status": reserva.status,
+                "data_inicio": reserva.data_inicio,
+                "data_fim": reserva.data_fim,
+            },
+        )
+
+    def test_liberacao_nao_altera_pedidos(self):
+        self.autenticar_admin()
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.HIGIENIZACAO)
+        pedido = self.criar_pedido()
+        self.criar_reserva(unidade, pedido=pedido)
+        dados_pedido = {
+            "status": pedido.status,
+            "total_estimado_snapshot": pedido.total_estimado_snapshot,
+            "data_inicio_locacao": pedido.data_inicio_locacao,
+            "data_fim_locacao": pedido.data_fim_locacao,
+        }
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        pedido.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            dados_pedido,
+            {
+                "status": pedido.status,
+                "total_estimado_snapshot": pedido.total_estimado_snapshot,
+                "data_inicio_locacao": pedido.data_inicio_locacao,
+                "data_fim_locacao": pedido.data_fim_locacao,
+            },
+        )
+
+    def test_fluxo_invalido_retorna_erro_seguro(self):
+        self.autenticar_admin()
+        unidade = self.criar_unidade(UnidadeBrinquedo.Status.BAIXADA)
+
+        response = self.client.post(self.url(unidade), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["status"],
+            (
+                "Unidade so pode ser liberada para disponivel quando estiver "
+                "em higienizacao ou standby."
+            ),
+        )
+
+
 class BrinquedoAPITests(APITestCase):
     brinquedos_url = "/api/brinquedos/"
 

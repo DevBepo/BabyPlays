@@ -7,6 +7,7 @@ from .models import (
     ItemKitFesta,
     KitFesta,
     RegraCategoriaKitPersonalizavel,
+    UnidadeBrinquedo,
 )
 from .services import BrinquedoService, KitPersonalizavelService
 
@@ -124,6 +125,13 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
 
 
 BrinquedoSerializer = BrinquedoAdminSerializer
+
+
+class UnidadeBrinquedoOperacaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UnidadeBrinquedo
+        fields = ("id", "codigo", "status")
+        read_only_fields = fields
 
 
 class BrinquedoKitResumoSerializer(serializers.ModelSerializer):

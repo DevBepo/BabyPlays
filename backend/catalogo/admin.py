@@ -51,6 +51,7 @@ class UnidadeBrinquedoAdmin(admin.ModelAdmin):
     list_display = ("codigo", "brinquedo", "status", "atualizado_em")
     list_filter = ("status", "brinquedo")
     search_fields = ("codigo", "brinquedo__nome")
+    ordering = ("status", "codigo")
 
 
 @admin.register(ImagemBrinquedo)
