@@ -15,6 +15,7 @@ from .serializers import (
     ContratoSerializer,
     ConverterCarrinhoPedidoSerializer,
     ItemCarrinhoSerializer,
+    OperacaoLocacaoResultadoSerializer,
     PedidoSerializer,
     ReservaPedidoResultadoSerializer,
 )
@@ -23,6 +24,7 @@ from .services import (
     ConfirmacaoPedidoService,
     ContratoService,
     ContratoVigenteAusenteError,
+    OperacaoLocacaoService,
     PedidoService,
     ReservaPedidoService,
 )
@@ -179,3 +181,21 @@ class AdminConfirmarPedidoView(APIView):
         pedido = get_object_or_404(Pedido, id=pedido_id)
         pedido = ConfirmacaoPedidoService.confirmar(pedido, request.user)
         return Response(ConfirmacaoPedidoSerializer(pedido).data)
+
+
+class AdminIniciarLocacaoPedidoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        resultado = OperacaoLocacaoService.iniciar_locacao(pedido, request.user)
+        return Response(OperacaoLocacaoResultadoSerializer(resultado).data)
+
+
+class AdminRegistrarRetiradaPedidoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        resultado = OperacaoLocacaoService.registrar_retirada(pedido, request.user)
+        return Response(OperacaoLocacaoResultadoSerializer(resultado).data)

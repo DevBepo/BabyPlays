@@ -151,6 +151,8 @@ class Pedido(models.Model):
         AGUARDANDO_ANALISE = "aguardando_analise", "Aguardando analise"
         RESERVADO = "reservado", "Reservado"
         CONFIRMADO = "confirmado", "Confirmado"
+        EM_LOCACAO = "em_locacao", "Em locacao"
+        RETIRADO = "retirado", "Retirado"
         CANCELADO = "cancelado", "Cancelado"
 
     carrinho_origem = models.ForeignKey(
@@ -447,6 +449,7 @@ class ReservaUnidade(models.Model):
     class Status(models.TextChoices):
         ATIVA = "ativa", "Ativa"
         CANCELADA = "cancelada", "Cancelada"
+        ENCERRADA = "encerrada", "Encerrada"
 
     pedido = models.ForeignKey(
         Pedido,

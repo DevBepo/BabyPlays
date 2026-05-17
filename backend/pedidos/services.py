@@ -967,3 +967,140 @@ class ConfirmacaoPedidoService:
             ]
         )
         return pedido
+
+
+class OperacaoLocacaoService:
+    @staticmethod
+    def _reservas_ativas_travadas(pedido):
+        return list(
+            ReservaUnidade.objects.select_for_update()
+            .filter(
+                pedido=pedido,
+                status=ReservaUnidade.Status.ATIVA,
+            )
+            .select_related("unidade_brinquedo")
+            .order_by("id")
+        )
+
+    @staticmethod
+    def _unidades_travadas(reservas):
+        unidade_ids = [reserva.unidade_brinquedo_id for reserva in reservas]
+        unidades = list(
+            UnidadeBrinquedo.objects.select_for_update()
+            .filter(id__in=unidade_ids)
+            .order_by("id")
+        )
+        unidades_por_id = {unidade.id: unidade for unidade in unidades}
+        if len(unidades_por_id) != len(set(unidade_ids)):
+            raise serializers.ValidationError(
+                {"unidades": "Reservas possuem unidades invalidas."}
+            )
+        return unidades_por_id
+
+    @staticmethod
+    def _validar_reservas_compativeis(pedido, reservas):
+        if not reservas:
+            raise serializers.ValidationError(
+                {"reservas": "Pedido sem reservas ativas."}
+            )
+        demandas = ReservaPedidoService._montar_demandas(pedido)
+        if not ReservaPedidoService._reservas_sao_compativeis(
+            pedido,
+            demandas,
+            reservas,
+        ):
+            raise serializers.ValidationError(
+                {"reservas": "Reservas ativas incompativeis com o pedido."}
+            )
+
+    @staticmethod
+    def _resposta(pedido, reservas=None, unidades=None):
+        resposta = {
+            "id": pedido.id,
+            "status": pedido.status,
+            "unidades_atualizadas": unidades or [],
+        }
+        if reservas is not None:
+            resposta["reservas_encerradas"] = reservas
+        return resposta
+
+    @staticmethod
+    @transaction.atomic
+    def iniciar_locacao(pedido, usuario_admin):
+        pedido = (
+            Pedido.objects.select_for_update()
+            .prefetch_related("itens")
+            .get(id=pedido.id)
+        )
+
+        if pedido.status != Pedido.Status.CONFIRMADO:
+            raise serializers.ValidationError(
+                {"status": "Pedido em status invalido para iniciar locacao."}
+            )
+
+        reservas = OperacaoLocacaoService._reservas_ativas_travadas(pedido)
+        OperacaoLocacaoService._validar_reservas_compativeis(pedido, reservas)
+        unidades_por_id = OperacaoLocacaoService._unidades_travadas(reservas)
+
+        unidades_atualizadas = []
+        for reserva in reservas:
+            unidade = unidades_por_id[reserva.unidade_brinquedo_id]
+            if unidade.status != UnidadeBrinquedo.Status.DISPONIVEL:
+                raise serializers.ValidationError(
+                    {"unidades": "Unidade reservada nao esta disponivel."}
+                )
+            unidade.status = UnidadeBrinquedo.Status.EM_LOCACAO
+            unidade.save(update_fields=["status", "atualizado_em"])
+            unidades_atualizadas.append(unidade)
+
+        pedido.status = Pedido.Status.EM_LOCACAO
+        pedido.save(update_fields=["status", "atualizado_em"])
+
+        return OperacaoLocacaoService._resposta(
+            pedido,
+            unidades=unidades_atualizadas,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def registrar_retirada(pedido, usuario_admin):
+        pedido = (
+            Pedido.objects.select_for_update()
+            .prefetch_related("itens")
+            .get(id=pedido.id)
+        )
+
+        if pedido.status != Pedido.Status.EM_LOCACAO:
+            raise serializers.ValidationError(
+                {"status": "Pedido em status invalido para registrar retirada."}
+            )
+
+        reservas = OperacaoLocacaoService._reservas_ativas_travadas(pedido)
+        OperacaoLocacaoService._validar_reservas_compativeis(pedido, reservas)
+        unidades_por_id = OperacaoLocacaoService._unidades_travadas(reservas)
+
+        unidades_atualizadas = []
+        reservas_encerradas = []
+        for reserva in reservas:
+            unidade = unidades_por_id[reserva.unidade_brinquedo_id]
+            if unidade.status != UnidadeBrinquedo.Status.EM_LOCACAO:
+                raise serializers.ValidationError(
+                    {"unidades": "Unidade reservada nao esta em locacao."}
+                )
+
+            reserva.status = ReservaUnidade.Status.ENCERRADA
+            reserva.save(update_fields=["status", "atualizado_em"])
+            reservas_encerradas.append(reserva)
+
+            unidade.status = UnidadeBrinquedo.Status.HIGIENIZACAO
+            unidade.save(update_fields=["status", "atualizado_em"])
+            unidades_atualizadas.append(unidade)
+
+        pedido.status = Pedido.Status.RETIRADO
+        pedido.save(update_fields=["status", "atualizado_em"])
+
+        return OperacaoLocacaoService._resposta(
+            pedido,
+            reservas=reservas_encerradas,
+            unidades=unidades_atualizadas,
+        )
