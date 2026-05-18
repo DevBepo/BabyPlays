@@ -171,6 +171,14 @@ class Pedido(models.Model):
         related_name="pedidos",
         verbose_name="Usuario",
     )
+    cliente = models.ForeignKey(
+        "clientes.Cliente",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pedidos",
+        verbose_name="Cliente",
+    )
     session_key_snapshot = models.CharField(
         max_length=40,
         null=True,

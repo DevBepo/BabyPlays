@@ -138,11 +138,13 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
 
 class PedidoSerializer(serializers.ModelSerializer):
     itens = ItemPedidoSerializer(many=True, read_only=True)
+    cliente = serializers.IntegerField(source="cliente_id", read_only=True)
 
     class Meta:
         model = Pedido
         fields = (
             "id",
+            "cliente",
             "status",
             "nome_cliente_snapshot",
             "telefone_cliente_snapshot",

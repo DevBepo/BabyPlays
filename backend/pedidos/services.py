@@ -26,6 +26,7 @@ from entregas.services import (
     TaxaEntregaRetiradaService,
     quantizar_decimal,
 )
+from clientes.models import Cliente
 
 from .models import (
     AceiteContrato,
@@ -444,8 +445,13 @@ class PedidoService:
 
     @staticmethod
     @transaction.atomic
-    def converter_carrinho(carrinho, dados_cliente, taxa_service=None):
+    def converter_carrinho(carrinho, dados_cliente, usuario, taxa_service=None):
         PedidoService._validar_dados_cliente(dados_cliente)
+
+        if not usuario or not usuario.is_authenticated:
+            raise serializers.ValidationError(
+                {"usuario": "Autenticacao obrigatoria para fechar pedido."}
+            )
 
         carrinho = (
             Carrinho.objects.select_for_update()
@@ -455,6 +461,10 @@ class PedidoService:
         if carrinho.status != Carrinho.Status.ATIVO:
             raise serializers.ValidationError(
                 {"carrinho": "Somente carrinho ativo pode ser convertido em pedido."}
+            )
+        if carrinho.usuario_id != usuario.id:
+            raise serializers.ValidationError(
+                {"carrinho": "Carrinho nao pertence ao usuario autenticado."}
             )
 
         itens = list(
@@ -479,9 +489,17 @@ class PedidoService:
         )
         taxa_entrega = quantizar_decimal(calculo_taxa["taxa"])
         total_estimado = quantizar_decimal(subtotal + taxa_entrega)
+        cliente, _criado = Cliente.objects.get_or_create(
+            user=usuario,
+            defaults={
+                "nome": dados_cliente["nome_cliente_snapshot"],
+                "telefone": dados_cliente["telefone_cliente_snapshot"],
+            },
+        )
         pedido = Pedido.objects.create(
             carrinho_origem=carrinho,
-            usuario=carrinho.usuario,
+            usuario=usuario,
+            cliente=cliente,
             session_key_snapshot=carrinho.session_key,
             nome_cliente_snapshot=dados_cliente["nome_cliente_snapshot"],
             telefone_cliente_snapshot=dados_cliente["telefone_cliente_snapshot"],
@@ -537,19 +555,12 @@ class ContratoService:
 
     @staticmethod
     def obter_pedido_do_request(request, pedido_id):
-        queryset = Pedido.objects.select_related("usuario").filter(id=pedido_id)
+        queryset = Pedido.objects.select_related("usuario", "cliente").filter(
+            id=pedido_id
+        )
         usuario = request.user if request.user.is_authenticated else None
 
-        if usuario:
-            pedido = queryset.filter(usuario=usuario).first()
-        else:
-            session_key = request.session.session_key
-            pedido = None
-            if session_key:
-                pedido = queryset.filter(
-                    usuario__isnull=True,
-                    session_key_snapshot=session_key,
-                ).first()
+        pedido = queryset.filter(usuario=usuario).first() if usuario else None
 
         if not pedido:
             raise Http404("Pedido nao encontrado.")
@@ -576,7 +587,7 @@ class ContratoService:
     def registrar_aceite(request, pedido_id, dados):
         pedido = (
             Pedido.objects.select_for_update()
-            .select_related("usuario")
+            .select_related("usuario", "cliente")
             .get(id=ContratoService.obter_pedido_do_request(request, pedido_id).id)
         )
         contrato = ContratoService.obter_contrato_vigente()
