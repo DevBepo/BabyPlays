@@ -18,11 +18,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from setup.views import CookieTokenObtainPairView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/token/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/', include('clientes.urls')),
     path('api/', include('catalogo.urls')),
     path('api/', include('pedidos.urls')),

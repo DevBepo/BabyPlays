@@ -17,6 +17,14 @@ Funcionalidades principais:
 - E-mail de confirmação.
 - E-mail de lembrete de carrinho abandonado.
 
+Autenticação e carrinho:
+- Autenticação oficial usa sessão Django com CSRF, não JWT.
+- Endpoints oficiais: POST /api/auth/cadastro/, POST /api/auth/login/, POST /api/auth/logout/, GET /api/auth/me/ e GET /api/auth/csrf/.
+- Visitante anônimo pode navegar e montar carrinho.
+- Carrinho anônimo usa session_key.
+- Após login, carrinho da sessão é reaproveitado pelo usuário autenticado.
+- Login é obrigatório para fechar pedido.
+
 Regras de estoque:
 - Estoque deve ser controlado por unidade física.
 - Um produto pode ter várias unidades.
