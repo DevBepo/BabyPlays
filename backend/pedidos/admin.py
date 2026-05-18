@@ -77,6 +77,7 @@ class PedidoAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "status",
+        "cliente",
         "nome_cliente_snapshot",
         "telefone_cliente_snapshot",
         "email_cliente_snapshot",
@@ -90,6 +91,7 @@ class PedidoAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "status",
+        "cliente",
         "data_evento_pretendida",
         "data_inicio_locacao",
         "data_fim_locacao",
@@ -100,12 +102,15 @@ class PedidoAdmin(admin.ModelAdmin):
         "telefone_cliente_snapshot",
         "email_cliente_snapshot",
         "session_key_snapshot",
+        "cliente__nome",
+        "cliente__telefone",
         "usuario__username",
         "usuario__email",
     )
     readonly_fields = (
         "carrinho_origem",
         "usuario",
+        "cliente",
         "session_key_snapshot",
         "subtotal_itens_snapshot",
         "confirmado_em",

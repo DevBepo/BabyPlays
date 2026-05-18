@@ -19,6 +19,7 @@ from catalogo.models import (
     UnidadeBrinquedo,
 )
 from entregas.providers import RotaProviderError
+from clientes.models import Cliente
 
 from .models import (
     AceiteContrato,
@@ -174,8 +175,10 @@ class CarrinhoAPITests(APITestCase):
         payload.update(extra)
         return payload
 
-    def converter_carrinho_em_pedido(self, client=None, **extra):
+    def converter_carrinho_em_pedido(self, client=None, autenticar=True, **extra):
         client = client or self.client
+        if autenticar and client is self.client:
+            client.force_authenticate(user=self.usuario)
         with patch(
             "pedidos.services.TaxaEntregaRetiradaService",
             return_value=FakeTaxaEntregaRetiradaService(),
@@ -406,6 +409,9 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(Pedido.objects.count(), 1)
         pedido = Pedido.objects.get()
         self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO_ANALISE)
+        self.assertEqual(pedido.usuario, self.usuario)
+        self.assertEqual(pedido.cliente, self.usuario.cliente)
+        self.assertEqual(response.data["cliente"], pedido.cliente_id)
         self.assertEqual(pedido.nome_cliente_snapshot, "Cliente Teste")
         self.assertEqual(
             pedido.data_inicio_locacao,
@@ -430,6 +436,92 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(item.snapshot["brinquedo"]["nome"], "Cama elastica")
         self.assertNotIn("snapshot", response.data["itens"][0])
         self.assertEqual(response.data["itens"][0]["nome_snapshot"], "Cama elastica")
+
+    def test_anonimo_nao_consegue_converter_carrinho_em_pedido(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido(autenticar=False)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_carrinho_anonimo_da_sessao_e_reaproveitado_apos_autenticacao(self):
+        self.adicionar_brinquedo()
+        carrinho = Carrinho.objects.get()
+        self.assertIsNone(carrinho.usuario)
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        carrinho.refresh_from_db()
+        pedido = Pedido.objects.get()
+        self.assertEqual(carrinho.usuario, self.usuario)
+        self.assertEqual(pedido.carrinho_origem, carrinho)
+        self.assertEqual(pedido.usuario, self.usuario)
+
+    def test_cria_cliente_automaticamente_na_conversao_quando_user_nao_tem_cliente(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        cliente = Cliente.objects.get(user=self.usuario)
+        pedido = Pedido.objects.get()
+        self.assertEqual(cliente.nome, "Cliente Teste")
+        self.assertEqual(cliente.telefone, "11999999999")
+        self.assertEqual(pedido.cliente, cliente)
+
+    def test_reaproveita_cliente_existente_na_conversao(self):
+        cliente = Cliente.objects.create(
+            user=self.usuario,
+            nome="Nome cadastrado",
+            telefone="11888888888",
+        )
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido(
+            nome="Nome do checkout",
+            telefone="11777777777",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        cliente.refresh_from_db()
+        self.assertEqual(pedido.cliente, cliente)
+        self.assertEqual(Cliente.objects.filter(user=self.usuario).count(), 1)
+        self.assertEqual(cliente.nome, "Nome cadastrado")
+        self.assertEqual(cliente.telefone, "11888888888")
+
+    def test_nao_cria_dois_clientes_para_o_mesmo_user(self):
+        self.adicionar_brinquedo()
+        primeira_response = self.converter_carrinho_em_pedido()
+        self.adicionar_brinquedo()
+
+        segunda_response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(primeira_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(segunda_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Cliente.objects.filter(user=self.usuario).count(), 1)
+
+    def test_snapshots_do_pedido_usam_dados_do_momento_da_conversao(self):
+        Cliente.objects.create(
+            user=self.usuario,
+            nome="Nome cadastrado",
+            telefone="11888888888",
+        )
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido(
+            nome="Nome checkout",
+            telefone="11777777777",
+            email="checkout@example.com",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.nome_cliente_snapshot, "Nome checkout")
+        self.assertEqual(pedido.telefone_cliente_snapshot, "11777777777")
+        self.assertEqual(pedido.email_cliente_snapshot, "checkout@example.com")
 
     def test_resposta_da_conversao_nao_expoe_snapshot_do_item_pedido(self):
         self.adicionar_brinquedo()
@@ -584,6 +676,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_falha_no_calculo_da_taxa_impede_criacao_do_pedido(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
 
         with patch(
             "pedidos.services.TaxaEntregaRetiradaService",
@@ -602,6 +695,7 @@ class CarrinhoAPITests(APITestCase):
     def test_falha_no_calculo_da_taxa_nao_converte_o_carrinho(self):
         self.adicionar_brinquedo()
         carrinho = Carrinho.objects.get()
+        self.client.force_authenticate(user=self.usuario)
 
         with patch(
             "pedidos.services.TaxaEntregaRetiradaService",
@@ -619,6 +713,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_cep(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("cep")
 
@@ -629,6 +724,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_numero(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("numero")
 
@@ -639,6 +735,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_complemento_e_opcional_na_conversao(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("complemento", None)
 
@@ -672,7 +769,11 @@ class CarrinhoAPITests(APITestCase):
         carrinho.refresh_from_db()
 
         with self.assertRaises(DRFValidationError):
-            PedidoService.converter_carrinho(carrinho, self.payload_pedido())
+            PedidoService.converter_carrinho(
+                carrinho,
+                self.payload_pedido(),
+                self.usuario,
+            )
 
         self.assertEqual(Pedido.objects.count(), 1)
 
@@ -688,6 +789,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_nome(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("nome")
 
@@ -698,6 +800,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_telefone(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("telefone")
 
@@ -708,6 +811,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_email(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("email")
 
@@ -718,6 +822,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_data_evento_pretendida(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("data_evento_pretendida")
 
@@ -767,6 +872,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_data_inicio_locacao(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("data_inicio_locacao")
 
@@ -777,6 +883,7 @@ class CarrinhoAPITests(APITestCase):
 
     def test_conversao_exige_data_fim_locacao(self):
         self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
         payload = self.payload_pedido()
         payload.pop("data_fim_locacao")
 
@@ -955,17 +1062,17 @@ class CarrinhoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_anonimo_acessa_contrato_do_proprio_pedido_pela_mesma_sessao(self):
-        contrato = self.criar_contrato()
+    def test_anonimo_nao_acessa_contrato_do_pedido_mesmo_com_mesma_sessao(self):
+        self.criar_contrato()
         self.adicionar_brinquedo()
         pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        self.client.force_authenticate(user=None)
 
         response = self.client.get(f"{self.pedidos_url}{pedido_id}/contrato/")
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["id"], contrato.id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_anonimo_nao_acessa_contrato_de_pedido_de_outra_sessao(self):
+    def test_anonimo_nao_acessa_contrato_de_pedido(self):
         self.criar_contrato()
         self.adicionar_brinquedo()
         pedido_id = self.converter_carrinho_em_pedido().data["id"]
@@ -973,7 +1080,7 @@ class CarrinhoAPITests(APITestCase):
 
         response = outro_cliente.get(f"{self.pedidos_url}{pedido_id}/contrato/")
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_aceite_cria_registro_para_pedido_correto(self):
         contrato = self.criar_contrato()
@@ -988,6 +1095,33 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(aceite.contrato, contrato)
         self.assertEqual(response.data["pedido"], pedido_id)
         self.assertEqual(response.data["contrato"], contrato.id)
+
+    def test_outro_usuario_nao_aceita_contrato_de_pedido_alheio(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        outro_cliente = APIClient()
+        outro_cliente.force_authenticate(user=self.outro_usuario)
+
+        response = self.aceitar_contrato(
+            pedido_id,
+            contrato=contrato,
+            client=outro_cliente,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(AceiteContrato.objects.count(), 0)
+
+    def test_anonimo_nao_aceita_contrato_de_pedido(self):
+        contrato = self.criar_contrato()
+        self.adicionar_brinquedo()
+        pedido_id = self.converter_carrinho_em_pedido().data["id"]
+        self.client.force_authenticate(user=None)
+
+        response = self.aceitar_contrato(pedido_id, contrato=contrato)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(AceiteContrato.objects.count(), 0)
 
     def test_aceite_salva_snapshots_e_auditoria(self):
         contrato = self.criar_contrato()

@@ -84,6 +84,8 @@ class LimparCarrinhoView(CarrinhoMixin, APIView):
 
 
 class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         carrinho = self.get_carrinho()
         serializer = ConverterCarrinhoPedidoSerializer(data=request.data)
@@ -91,6 +93,7 @@ class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
         pedido = PedidoService.converter_carrinho(
             carrinho,
             serializer.dados_para_pedido(),
+            request.user,
         )
         return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
 
@@ -110,7 +113,7 @@ class ContratoVigenteView(APIView):
 
 
 class PedidoContratoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pedido_id):
         try:
@@ -124,7 +127,7 @@ class PedidoContratoView(APIView):
 
 
 class AceitarContratoPedidoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pedido_id):
         serializer = AceitarContratoSerializer(data=request.data)
