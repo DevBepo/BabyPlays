@@ -1,0 +1,103 @@
+from django.contrib.auth import login, logout
+from django.middleware.csrf import get_token
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from pedidos.models import Carrinho
+
+from .serializers import (
+    AuthClienteSerializer,
+    CadastroClienteSerializer,
+    LoginClienteSerializer,
+)
+
+
+def dados_auth_cliente(user):
+    return {
+        "authenticated": True,
+        "user": user,
+        "cliente": user.cliente,
+    }
+
+
+def vincular_carrinho_anonimo_da_sessao(request, user, session_key_anterior):
+    if not session_key_anterior:
+        return
+
+    carrinho = (
+        Carrinho.objects.filter(
+            session_key=session_key_anterior,
+            usuario__isnull=True,
+            status=Carrinho.Status.ATIVO,
+        )
+        .order_by("-atualizado_em", "-id")
+        .first()
+    )
+    if not carrinho:
+        return
+
+    carrinho.usuario = user
+    carrinho.session_key = request.session.session_key
+    carrinho.save(update_fields=["usuario", "session_key", "atualizado_em"])
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class CadastroClienteView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        session_key_anterior = request.session.session_key
+        serializer = CadastroClienteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        login(request, user)
+        vincular_carrinho_anonimo_da_sessao(request, user, session_key_anterior)
+        return Response(
+            AuthClienteSerializer(dados_auth_cliente(user)).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LoginClienteView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        session_key_anterior = request.session.session_key
+        serializer = LoginClienteSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        login(request, user)
+        vincular_carrinho_anonimo_da_sessao(request, user, session_key_anterior)
+        return Response(AuthClienteSerializer(dados_auth_cliente(user)).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LogoutClienteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        logout(request)
+        return Response({"message": "Logout realizado."})
+
+
+class MeClienteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(AuthClienteSerializer(dados_auth_cliente(request.user)).data)
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class CsrfClienteView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"csrfToken": get_token(request)})

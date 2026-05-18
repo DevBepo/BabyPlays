@@ -23,6 +23,7 @@ from setup.views import CookieTokenObtainPairView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/', include('clientes.urls')),
     path('api/', include('catalogo.urls')),
     path('api/', include('pedidos.urls')),
     path('api/', include('entregas.urls')),
