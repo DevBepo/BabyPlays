@@ -17,6 +17,8 @@ Regras:
 - Trabalhe em mudanças pequenas.
 - Não implemente funcionalidades futuras sem pedido.
 - Não refatore partes fora do escopo.
+- Autenticação oficial usa Django sessions + CSRF.
+- Não introduza JWT sem solicitação explícita.
 - Valide regras críticas no backend.
 - Toda regra crítica precisa de teste.
 - Cliente só acessa os próprios dados.

@@ -17,8 +17,10 @@ Referências:
 - [ ] Senhas nunca são armazenadas em texto puro.
 - [ ] Senhas usam hash seguro do Django.
 - [ ] Reset de senha, se existir, usa token com expiração.
-- [ ] Tokens, sessões e cookies não aparecem em logs.
-- [ ] Logout invalida sessão/token corretamente.
+- [ ] Autenticação oficial usa Django SessionAuthentication com cookies de sessão.
+- [ ] CSRF é obrigatório em métodos mutáveis autenticados por sessão.
+- [ ] Session id, CSRF token e cookies não aparecem em logs.
+- [ ] Logout invalida sessão corretamente.
 - [ ] Usuário inativo não consegue acessar o sistema.
 
 ## 2. Autorização e permissões
@@ -77,7 +79,10 @@ Referências:
 ## 6. Carrinho e checkout
 
 - [ ] Carrinho pertence a um cliente/sessão identificável.
+- [ ] Carrinho anônimo usa session_key.
+- [ ] Carrinho da sessão é reaproveitado após login.
 - [ ] Cliente não consegue manipular carrinho de outro cliente.
+- [ ] Login é obrigatório para fechar pedido.
 - [ ] Valores do carrinho são recalculados no backend.
 - [ ] Frete por bairro é calculado no backend.
 - [ ] Bairro não atendido bloqueia checkout.
@@ -116,6 +121,7 @@ Referências:
 - [ ] Frontend não guarda segredos.
 - [ ] Variáveis públicas usam apenas prefixo seguro e conteúdo não sensível.
 - [ ] Telas administrativas são protegidas.
+- [ ] Requisições autenticadas enviam cookies com credentials: "include".
 - [ ] Frontend não decide preço final, frete final ou disponibilidade final.
 - [ ] Contrato é exibido antes da confirmação.
 - [ ] Checkbox de contrato não substitui validação no backend.
@@ -127,7 +133,7 @@ Referências:
 
 - [ ] Coletar somente dados necessários.
 - [ ] Não expor telefone, e-mail e endereço em rotas públicas.
-- [ ] Logs não devem conter documentos, senhas, tokens ou dados sensíveis desnecessários.
+- [ ] Logs não devem conter documentos, senhas, session id, CSRF token, cookies ou dados sensíveis desnecessários.
 - [ ] Admin deve conseguir localizar histórico de aceite do contrato.
 - [ ] Admin deve conseguir anonimizar ou excluir cliente quando necessário.
 - [ ] Política de privacidade deve existir antes da produção.
@@ -146,6 +152,7 @@ Referências:
 - [ ] Cookies seguros em produção.
 - [ ] SESSION_COOKIE_SECURE=True.
 - [ ] CSRF_COOKIE_SECURE=True.
+- [ ] Cookies de sessão/CSRF usam HttpOnly, Secure e SameSite conforme aplicável.
 - [ ] SECURE_SSL_REDIRECT=True quando HTTPS estiver configurado.
 - [ ] SECURE_HSTS_SECONDS configurado após validar HTTPS.
 - [ ] SECURE_CONTENT_TYPE_NOSNIFF=True.

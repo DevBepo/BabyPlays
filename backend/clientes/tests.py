@@ -122,6 +122,7 @@ class ClienteAuthAPITests(APITestCase):
     logout_url = "/api/auth/logout/"
     me_url = "/api/auth/me/"
     csrf_url = "/api/auth/csrf/"
+    token_url = "/api/token/"
     carrinho_url = "/api/carrinho/atual/"
     itens_url = "/api/carrinho/itens/"
     converter_pedido_url = "/api/pedidos/converter-carrinho/"
@@ -280,6 +281,15 @@ class ClienteAuthAPITests(APITestCase):
         self.assertNotIn("is_superuser", response.data["user"])
         me = self.client.get(self.me_url)
         self.assertEqual(me.status_code, status.HTTP_200_OK)
+
+    def test_endpoint_token_jwt_legado_nao_existe(self):
+        response = self.client.post(
+            self.token_url,
+            {"username": "cliente@email.com", "password": "SenhaForte123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_login_invalido_retorna_erro_generico(self):
         self.criar_usuario_cliente()
