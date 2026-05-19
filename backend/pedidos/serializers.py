@@ -167,6 +167,260 @@ class PedidoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ClientePedidoAdminResumoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    nome = serializers.CharField()
+    telefone = serializers.CharField()
+    ativo = serializers.BooleanField()
+
+
+class UsuarioAdminResumoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    email = serializers.EmailField(allow_blank=True)
+
+
+class ClienteSnapshotPedidoSerializer(serializers.Serializer):
+    nome = serializers.CharField(source="nome_cliente_snapshot")
+    email = serializers.EmailField(source="email_cliente_snapshot")
+    telefone = serializers.CharField(source="telefone_cliente_snapshot")
+
+
+class ValoresPedidoAdminSerializer(serializers.Serializer):
+    subtotal_itens_snapshot = serializers.DecimalField(max_digits=9, decimal_places=2)
+    distancia_ida_km_snapshot = serializers.DecimalField(max_digits=10, decimal_places=2)
+    distancia_total_km_snapshot = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+    valor_por_km_snapshot = serializers.DecimalField(max_digits=8, decimal_places=2)
+    taxa_entrega_retirada_snapshot = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+    total_estimado_snapshot = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class UnidadeBrinquedoAdminResumoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    codigo = serializers.CharField()
+    status = serializers.CharField()
+
+
+class BrinquedoAdminResumoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    nome = serializers.CharField()
+
+
+class ItemPedidoAdminSerializer(serializers.ModelSerializer):
+    resumo_composicao = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemPedido
+        fields = (
+            "id",
+            "tipo_item",
+            "quantidade",
+            "nome_snapshot",
+            "preco_unitario_snapshot",
+            "subtotal_snapshot",
+            "resumo_composicao",
+            "criado_em",
+        )
+        read_only_fields = fields
+
+    def get_resumo_composicao(self, obj):
+        if obj.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO:
+            brinquedo = obj.snapshot.get("brinquedo", {})
+            return {
+                "tipo": obj.tipo_item,
+                "brinquedo": {
+                    "id": obj.brinquedo_id or brinquedo.get("id"),
+                    "nome": brinquedo.get("nome") or obj.nome_snapshot,
+                },
+            }
+
+        if obj.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
+            kit = obj.snapshot.get("kit_festa", {})
+            return {
+                "tipo": obj.tipo_item,
+                "kit_festa": {
+                    "id": obj.kit_festa_id or kit.get("id"),
+                    "nome": kit.get("nome") or obj.nome_snapshot,
+                },
+                "itens": kit.get("itens", []),
+            }
+
+        if obj.tipo_item == ItemCarrinho.TipoItem.KIT_PERSONALIZADO:
+            configuracao = obj.snapshot.get("configuracao", {})
+            return {
+                "tipo": obj.tipo_item,
+                "configuracao": {
+                    "id": (
+                        obj.configuracao_kit_personalizavel_id
+                        or configuracao.get("id")
+                    ),
+                    "nome": configuracao.get("nome") or obj.nome_snapshot,
+                },
+                "itens": obj.snapshot.get("itens", []),
+            }
+
+        return {"tipo": obj.tipo_item}
+
+
+class AceiteContratoAdminSerializer(serializers.ModelSerializer):
+    contrato = serializers.IntegerField(source="contrato_id", read_only=True)
+    versao_aceita = serializers.CharField(
+        source="contrato_versao_snapshot",
+        read_only=True,
+    )
+
+    class Meta:
+        model = AceiteContrato
+        fields = (
+            "id",
+            "contrato",
+            "versao_aceita",
+            "aceito_em",
+            "nome_cliente_snapshot",
+            "email_cliente_snapshot",
+            "ip",
+            "user_agent",
+        )
+        read_only_fields = fields
+
+
+class ReservaUnidadeAdminSerializer(serializers.ModelSerializer):
+    item_pedido = serializers.IntegerField(source="item_pedido_id", read_only=True)
+    unidade = serializers.SerializerMethodField()
+    brinquedo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReservaUnidade
+        fields = (
+            "id",
+            "item_pedido",
+            "unidade",
+            "brinquedo",
+            "data_inicio",
+            "data_fim",
+            "status",
+        )
+        read_only_fields = fields
+
+    def get_unidade(self, obj):
+        return UnidadeBrinquedoAdminResumoSerializer(obj.unidade_brinquedo).data
+
+    def get_brinquedo(self, obj):
+        return BrinquedoAdminResumoSerializer(obj.unidade_brinquedo.brinquedo).data
+
+
+class PedidoAdminListSerializer(serializers.ModelSerializer):
+    cliente = ClientePedidoAdminResumoSerializer(read_only=True)
+    cliente_snapshot = ClienteSnapshotPedidoSerializer(source="*", read_only=True)
+    tem_aceite_contrato = serializers.BooleanField(read_only=True)
+    possui_reservas_ativas = serializers.BooleanField(read_only=True)
+    quantidade_itens = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Pedido
+        fields = (
+            "id",
+            "status",
+            "cliente",
+            "cliente_snapshot",
+            "data_evento_pretendida",
+            "data_inicio_locacao",
+            "data_fim_locacao",
+            "total_estimado_snapshot",
+            "criado_em",
+            "atualizado_em",
+            "tem_aceite_contrato",
+            "possui_reservas_ativas",
+            "quantidade_itens",
+        )
+        read_only_fields = fields
+
+
+class PedidoAdminDetailSerializer(serializers.ModelSerializer):
+    cliente = ClientePedidoAdminResumoSerializer(read_only=True)
+    usuario = UsuarioAdminResumoSerializer(read_only=True)
+    confirmado_por = UsuarioAdminResumoSerializer(read_only=True)
+    cliente_snapshot = ClienteSnapshotPedidoSerializer(source="*", read_only=True)
+    endereco_entrega = serializers.JSONField(source="endereco_entrega_snapshot")
+    valores = ValoresPedidoAdminSerializer(source="*", read_only=True)
+    itens = ItemPedidoAdminSerializer(many=True, read_only=True)
+    aceite_contrato = AceiteContratoAdminSerializer(read_only=True)
+    reservas = serializers.SerializerMethodField()
+    unidades_reservadas = serializers.SerializerMethodField()
+    tem_aceite_contrato = serializers.SerializerMethodField()
+    possui_reservas_ativas = serializers.SerializerMethodField()
+    acoes_disponiveis = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pedido
+        fields = (
+            "id",
+            "status",
+            "usuario",
+            "cliente",
+            "cliente_snapshot",
+            "data_evento_pretendida",
+            "data_inicio_locacao",
+            "data_fim_locacao",
+            "observacoes_cliente",
+            "endereco_entrega",
+            "valores",
+            "itens",
+            "aceite_contrato",
+            "reservas",
+            "unidades_reservadas",
+            "tem_aceite_contrato",
+            "possui_reservas_ativas",
+            "confirmado_em",
+            "confirmado_por",
+            "acoes_disponiveis",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = fields
+
+    def get_reservas(self, obj):
+        return ReservaUnidadeAdminSerializer(obj.reservas_unidades.all(), many=True).data
+
+    def get_unidades_reservadas(self, obj):
+        unidades = []
+        ids_vistos = set()
+        for reserva in obj.reservas_unidades.all():
+            unidade = reserva.unidade_brinquedo
+            if unidade.id in ids_vistos:
+                continue
+            ids_vistos.add(unidade.id)
+            unidades.append(unidade)
+        return UnidadeBrinquedoAdminResumoSerializer(unidades, many=True).data
+
+    def get_tem_aceite_contrato(self, obj):
+        return hasattr(obj, "aceite_contrato")
+
+    def get_possui_reservas_ativas(self, obj):
+        return any(
+            reserva.status == ReservaUnidade.Status.ATIVA
+            for reserva in obj.reservas_unidades.all()
+        )
+
+    def get_acoes_disponiveis(self, obj):
+        if obj.status == Pedido.Status.AGUARDANDO_ANALISE:
+            if hasattr(obj, "aceite_contrato"):
+                return ["reservar_unidades"]
+            return []
+        if obj.status == Pedido.Status.RESERVADO:
+            return ["confirmar"]
+        if obj.status == Pedido.Status.CONFIRMADO:
+            return ["iniciar_locacao"]
+        if obj.status == Pedido.Status.EM_LOCACAO:
+            return ["registrar_retirada"]
+        return []
+
+
 class ReservaUnidadePedidoSerializer(serializers.ModelSerializer):
     unidade_brinquedo = serializers.IntegerField(
         source="unidade_brinquedo_id",

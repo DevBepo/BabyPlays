@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     AceitarContratoPedidoView,
     AdminConfirmarPedidoView,
+    AdminPedidoDetailView,
+    AdminPedidoListView,
     AdminIniciarLocacaoPedidoView,
     AdminRegistrarRetiradaPedidoView,
     AdminReservarUnidadesPedidoView,
@@ -44,6 +46,16 @@ urlpatterns = [
         "pedidos/<int:pedido_id>/aceitar-contrato/",
         AceitarContratoPedidoView.as_view(),
         name="pedido-aceitar-contrato",
+    ),
+    path(
+        "admin/pedidos/",
+        AdminPedidoListView.as_view(),
+        name="admin-pedido-lista",
+    ),
+    path(
+        "admin/pedidos/<int:pedido_id>/",
+        AdminPedidoDetailView.as_view(),
+        name="admin-pedido-detalhe",
     ),
     path(
         "admin/pedidos/<int:pedido_id>/reservar-unidades/",
