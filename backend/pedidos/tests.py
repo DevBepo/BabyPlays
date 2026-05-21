@@ -1234,6 +1234,319 @@ class CarrinhoAPITests(APITestCase):
             contrato.full_clean()
 
 
+class PedidoAdminAPITests(APITestCase):
+    lista_url = "/api/admin/pedidos/"
+
+    def setUp(self):
+        self.data_inicio = timezone.localdate() + timedelta(days=30)
+        self.data_fim = self.data_inicio + timedelta(days=2)
+        self.admin = get_user_model().objects.create_user(
+            username="admin-pedidos",
+            email="admin-pedidos@email.com",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+        self.usuario = get_user_model().objects.create_user(
+            username="cliente-admin-api",
+            email="cliente-admin-api@email.com",
+            password="senha-segura-123",
+        )
+        self.outro_usuario = get_user_model().objects.create_user(
+            username="outro-cliente-admin-api",
+            email="outro-admin-api@email.com",
+            password="senha-segura-123",
+        )
+        self.cliente = Cliente.objects.create(
+            user=self.usuario,
+            nome="Cliente Vinculado",
+            telefone="11988887777",
+        )
+        self.outro_cliente = Cliente.objects.create(
+            user=self.outro_usuario,
+            nome="Outro Cliente",
+            telefone="11977776666",
+        )
+        self.categoria = Categoria.objects.create(
+            nome="Brinquedos admin pedidos",
+            slug="brinquedos-admin-pedidos",
+        )
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica admin",
+            descricao="Brinquedo para festas maiores.",
+            categoria=self.categoria,
+            preco_aluguel=Decimal("220.00"),
+        )
+        self.contrato = Contrato.objects.create(
+            titulo="Contrato de locacao",
+            versao="2026-05-admin-pedidos",
+            texto="Texto vigente do contrato.",
+            ativo=True,
+        )
+
+    def detalhe_url(self, pedido):
+        return f"{self.lista_url}{pedido.id}/"
+
+    def autenticar_admin(self):
+        self.client.force_authenticate(user=self.admin)
+
+    def criar_pedido(
+        self,
+        cliente=None,
+        usuario=None,
+        status_pedido=None,
+        nome_snapshot="Cliente Snapshot",
+        email_snapshot="snapshot@email.com",
+        telefone_snapshot="11999999999",
+    ):
+        cliente = cliente if cliente is not None else self.cliente
+        usuario = usuario if usuario is not None else self.usuario
+        return Pedido.objects.create(
+            usuario=usuario,
+            cliente=cliente,
+            nome_cliente_snapshot=nome_snapshot,
+            telefone_cliente_snapshot=telefone_snapshot,
+            email_cliente_snapshot=email_snapshot,
+            observacoes_cliente="Entregar no salao.",
+            data_evento_pretendida=self.data_inicio,
+            data_inicio_locacao=self.data_inicio,
+            data_fim_locacao=self.data_fim,
+            subtotal_itens_snapshot=Decimal("220.00"),
+            endereco_entrega_snapshot={
+                "cep": "01001000",
+                "logradouro": "Praca da Se",
+                "numero": "100",
+                "bairro": "Se",
+                "cidade": "Sao Paulo",
+                "uf": "SP",
+            },
+            distancia_ida_km_snapshot=Decimal("8.00"),
+            distancia_total_km_snapshot=Decimal("16.00"),
+            valor_por_km_snapshot=Decimal("3.00"),
+            taxa_entrega_retirada_snapshot=Decimal("48.00"),
+            total_estimado_snapshot=Decimal("268.00"),
+            status=status_pedido or Pedido.Status.AGUARDANDO_ANALISE,
+        )
+
+    def criar_item(self, pedido):
+        return ItemPedido.objects.create(
+            pedido=pedido,
+            tipo_item=ItemCarrinho.TipoItem.BRINQUEDO,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+            nome_snapshot=self.brinquedo.nome,
+            preco_unitario_snapshot=self.brinquedo.preco_aluguel,
+            subtotal_snapshot=self.brinquedo.preco_aluguel,
+            snapshot={
+                "tipo_item": "brinquedo",
+                "brinquedo": {"id": self.brinquedo.id, "nome": self.brinquedo.nome},
+                "quantidade": 1,
+            },
+        )
+
+    def criar_aceite(self, pedido):
+        return AceiteContrato.objects.create(
+            pedido=pedido,
+            contrato=self.contrato,
+            contrato_versao_snapshot=self.contrato.versao,
+            contrato_texto_snapshot=self.contrato.texto,
+            nome_cliente_snapshot=pedido.nome_cliente_snapshot,
+            email_cliente_snapshot=pedido.email_cliente_snapshot,
+            aceito_em=timezone.now(),
+            ip="203.0.113.10",
+            user_agent="Teste Browser",
+        )
+
+    def criar_reserva(self, pedido, item):
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo=f"ADM-PED-{UnidadeBrinquedo.objects.count() + 1:03d}",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        return ReservaUnidade.objects.create(
+            pedido=pedido,
+            item_pedido=item,
+            unidade_brinquedo=unidade,
+            data_inicio=self.data_inicio,
+            data_fim=self.data_fim,
+            status=ReservaUnidade.Status.ATIVA,
+        )
+
+    def test_anonimo_nao_acessa_lista_admin(self):
+        response = self.client.get(self.lista_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_comum_nao_acessa_lista_admin(self):
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.get(self.lista_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_lista_pedidos_com_campos_resumidos(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido()
+        self.criar_item(pedido)
+        self.criar_aceite(pedido)
+
+        response = self.client.get(self.lista_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["id"], pedido.id)
+        self.assertEqual(item["status"], Pedido.Status.AGUARDANDO_ANALISE)
+        self.assertEqual(item["cliente"]["id"], self.cliente.id)
+        self.assertEqual(item["cliente_snapshot"]["nome"], "Cliente Snapshot")
+        self.assertEqual(item["cliente_snapshot"]["email"], "snapshot@email.com")
+        self.assertEqual(item["cliente_snapshot"]["telefone"], "11999999999")
+        self.assertEqual(item["total_estimado_snapshot"], "268.00")
+        self.assertTrue(item["tem_aceite_contrato"])
+        self.assertFalse(item["possui_reservas_ativas"])
+        self.assertEqual(item["quantidade_itens"], 1)
+        self.assertNotIn("itens", item)
+        self.assertNotIn("reservas", item)
+        self.assertNotIn("contrato_texto_snapshot", item)
+
+    def test_admin_ve_detalhe_de_qualquer_pedido_com_dados_tratados(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(
+            cliente=self.outro_cliente,
+            usuario=self.outro_usuario,
+            status_pedido=Pedido.Status.RESERVADO,
+        )
+        item = self.criar_item(pedido)
+        self.criar_aceite(pedido)
+        reserva = self.criar_reserva(pedido, item)
+
+        response = self.client.get(self.detalhe_url(pedido))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], pedido.id)
+        self.assertEqual(response.data["cliente"]["id"], self.outro_cliente.id)
+        self.assertEqual(response.data["cliente_snapshot"]["nome"], "Cliente Snapshot")
+        self.assertEqual(response.data["endereco_entrega"]["logradouro"], "Praca da Se")
+        self.assertEqual(response.data["valores"]["subtotal_itens_snapshot"], "220.00")
+        self.assertEqual(
+            response.data["valores"]["taxa_entrega_retirada_snapshot"],
+            "48.00",
+        )
+        self.assertEqual(response.data["valores"]["total_estimado_snapshot"], "268.00")
+        self.assertEqual(len(response.data["itens"]), 1)
+        self.assertEqual(response.data["itens"][0]["id"], item.id)
+        self.assertEqual(
+            response.data["itens"][0]["resumo_composicao"]["brinquedo"]["id"],
+            self.brinquedo.id,
+        )
+        self.assertNotIn("snapshot", response.data["itens"][0])
+        self.assertEqual(response.data["aceite_contrato"]["contrato"], self.contrato.id)
+        self.assertEqual(
+            response.data["aceite_contrato"]["versao_aceita"],
+            self.contrato.versao,
+        )
+        self.assertEqual(response.data["aceite_contrato"]["ip"], "203.0.113.10")
+        self.assertEqual(len(response.data["reservas"]), 1)
+        self.assertEqual(response.data["reservas"][0]["id"], reserva.id)
+        self.assertEqual(response.data["reservas"][0]["item_pedido"], item.id)
+        self.assertEqual(
+            response.data["reservas"][0]["unidade"]["id"],
+            reserva.unidade_brinquedo_id,
+        )
+        self.assertEqual(
+            response.data["reservas"][0]["brinquedo"]["id"],
+            self.brinquedo.id,
+        )
+        self.assertEqual(len(response.data["unidades_reservadas"]), 1)
+        self.assertEqual(response.data["acoes_disponiveis"], ["confirmar"])
+
+    def test_filtro_por_status_funciona(self):
+        self.autenticar_admin()
+        reservado = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        self.criar_pedido(status_pedido=Pedido.Status.CANCELADO)
+
+        response = self.client.get(
+            self.lista_url,
+            {"status": Pedido.Status.RESERVADO},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], reservado.id)
+
+    def test_filtro_por_cliente_funciona(self):
+        self.autenticar_admin()
+        esperado = self.criar_pedido(cliente=self.outro_cliente, usuario=self.outro_usuario)
+        self.criar_pedido()
+
+        response = self.client.get(self.lista_url, {"cliente": self.outro_cliente.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], esperado.id)
+
+    def test_busca_por_nome_email_e_telefone_snapshot_funciona(self):
+        self.autenticar_admin()
+        esperado = self.criar_pedido(
+            nome_snapshot="Maria Busca",
+            email_snapshot="maria.busca@email.com",
+            telefone_snapshot="51912345678",
+        )
+        self.criar_pedido(
+            nome_snapshot="Cliente Diferente",
+            email_snapshot="diferente@email.com",
+            telefone_snapshot="11900000000",
+        )
+
+        for termo in ("Maria Busca", "maria.busca@email.com", "51912345678"):
+            with self.subTest(termo=termo):
+                response = self.client.get(self.lista_url, {"busca": termo})
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual(response.data["count"], 1)
+                self.assertEqual(response.data["results"][0]["id"], esperado.id)
+
+    def test_ordenacao_padrao_e_por_mais_recentes(self):
+        self.autenticar_admin()
+        antigo = self.criar_pedido(nome_snapshot="Antigo")
+        recente = self.criar_pedido(nome_snapshot="Recente")
+        Pedido.objects.filter(id=antigo.id).update(
+            criado_em=timezone.now() - timedelta(days=2),
+        )
+        Pedido.objects.filter(id=recente.id).update(criado_em=timezone.now())
+
+        response = self.client.get(self.lista_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [pedido["id"] for pedido in response.data["results"]]
+        self.assertEqual(ids, [recente.id, antigo.id])
+
+    def test_endpoint_publico_continua_listando_apenas_pedidos_do_usuario(self):
+        pedido_usuario = self.criar_pedido()
+        pedido_outro = self.criar_pedido(
+            cliente=self.outro_cliente,
+            usuario=self.outro_usuario,
+        )
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.get("/api/pedidos/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [pedido["id"] for pedido in response.data]
+        self.assertIn(pedido_usuario.id, ids)
+        self.assertNotIn(pedido_outro.id, ids)
+
+    def test_endpoint_publico_continua_bloqueando_pedido_de_outro_cliente(self):
+        pedido_outro = self.criar_pedido(
+            cliente=self.outro_cliente,
+            usuario=self.outro_usuario,
+        )
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.get(f"/api/pedidos/{pedido_outro.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
 class ReservaUnidadesPedidoAdminTests(APITestCase):
     def setUp(self):
         self.url_template = "/api/admin/pedidos/{}/reservar-unidades/"

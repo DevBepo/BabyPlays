@@ -1,10 +1,13 @@
+from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
+from django.utils.dateparse import parse_date
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ItemCarrinho, Pedido
+from .models import AceiteContrato, ItemCarrinho, Pedido, ReservaUnidade
 from .serializers import (
     AceitarContratoSerializer,
     AceiteContratoSerializer,
@@ -16,6 +19,8 @@ from .serializers import (
     ConverterCarrinhoPedidoSerializer,
     ItemCarrinhoSerializer,
     OperacaoLocacaoResultadoSerializer,
+    PedidoAdminDetailSerializer,
+    PedidoAdminListSerializer,
     PedidoSerializer,
     ReservaPedidoResultadoSerializer,
 )
@@ -166,6 +171,140 @@ class PedidoDetalheView(APIView):
             id=pedido_id,
         )
         return Response(PedidoSerializer(pedido).data)
+
+
+class AdminPedidoPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class AdminPedidoQuerysetMixin:
+    ordering_padrao = "-criado_em"
+    ordering_permitido = {
+        "id",
+        "-id",
+        "status",
+        "-status",
+        "criado_em",
+        "-criado_em",
+        "atualizado_em",
+        "-atualizado_em",
+        "data_evento_pretendida",
+        "-data_evento_pretendida",
+        "data_inicio_locacao",
+        "-data_inicio_locacao",
+        "data_fim_locacao",
+        "-data_fim_locacao",
+        "total_estimado_snapshot",
+        "-total_estimado_snapshot",
+    }
+
+    def queryset_base(self):
+        return Pedido.objects.select_related(
+            "cliente",
+            "cliente__user",
+            "usuario",
+        )
+
+    def queryset_listagem(self):
+        aceite = AceiteContrato.objects.filter(pedido_id=OuterRef("pk"))
+        reservas_ativas = ReservaUnidade.objects.filter(
+            pedido_id=OuterRef("pk"),
+            status=ReservaUnidade.Status.ATIVA,
+        )
+        return self.queryset_base().annotate(
+            tem_aceite_contrato=Exists(aceite),
+            possui_reservas_ativas=Exists(reservas_ativas),
+            quantidade_itens=Count("itens", distinct=True),
+        )
+
+    def queryset_detalhe(self):
+        return (
+            self.queryset_base()
+            .select_related(
+                "confirmado_por",
+                "aceite_contrato",
+                "aceite_contrato__contrato",
+            )
+            .prefetch_related(
+                "itens",
+                "reservas_unidades__item_pedido",
+                "reservas_unidades__unidade_brinquedo",
+                "reservas_unidades__unidade_brinquedo__brinquedo",
+            )
+        )
+
+    def aplicar_filtros(self, queryset, params):
+        status_pedido = params.get("status")
+        if status_pedido:
+            queryset = queryset.filter(status=status_pedido)
+
+        cliente_id = params.get("cliente")
+        if cliente_id:
+            if not cliente_id.isdigit():
+                return None, {"cliente": "Informe um id de cliente valido."}
+            queryset = queryset.filter(cliente_id=int(cliente_id))
+
+        filtros_data = (
+            ("data_evento_de", "data_evento_pretendida__gte"),
+            ("data_evento_ate", "data_evento_pretendida__lte"),
+            ("criado_de", "criado_em__date__gte"),
+            ("criado_ate", "criado_em__date__lte"),
+        )
+        for nome_parametro, lookup in filtros_data:
+            valor = params.get(nome_parametro)
+            if not valor:
+                continue
+            data = parse_date(valor)
+            if data is None:
+                return None, {nome_parametro: "Informe uma data valida."}
+            queryset = queryset.filter(**{lookup: data})
+
+        busca = str(params.get("busca", "")).strip()
+        if busca:
+            filtros_busca = (
+                Q(nome_cliente_snapshot__icontains=busca)
+                | Q(email_cliente_snapshot__icontains=busca)
+                | Q(telefone_cliente_snapshot__icontains=busca)
+                | Q(cliente__nome__icontains=busca)
+                | Q(cliente__telefone__icontains=busca)
+                | Q(cliente__user__email__icontains=busca)
+            )
+            if busca.isdigit():
+                filtros_busca |= Q(id=int(busca))
+            queryset = queryset.filter(filtros_busca)
+
+        ordering = params.get("ordering") or self.ordering_padrao
+        if ordering not in self.ordering_permitido:
+            return None, {"ordering": "Ordenacao nao permitida."}
+        return queryset.order_by(ordering, "-id"), None
+
+
+class AdminPedidoListView(AdminPedidoQuerysetMixin, APIView):
+    permission_classes = [IsAdminUser]
+    pagination_class = AdminPedidoPagination
+
+    def get(self, request):
+        queryset, erros = self.aplicar_filtros(
+            self.queryset_listagem(),
+            request.query_params,
+        )
+        if erros:
+            return Response(erros, status=status.HTTP_400_BAD_REQUEST)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = PedidoAdminListSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AdminPedidoDetailView(AdminPedidoQuerysetMixin, APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pedido_id):
+        pedido = get_object_or_404(self.queryset_detalhe(), id=pedido_id)
+        return Response(PedidoAdminDetailSerializer(pedido).data)
 
 
 class AdminReservarUnidadesPedidoView(APIView):
