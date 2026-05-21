@@ -8,19 +8,25 @@ class ConfiguracaoTaxaEntregaRetiradaAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "valor_por_km",
+        "origem_bairro",
         "origem_cidade",
         "origem_uf",
         "ativo",
+        "criado_em",
         "atualizado_em",
     )
-    list_filter = ("ativo", "origem_uf", "origem_cidade")
+    list_filter = ("ativo", "origem_uf", "origem_cidade", "criado_em", "atualizado_em")
     search_fields = (
+        "=id",
         "origem_cep",
         "origem_logradouro",
+        "origem_numero",
         "origem_bairro",
         "origem_cidade",
+        "origem_uf",
     )
     readonly_fields = ("criado_em", "atualizado_em")
+    date_hierarchy = "atualizado_em"
     fieldsets = (
         (
             "Valor",
