@@ -35,14 +35,28 @@ const IconCart = () => (
   </svg>
 );
 
-export function Header() {
-  const [searchQuery, setSearchQuery] = useState("");
+type HeaderProps = {
+  searchQuery?: string;
+  onSearchQueryChange?: (value: string) => void;
+};
+
+export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const { cliente, isAuthenticated, loading, logout } = useAuth();
+  const currentSearchQuery = searchQuery ?? localSearchQuery;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Pesquisando por:", searchQuery);
+  };
+
+  const handleSearchQueryChange = (value: string) => {
+    if (onSearchQueryChange) {
+      onSearchQueryChange(value);
+      return;
+    }
+
+    setLocalSearchQuery(value);
   };
 
   const handleLogout = async () => {
@@ -76,8 +90,8 @@ export function Header() {
           <input
             type="text"
             placeholder="Buscar brinquedos"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={currentSearchQuery}
+            onChange={(e) => handleSearchQueryChange(e.target.value)}
             className="w-full h-11 pl-5 pr-12 bg-[#F8F9FA] border border-zinc-200 rounded-full text-sm text-zinc-900 outline-none transition-all focus:bg-white focus:border-teal-600 focus:ring-1 focus:ring-teal-600 placeholder:text-zinc-400"
           />
           <button

@@ -7,7 +7,6 @@ import { ProductCard } from "@/components/client/ProductCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 import { listarBrinquedos, listarKitsFesta } from "@/services/catalogo";
 import type { BrinquedoCatalogo, KitFestaCatalogo } from "@/types/catalogo";
 
@@ -20,6 +19,8 @@ const initialErrors: CatalogoError = {
   brinquedos: null,
   kits: null,
 };
+
+const HOME_PREVIEW_LIMIT = 4;
 
 function formatPrice(value: string) {
   const numberValue = Number(value);
@@ -58,6 +59,14 @@ function matchesSearch(brinquedo: BrinquedoCatalogo, search: string) {
   return searchable.includes(search);
 }
 
+function getBrinquedoImage(brinquedo: BrinquedoCatalogo) {
+  if (brinquedo.imagem_principal?.url) {
+    return brinquedo.imagem_principal;
+  }
+
+  return brinquedo.imagens.find((imagem) => imagem.url);
+}
+
 function getKitImage(kit: KitFestaCatalogo) {
   return kit.itens.find((item) => item.brinquedo.imagem_principal?.url)
     ?.brinquedo.imagem_principal;
@@ -65,18 +74,17 @@ function getKitImage(kit: KitFestaCatalogo) {
 
 function LoadingGrid() {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: 8 }).map((_, index) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: HOME_PREVIEW_LIMIT }).map((_, index) => (
         <div
           key={index}
-          className="h-[420px] animate-pulse rounded-xl border border-zinc-100 bg-white"
+          className="h-[280px] animate-pulse rounded-xl border border-zinc-100 bg-white"
         >
-          <div className="aspect-square bg-zinc-100" />
-          <div className="space-y-3 p-5">
+          <div className="h-40 bg-zinc-100" />
+          <div className="space-y-3 p-4">
             <div className="h-4 w-24 rounded bg-zinc-100" />
             <div className="h-5 w-3/4 rounded bg-zinc-100" />
             <div className="h-4 w-full rounded bg-zinc-100" />
-            <div className="h-4 w-2/3 rounded bg-zinc-100" />
           </div>
         </div>
       ))}
@@ -99,21 +107,21 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 
   return (
     <Card padding="none" className="h-full border-zinc-100">
-      <div className="flex aspect-[4/3] items-center justify-center bg-zinc-50 p-6">
+      <div className="h-40 overflow-hidden bg-zinc-50">
         {imagem?.url ? (
           <img
             src={imagem.url}
             alt={imagem.alt_text || kit.nome}
-            className="max-h-full max-w-full object-contain"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-white text-sm font-medium text-zinc-400">
+          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-white text-xs font-medium text-zinc-400">
             Sem imagem
           </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className="flex flex-1 flex-col p-3.5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="brand">Kit festa</Badge>
           <Badge variant="default">
@@ -121,15 +129,15 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
           </Badge>
         </div>
 
-        <h3 className="mt-3 line-clamp-2 text-base font-bold text-zinc-900">
+        <h3 className="mt-2 line-clamp-2 text-base font-bold text-zinc-900">
           {kit.nome}
         </h3>
-        <p className="mt-2 line-clamp-3 min-h-14 text-sm leading-6 text-zinc-500">
+        <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-zinc-500">
           {kit.descricao}
         </p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {kit.itens.slice(0, 3).map((item) => (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {kit.itens.slice(0, 2).map((item) => (
             <span
               key={item.id}
               className="rounded-full bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-600"
@@ -139,9 +147,9 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
           ))}
         </div>
 
-        <div className="mt-auto pt-5">
+        <div className="mt-auto pt-3">
           <p className="text-xs font-medium uppercase text-zinc-400">Aluguel</p>
-          <p className="text-xl font-bold text-zinc-900">
+          <p className="text-lg font-bold text-zinc-900">
             {formatPrice(kit.preco_aluguel)}
           </p>
         </div>
@@ -264,34 +272,30 @@ export default function Home() {
     });
   }, [brinquedos, normalizedSearch, selectedCategory]);
 
+  const brinquedosPreview = useMemo(
+    () => brinquedosFiltrados.slice(0, HOME_PREVIEW_LIMIT),
+    [brinquedosFiltrados],
+  );
+  const kitsFestaPreview = useMemo(
+    () => kitsFesta.slice(0, HOME_PREVIEW_LIMIT),
+    [kitsFesta],
+  );
+  const hasMoreBrinquedos = brinquedosFiltrados.length > HOME_PREVIEW_LIMIT;
+  const hasMoreKits = kitsFesta.length > HOME_PREVIEW_LIMIT;
   const hasCatalogError = Boolean(errors.brinquedos || errors.kits);
   const hasNoCatalogData = brinquedos.length === 0 && kitsFesta.length === 0;
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
-      <Header />
+      <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
 
       <section className="border-b border-zinc-100 bg-white">
-        <div className="mx-auto max-w-[1600px] px-6 py-10">
-          <div className="max-w-3xl">
-            <Badge variant="brand">Catalogo publico</Badge>
-            <h1 className="mt-4 text-4xl font-black tracking-tight text-zinc-950 sm:text-5xl">
-              Brinquedos e kits para deixar a festa pronta para brincar
-            </h1>
-            <p className="mt-4 text-base leading-7 text-zinc-600">
-              Escolha entre brinquedos avulsos e kits festa cadastrados no
-              catalogo real da BabyPlays.
-            </p>
-          </div>
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-6 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <h1 className="text-lg font-black tracking-tight text-zinc-950">
+            Alugue brinquedos por periodo
+          </h1>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <Input
-              label="Buscar no catalogo"
-              placeholder="Digite nome, descricao ou categoria"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-
+          <div>
             {categorias.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -319,7 +323,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-[1600px] space-y-12 px-6 py-10">
+      <div className="mx-auto max-w-[1600px] space-y-5 px-6 py-5">
         {loading ? (
           <LoadingGrid />
         ) : hasCatalogError && hasNoCatalogData ? (
@@ -343,18 +347,19 @@ export default function Home() {
         ) : (
           <>
             <section>
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-zinc-950">
+                  <h2 className="text-xl font-black text-zinc-950">
                     Brinquedos
                   </h2>
                   <p className="mt-1 text-sm text-zinc-500">
+                    Mostrando {brinquedosPreview.length} de{" "}
                     {brinquedosFiltrados.length} resultado
                     {brinquedosFiltrados.length === 1 ? "" : "s"}
                   </p>
                 </div>
 
-                {errors.brinquedos && (
+                {errors.brinquedos ? (
                   <Button
                     type="button"
                     size="sm"
@@ -363,6 +368,12 @@ export default function Home() {
                   >
                     Recarregar
                   </Button>
+                ) : (
+                  hasMoreBrinquedos && (
+                    <Button type="button" size="sm" variant="ghost">
+                      Ver todos
+                    </Button>
+                  )
                 )}
               </div>
 
@@ -382,27 +393,31 @@ export default function Home() {
                   message="Ajuste a busca ou escolha outra categoria para ver mais itens do catalogo."
                 />
               ) : (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {brinquedosFiltrados.map((brinquedo) => (
-                    <ProductCard
-                      key={brinquedo.id}
-                      nome={brinquedo.nome}
-                      descricao={brinquedo.descricao}
-                      precoAluguel={brinquedo.preco_aluguel}
-                      categoriaNome={brinquedo.categoria?.nome}
-                      quantidadeDisponivel={brinquedo.quantidade_disponivel}
-                      imagemUrl={brinquedo.imagem_principal?.url}
-                      imagemAlt={brinquedo.imagem_principal?.alt_text}
-                    />
-                  ))}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {brinquedosPreview.map((brinquedo) => {
+                    const imagem = getBrinquedoImage(brinquedo);
+
+                    return (
+                      <ProductCard
+                        key={brinquedo.id}
+                        nome={brinquedo.nome}
+                        descricao={brinquedo.descricao}
+                        precoAluguel={brinquedo.preco_aluguel}
+                        categoriaNome={brinquedo.categoria?.nome}
+                        quantidadeDisponivel={brinquedo.quantidade_disponivel}
+                        imagemUrl={imagem?.url}
+                        imagemAlt={imagem?.alt_text}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </section>
 
             <section>
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-zinc-950">
+                  <h2 className="text-xl font-black text-zinc-950">
                     Kits festa
                   </h2>
                   <p className="mt-1 text-sm text-zinc-500">
@@ -410,7 +425,7 @@ export default function Home() {
                   </p>
                 </div>
 
-                {errors.kits && (
+                {errors.kits ? (
                   <Button
                     type="button"
                     size="sm"
@@ -419,6 +434,12 @@ export default function Home() {
                   >
                     Recarregar
                   </Button>
+                ) : (
+                  hasMoreKits && (
+                    <Button type="button" size="sm" variant="ghost">
+                      Ver todos
+                    </Button>
+                  )
                 )}
               </div>
 
@@ -433,8 +454,8 @@ export default function Home() {
                   message="Quando houver kits ativos no backend, eles aparecem nesta secao."
                 />
               ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {kitsFesta.map((kit) => (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {kitsFestaPreview.map((kit) => (
                     <KitFestaCard key={kit.id} kit={kit} />
                   ))}
                 </div>
