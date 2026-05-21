@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -56,6 +58,86 @@ class FakeTaxaEntregaRetiradaService:
             "valor_por_km": Decimal("3.00"),
             "taxa": Decimal("48.00"),
         }
+
+
+class PedidoAdminActionTests(APITestCase):
+    def setUp(self):
+        self.admin_user = get_user_model().objects.create_user(
+            username="admin-actions",
+            email="admin-actions@email.com",
+            password="senha",
+            is_staff=True,
+        )
+        self.model_admin = admin.site._registry[Pedido]
+
+    def criar_pedido(self, status_pedido=Pedido.Status.AGUARDANDO_ANALISE):
+        return Pedido.objects.create(
+            status=status_pedido,
+            nome_cliente_snapshot="Cliente Admin",
+            telefone_cliente_snapshot="51999999999",
+            email_cliente_snapshot="cliente-admin@email.com",
+            data_evento_pretendida=timezone.localdate() + timedelta(days=10),
+            data_inicio_locacao=timezone.localdate() + timedelta(days=10),
+            data_fim_locacao=timezone.localdate() + timedelta(days=12),
+            subtotal_itens_snapshot=Decimal("100.00"),
+            total_estimado_snapshot=Decimal("100.00"),
+        )
+
+    def request_admin(self):
+        return SimpleNamespace(user=self.admin_user)
+
+    def test_status_criticos_de_pedido_e_reserva_ficam_readonly_no_admin(self):
+        reserva_admin = admin.site._registry[ReservaUnidade]
+
+        self.assertIn("status", self.model_admin.readonly_fields)
+        self.assertIn("status", reserva_admin.readonly_fields)
+
+    @patch("pedidos.admin.ReservaPedidoService.reservar_unidades")
+    def test_action_reservar_unidades_chama_service_e_reporta_falha_por_status(
+        self,
+        reservar_unidades,
+    ):
+        pedido_reservavel = self.criar_pedido()
+        pedido_cancelado = self.criar_pedido(status_pedido=Pedido.Status.CANCELADO)
+        queryset = Pedido.objects.filter(
+            id__in=[pedido_reservavel.id, pedido_cancelado.id]
+        ).order_by("id")
+
+        with patch.object(self.model_admin, "message_user") as message_user:
+            self.model_admin.reservar_unidades(self.request_admin(), queryset)
+
+        reservar_unidades.assert_called_once()
+        self.assertEqual(reservar_unidades.call_args.args[0], pedido_reservavel)
+        self.assertEqual(message_user.call_count, 2)
+        mensagens = [call.args[1] for call in message_user.call_args_list]
+        self.assertTrue(any("1 pedido(s) reservado(s)" in msg for msg in mensagens))
+        self.assertTrue(any("Pedido" in msg and "falharam" in msg for msg in mensagens))
+
+    @patch("pedidos.admin.ConfirmacaoPedidoService.confirmar")
+    def test_action_confirmar_pedidos_continua_apos_erro_do_service(
+        self,
+        confirmar,
+    ):
+        pedido_ok = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        pedido_falha = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        confirmar.side_effect = [
+            pedido_ok,
+            DRFValidationError({"status": "Pedido em status nao confirmavel."}),
+        ]
+        queryset = Pedido.objects.filter(id__in=[pedido_ok.id, pedido_falha.id]).order_by(
+            "id"
+        )
+
+        with patch.object(self.model_admin, "message_user") as message_user:
+            self.model_admin.confirmar_pedidos(self.request_admin(), queryset)
+
+        self.assertEqual(confirmar.call_count, 2)
+        self.assertEqual(message_user.call_count, 2)
+        mensagens = [call.args[1] for call in message_user.call_args_list]
+        self.assertTrue(any("1 pedido(s) confirmado(s)" in msg for msg in mensagens))
+        self.assertTrue(
+            any("Pedido em status nao confirmavel" in msg for msg in mensagens)
+        )
 
 
 class CarrinhoAPITests(APITestCase):

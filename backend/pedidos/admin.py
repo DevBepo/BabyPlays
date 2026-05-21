@@ -1,4 +1,5 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from rest_framework import serializers
 
 from .models import (
     AceiteContrato,
@@ -9,6 +10,27 @@ from .models import (
     Pedido,
     ReservaUnidade,
 )
+from .services import (
+    ConfirmacaoPedidoService,
+    OperacaoLocacaoService,
+    ReservaPedidoService,
+)
+
+
+def _mensagem_erro_admin(exc):
+    detail = getattr(exc, "detail", None)
+    if isinstance(detail, dict):
+        partes = []
+        for campo, mensagens in detail.items():
+            if isinstance(mensagens, (list, tuple)):
+                texto = "; ".join(str(mensagem) for mensagem in mensagens)
+            else:
+                texto = str(mensagens)
+            partes.append(f"{campo}: {texto}")
+        return " | ".join(partes)
+    if isinstance(detail, (list, tuple)):
+        return "; ".join(str(mensagem) for mensagem in detail)
+    return str(detail or exc)
 
 
 class ItemCarrinhoInline(admin.TabularInline):
@@ -142,6 +164,7 @@ class PedidoAdmin(admin.ModelAdmin):
         "usuario__email",
     )
     readonly_fields = (
+        "status",
         "carrinho_origem",
         "usuario",
         "cliente",
@@ -164,6 +187,108 @@ class PedidoAdmin(admin.ModelAdmin):
     date_hierarchy = "criado_em"
     list_select_related = ("cliente", "usuario", "confirmado_por")
     inlines = (ItemPedidoInline,)
+    actions = (
+        "reservar_unidades",
+        "confirmar_pedidos",
+        "iniciar_locacao",
+        "registrar_retirada",
+    )
+
+    def _executar_action_pedidos(
+        self,
+        request,
+        queryset,
+        *,
+        operacao,
+        service_call,
+        status_permitidos,
+        sucesso_singular,
+        falha_singular,
+    ):
+        sucessos = 0
+        falhas = []
+
+        for pedido in queryset:
+            if pedido.status not in status_permitidos:
+                falhas.append(
+                    f"Pedido {pedido.id}: status atual nao permite {falha_singular}."
+                )
+                continue
+
+            try:
+                service_call(pedido, request.user)
+                sucessos += 1
+            except serializers.ValidationError as exc:
+                falhas.append(f"Pedido {pedido.id}: {_mensagem_erro_admin(exc)}")
+            except Exception as exc:
+                falhas.append(f"Pedido {pedido.id}: {exc}")
+
+        if sucessos:
+            self.message_user(
+                request,
+                f"{sucessos} pedido(s) {sucesso_singular}.",
+                messages.SUCCESS,
+            )
+        if falhas:
+            self.message_user(
+                request,
+                f"{len(falhas)} pedido(s) falharam em {operacao}: "
+                f"{'; '.join(falhas)}",
+                messages.ERROR,
+            )
+
+    @admin.action(description="Reservar unidades dos pedidos selecionados")
+    def reservar_unidades(self, request, queryset):
+        self._executar_action_pedidos(
+            request,
+            queryset,
+            operacao="reservar unidades",
+            service_call=lambda pedido, usuario: ReservaPedidoService.reservar_unidades(
+                pedido
+            ),
+            status_permitidos=(
+                Pedido.Status.AGUARDANDO_ANALISE,
+                Pedido.Status.RESERVADO,
+            ),
+            sucesso_singular="reservado(s) com regra de reserva",
+            falha_singular="reserva",
+        )
+
+    @admin.action(description="Confirmar pedidos selecionados")
+    def confirmar_pedidos(self, request, queryset):
+        self._executar_action_pedidos(
+            request,
+            queryset,
+            operacao="confirmar pedidos",
+            service_call=ConfirmacaoPedidoService.confirmar,
+            status_permitidos=(Pedido.Status.RESERVADO, Pedido.Status.CONFIRMADO),
+            sucesso_singular="confirmado(s)",
+            falha_singular="confirmacao",
+        )
+
+    @admin.action(description="Iniciar locacao dos pedidos selecionados")
+    def iniciar_locacao(self, request, queryset):
+        self._executar_action_pedidos(
+            request,
+            queryset,
+            operacao="iniciar locacao",
+            service_call=OperacaoLocacaoService.iniciar_locacao,
+            status_permitidos=(Pedido.Status.CONFIRMADO,),
+            sucesso_singular="movido(s) para em locacao",
+            falha_singular="inicio de locacao",
+        )
+
+    @admin.action(description="Registrar retirada dos pedidos selecionados")
+    def registrar_retirada(self, request, queryset):
+        self._executar_action_pedidos(
+            request,
+            queryset,
+            operacao="registrar retirada",
+            service_call=OperacaoLocacaoService.registrar_retirada,
+            status_permitidos=(Pedido.Status.EM_LOCACAO,),
+            sucesso_singular="retirado(s) com unidades em higienizacao",
+            falha_singular="retirada",
+        )
 
 
 @admin.register(ItemPedido)
@@ -341,7 +466,7 @@ class ReservaUnidadeAdmin(admin.ModelAdmin):
         "unidade_brinquedo__brinquedo__nome",
         "unidade_brinquedo__brinquedo__categoria__nome",
     )
-    readonly_fields = ("criado_em", "atualizado_em")
+    readonly_fields = ("status", "criado_em", "atualizado_em")
     date_hierarchy = "data_inicio"
     list_select_related = (
         "pedido",

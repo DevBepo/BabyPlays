@@ -1,4 +1,6 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from rest_framework import serializers
+
 from .models import (
     Brinquedo,
     Categoria,
@@ -9,7 +11,23 @@ from .models import (
     RegraCategoriaKitPersonalizavel,
     UnidadeBrinquedo,
 )
-from .services import BrinquedoService
+from .services import BrinquedoService, UnidadeBrinquedoOperacaoService
+
+
+def _mensagem_erro_admin(exc):
+    detail = getattr(exc, "detail", None)
+    if isinstance(detail, dict):
+        partes = []
+        for campo, mensagens in detail.items():
+            if isinstance(mensagens, (list, tuple)):
+                texto = "; ".join(str(mensagem) for mensagem in mensagens)
+            else:
+                texto = str(mensagens)
+            partes.append(f"{campo}: {texto}")
+        return " | ".join(partes)
+    if isinstance(detail, (list, tuple)):
+        return "; ".join(str(mensagem) for mensagem in detail)
+    return str(detail or exc)
 
 
 @admin.register(Categoria)
@@ -72,10 +90,47 @@ class UnidadeBrinquedoAdmin(admin.ModelAdmin):
     readonly_fields = ("data_cadastro", "atualizado_em")
     ordering = ("status", "codigo")
     list_select_related = ("brinquedo", "brinquedo__categoria")
+    actions = ("liberar_disponibilidade",)
 
     @admin.display(description="Categoria", ordering="brinquedo__categoria__nome")
     def categoria_do_brinquedo(self, obj):
         return obj.brinquedo.categoria
+
+    @admin.action(description="Liberar unidades selecionadas para disponivel")
+    def liberar_disponibilidade(self, request, queryset):
+        sucessos = 0
+        falhas = []
+
+        for unidade in queryset:
+            if unidade.status not in UnidadeBrinquedoOperacaoService.STATUS_LIBERAVEIS:
+                falhas.append(
+                    f"{unidade.codigo}: status atual nao permite liberacao."
+                )
+                continue
+
+            try:
+                UnidadeBrinquedoOperacaoService.liberar_disponibilidade(
+                    unidade,
+                    request.user,
+                )
+                sucessos += 1
+            except serializers.ValidationError as exc:
+                falhas.append(f"{unidade.codigo}: {_mensagem_erro_admin(exc)}")
+            except Exception as exc:
+                falhas.append(f"{unidade.codigo}: {exc}")
+
+        if sucessos:
+            self.message_user(
+                request,
+                f"{sucessos} unidade(s) liberada(s) para disponivel.",
+                messages.SUCCESS,
+            )
+        if falhas:
+            self.message_user(
+                request,
+                f"{len(falhas)} unidade(s) falharam: {'; '.join(falhas)}",
+                messages.ERROR,
+            )
 
 
 @admin.register(ImagemBrinquedo)

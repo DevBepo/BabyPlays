@@ -2,8 +2,11 @@ import shutil
 import tempfile
 from datetime import date
 from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.conf import settings
+from django.contrib import admin
 from django.db import IntegrityError, transaction
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -12,6 +15,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework.serializers import ValidationError as DRFValidationError
 from pedidos.models import Pedido, ReservaUnidade
 
 from .models import (
@@ -545,6 +549,74 @@ class LiberarDisponibilidadeUnidadeAdminTests(APITestCase):
                 "em higienizacao ou standby."
             ),
         )
+
+    @patch("catalogo.admin.UnidadeBrinquedoOperacaoService.liberar_disponibilidade")
+    def test_admin_action_libera_unidades_usando_service_e_reporta_falhas(
+        self,
+        liberar_disponibilidade,
+    ):
+        unidade_liberavel = self.criar_unidade(
+            UnidadeBrinquedo.Status.HIGIENIZACAO,
+            codigo="CAMA-002",
+        )
+        unidade_nao_liberavel = self.criar_unidade(
+            UnidadeBrinquedo.Status.DISPONIVEL,
+            codigo="CAMA-003",
+        )
+        model_admin = admin.site._registry[UnidadeBrinquedo]
+        request = SimpleNamespace(user=self.admin)
+        queryset = UnidadeBrinquedo.objects.filter(
+            id__in=[unidade_liberavel.id, unidade_nao_liberavel.id]
+        ).order_by("id")
+
+        with patch.object(model_admin, "message_user") as message_user:
+            model_admin.liberar_disponibilidade(request, queryset)
+
+        liberar_disponibilidade.assert_called_once()
+        self.assertEqual(
+            liberar_disponibilidade.call_args.args[0],
+            unidade_liberavel,
+        )
+        self.assertEqual(message_user.call_count, 2)
+        mensagens = [call.args[1] for call in message_user.call_args_list]
+        self.assertTrue(
+            any("1 unidade(s) liberada(s) para disponivel" in msg for msg in mensagens)
+        )
+        self.assertTrue(any("CAMA-003" in msg and "falharam" in msg for msg in mensagens))
+
+    @patch("catalogo.admin.UnidadeBrinquedoOperacaoService.liberar_disponibilidade")
+    def test_admin_action_reporta_erro_do_service_sem_interromper_lote(
+        self,
+        liberar_disponibilidade,
+    ):
+        primeira = self.criar_unidade(
+            UnidadeBrinquedo.Status.HIGIENIZACAO,
+            codigo="CAMA-004",
+        )
+        segunda = self.criar_unidade(
+            UnidadeBrinquedo.Status.STANDBY,
+            codigo="CAMA-005",
+        )
+        liberar_disponibilidade.side_effect = [
+            primeira,
+            DRFValidationError({"status": "Falha controlada."}),
+        ]
+        model_admin = admin.site._registry[UnidadeBrinquedo]
+        request = SimpleNamespace(user=self.admin)
+        queryset = UnidadeBrinquedo.objects.filter(
+            id__in=[primeira.id, segunda.id]
+        ).order_by("id")
+
+        with patch.object(model_admin, "message_user") as message_user:
+            model_admin.liberar_disponibilidade(request, queryset)
+
+        self.assertEqual(liberar_disponibilidade.call_count, 2)
+        self.assertEqual(message_user.call_count, 2)
+        mensagens = [call.args[1] for call in message_user.call_args_list]
+        self.assertTrue(
+            any("1 unidade(s) liberada(s) para disponivel" in msg for msg in mensagens)
+        )
+        self.assertTrue(any("Falha controlada" in msg for msg in mensagens))
 
 
 class BrinquedoAPITests(APITestCase):
