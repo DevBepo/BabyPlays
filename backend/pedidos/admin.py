@@ -32,11 +32,24 @@ class ItemCarrinhoInline(admin.TabularInline):
 
 @admin.register(Carrinho)
 class CarrinhoAdmin(admin.ModelAdmin):
-    list_display = ("id", "usuario", "session_key", "status", "atualizado_em")
-    list_filter = ("status",)
-    search_fields = ("session_key", "usuario__username", "usuario__email")
+    list_display = (
+        "id",
+        "usuario",
+        "session_key",
+        "status",
+        "quantidade_itens",
+        "criado_em",
+        "atualizado_em",
+    )
+    list_filter = ("status", "criado_em", "atualizado_em")
+    search_fields = ("=id", "session_key", "usuario__username", "usuario__email")
     readonly_fields = ("criado_em", "atualizado_em")
+    date_hierarchy = "atualizado_em"
     inlines = (ItemCarrinhoInline,)
+
+    @admin.display(description="Itens")
+    def quantidade_itens(self, obj):
+        return obj.itens.count()
 
 
 @admin.register(ItemCarrinho)
@@ -47,11 +60,28 @@ class ItemCarrinhoAdmin(admin.ModelAdmin):
         "tipo_item",
         "nome_snapshot",
         "quantidade",
+        "preco_unitario_snapshot",
         "subtotal_snapshot",
+        "criado_em",
     )
-    list_filter = ("tipo_item",)
-    search_fields = ("nome_snapshot", "carrinho__session_key", "carrinho__usuario__username")
-    readonly_fields = ("criado_em", "atualizado_em")
+    list_filter = ("tipo_item", "criado_em", "atualizado_em")
+    search_fields = (
+        "=id",
+        "=carrinho__id",
+        "nome_snapshot",
+        "carrinho__session_key",
+        "carrinho__usuario__username",
+        "carrinho__usuario__email",
+    )
+    readonly_fields = (
+        "nome_snapshot",
+        "preco_unitario_snapshot",
+        "subtotal_snapshot",
+        "snapshot",
+        "criado_em",
+        "atualizado_em",
+    )
+    date_hierarchy = "criado_em"
 
 
 class ItemPedidoInline(admin.TabularInline):
@@ -84,20 +114,24 @@ class PedidoAdmin(admin.ModelAdmin):
         "data_evento_pretendida",
         "data_inicio_locacao",
         "data_fim_locacao",
+        "taxa_entrega_retirada_snapshot",
+        "total_estimado_snapshot",
         "confirmado_em",
         "confirmado_por",
-        "subtotal_itens_snapshot",
         "criado_em",
     )
     list_filter = (
         "status",
-        "cliente",
         "data_evento_pretendida",
         "data_inicio_locacao",
         "data_fim_locacao",
+        "confirmado_em",
         "criado_em",
+        "atualizado_em",
+        "cliente__ativo",
     )
     search_fields = (
+        "=id",
         "nome_cliente_snapshot",
         "telefone_cliente_snapshot",
         "email_cliente_snapshot",
@@ -112,12 +146,23 @@ class PedidoAdmin(admin.ModelAdmin):
         "usuario",
         "cliente",
         "session_key_snapshot",
+        "nome_cliente_snapshot",
+        "telefone_cliente_snapshot",
+        "email_cliente_snapshot",
         "subtotal_itens_snapshot",
+        "endereco_entrega_snapshot",
+        "distancia_ida_km_snapshot",
+        "distancia_total_km_snapshot",
+        "valor_por_km_snapshot",
+        "taxa_entrega_retirada_snapshot",
+        "total_estimado_snapshot",
         "confirmado_em",
         "confirmado_por",
         "criado_em",
         "atualizado_em",
     )
+    date_hierarchy = "criado_em"
+    list_select_related = ("cliente", "usuario", "confirmado_por")
     inlines = (ItemPedidoInline,)
 
 
@@ -129,22 +174,45 @@ class ItemPedidoAdmin(admin.ModelAdmin):
         "tipo_item",
         "nome_snapshot",
         "quantidade",
+        "preco_unitario_snapshot",
         "subtotal_snapshot",
+        "criado_em",
     )
-    list_filter = ("tipo_item",)
+    list_filter = ("tipo_item", "pedido__status", "criado_em")
     search_fields = (
+        "=id",
+        "=pedido__id",
         "nome_snapshot",
         "pedido__nome_cliente_snapshot",
         "pedido__email_cliente_snapshot",
+        "pedido__telefone_cliente_snapshot",
     )
-    readonly_fields = ("criado_em",)
+    readonly_fields = (
+        "tipo_item",
+        "brinquedo",
+        "kit_festa",
+        "configuracao_kit_personalizavel",
+        "nome_snapshot",
+        "preco_unitario_snapshot",
+        "subtotal_snapshot",
+        "snapshot",
+        "criado_em",
+    )
+    date_hierarchy = "criado_em"
+    list_select_related = (
+        "pedido",
+        "brinquedo",
+        "kit_festa",
+        "configuracao_kit_personalizavel",
+    )
 
 
 @admin.register(Contrato)
 class ContratoAdmin(admin.ModelAdmin):
-    list_display = ("versao", "titulo", "ativo", "criado_em", "atualizado_em")
-    list_filter = ("ativo",)
-    search_fields = ("versao", "titulo")
+    list_display = ("id", "versao", "titulo", "ativo", "criado_em", "atualizado_em")
+    list_filter = ("ativo", "criado_em", "atualizado_em")
+    search_fields = ("=id", "versao", "titulo", "texto")
+    date_hierarchy = "atualizado_em"
     fieldsets = (
         (
             "Identificacao",
@@ -181,16 +249,19 @@ class AceiteContratoAdmin(admin.ModelAdmin):
         "contrato_versao_snapshot",
         "nome_cliente_snapshot",
         "email_cliente_snapshot",
+        "telefone_cliente",
         "aceito_em",
         "ip",
     )
 
-    list_filter = ("contrato_versao_snapshot", "aceito_em")
+    list_filter = ("contrato_versao_snapshot", "aceito_em", "contrato")
     search_fields = (
-        "pedido__id",
+        "=id",
+        "=pedido__id",
         "contrato_versao_snapshot",
         "nome_cliente_snapshot",
         "email_cliente_snapshot",
+        "pedido__telefone_cliente_snapshot",
         "ip",
     )
     readonly_fields = (
@@ -204,6 +275,8 @@ class AceiteContratoAdmin(admin.ModelAdmin):
         "ip",
         "user_agent",
     )
+    date_hierarchy = "aceito_em"
+    list_select_related = ("pedido", "contrato")
     fieldsets = (
         (
             "Vinculos",
@@ -230,24 +303,58 @@ class AceiteContratoAdmin(admin.ModelAdmin):
         ),
     )
 
+    @admin.display(description="Telefone", ordering="pedido__telefone_cliente_snapshot")
+    def telefone_cliente(self, obj):
+        return obj.pedido.telefone_cliente_snapshot
+
 
 @admin.register(ReservaUnidade)
 class ReservaUnidadeAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "pedido",
+        "status_do_pedido",
         "item_pedido",
         "unidade_brinquedo",
+        "brinquedo",
         "status",
         "data_inicio",
         "data_fim",
         "criado_em",
     )
-    list_filter = ("status", "data_inicio", "data_fim")
+    list_filter = (
+        "status",
+        "pedido__status",
+        "unidade_brinquedo__status",
+        "unidade_brinquedo__brinquedo__categoria",
+        "data_inicio",
+        "data_fim",
+        "criado_em",
+    )
     search_fields = (
-        "pedido__id",
+        "=id",
+        "=pedido__id",
         "pedido__nome_cliente_snapshot",
+        "pedido__telefone_cliente_snapshot",
+        "pedido__email_cliente_snapshot",
         "unidade_brinquedo__codigo",
         "unidade_brinquedo__brinquedo__nome",
+        "unidade_brinquedo__brinquedo__categoria__nome",
     )
     readonly_fields = ("criado_em", "atualizado_em")
+    date_hierarchy = "data_inicio"
+    list_select_related = (
+        "pedido",
+        "item_pedido",
+        "unidade_brinquedo",
+        "unidade_brinquedo__brinquedo",
+        "unidade_brinquedo__brinquedo__categoria",
+    )
+
+    @admin.display(description="Status do pedido", ordering="pedido__status")
+    def status_do_pedido(self, obj):
+        return obj.pedido.status
+
+    @admin.display(description="Brinquedo", ordering="unidade_brinquedo__brinquedo__nome")
+    def brinquedo(self, obj):
+        return obj.unidade_brinquedo.brinquedo

@@ -13,9 +13,11 @@ class ClienteAdmin(admin.ModelAdmin):
         "ativo",
         "criado_em",
     )
-    search_fields = ("nome", "telefone", "user__email", "user__username")
-    list_filter = ("ativo", "criado_em")
+    search_fields = ("=id", "nome", "telefone", "user__email", "user__username")
+    list_filter = ("ativo", "criado_em", "atualizado_em")
     readonly_fields = ("criado_em", "atualizado_em")
+    date_hierarchy = "criado_em"
+    list_select_related = ("user",)
     ordering = ("nome", "id")
 
     @admin.display(description="E-mail do usuario", ordering="user__email")
