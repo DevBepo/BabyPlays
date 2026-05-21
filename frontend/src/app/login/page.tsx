@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 
+import Image from "next/image";
+
 function getSafeNextPath(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) {
     return "/";
@@ -22,10 +24,10 @@ function getLoginErrorMessage(error: unknown): string {
   const status = (error as Partial<ApiError> | null)?.status;
 
   if (status === 400 || status === 401 || status === 403) {
-    return "E-mail ou senha invalidos.";
+    return "E-mail ou senha inválidos.";
   }
 
-  return "Nao foi possivel entrar agora. Tente novamente em instantes.";
+  return "Não foi possível entrar agora. Tente novamente em instantes.";
 }
 
 function LoginForm() {
@@ -54,16 +56,25 @@ function LoginForm() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-12 text-zinc-900">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
-        <div>
+    <main className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-12 text-zinc-900">
+      <div className="w-full max-w-md flex flex-col gap-6">
+        <div className="flex flex-col items-center text-center">
           <Link
             href="/"
-            className="text-sm font-semibold text-teal-600 transition-colors hover:text-teal-700"
+            className="inline-block transition-opacity hover:opacity-80"
           >
-            BabyPlays
+            <Image
+              src="/assets/LogoComEscrita.jpg"
+              alt="Logo BabyPlays"
+              width={150}
+              height={50}
+              priority
+              className="object-contain"
+            />
           </Link>
-          <h1 className="mt-4 text-2xl font-bold text-zinc-950">Entrar na conta</h1>
+          <h1 className="mt-4 text-2xl font-bold text-zinc-950">
+            Entrar na conta
+          </h1>
           <p className="mt-2 text-sm text-zinc-600">
             Acesse com seu e-mail para continuar sua reserva.
           </p>
