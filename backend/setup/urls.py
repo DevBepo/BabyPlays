@@ -18,10 +18,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from clientes.views import AdminMeView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('clientes.urls')),
+    path('api/admin/me/', AdminMeView.as_view(), name='admin-me'),
     path('api/', include('catalogo.urls')),
     path('api/', include('pedidos.urls')),
     path('api/', include('entregas.urls')),

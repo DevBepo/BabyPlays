@@ -3,13 +3,15 @@ from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from pedidos.models import Carrinho
 
 from .serializers import (
+    AdminMeSerializer,
     AuthClienteSerializer,
     CadastroClienteSerializer,
     LoginClienteSerializer,
@@ -43,6 +45,11 @@ def vincular_carrinho_anonimo_da_sessao(request, user, session_key_anterior):
     carrinho.usuario = user
     carrinho.session_key = request.session.session_key
     carrinho.save(update_fields=["usuario", "session_key", "atualizado_em"])
+
+
+class SessionAuthenticationCom401(SessionAuthentication):
+    def authenticate_header(self, request):
+        return "Session"
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -93,6 +100,14 @@ class MeClienteView(APIView):
 
     def get(self, request):
         return Response(AuthClienteSerializer(dados_auth_cliente(request.user)).data)
+
+
+class AdminMeView(APIView):
+    authentication_classes = [SessionAuthenticationCom401]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        return Response(AdminMeSerializer(request.user).data)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")

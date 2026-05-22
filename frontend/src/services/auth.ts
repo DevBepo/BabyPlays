@@ -1,5 +1,6 @@
 import { apiGet, apiPost } from "@/lib/api";
 import type {
+  AdminMeResponse,
   AuthMeResponse,
   LoginPayload,
   LoginResponse,
@@ -8,12 +9,17 @@ import type {
 
 const AUTH_ENDPOINTS = {
   me: "/api/auth/me/",
+  adminMe: "/api/admin/me/",
   login: "/api/auth/login/",
   logout: "/api/auth/logout/",
 };
 
 export function getMe(): Promise<AuthMeResponse> {
   return apiGet<AuthMeResponse>(AUTH_ENDPOINTS.me);
+}
+
+export function getAdminMe(): Promise<AdminMeResponse> {
+  return apiGet<AdminMeResponse>(AUTH_ENDPOINTS.adminMe);
 }
 
 export function login(payload: LoginPayload): Promise<LoginResponse> {

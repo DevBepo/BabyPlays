@@ -121,6 +121,7 @@ class ClienteAuthAPITests(APITestCase):
     login_url = "/api/auth/login/"
     logout_url = "/api/auth/logout/"
     me_url = "/api/auth/me/"
+    admin_me_url = "/api/admin/me/"
     csrf_url = "/api/auth/csrf/"
     token_url = "/api/token/"
     carrinho_url = "/api/carrinho/atual/"
@@ -344,6 +345,44 @@ class ClienteAuthAPITests(APITestCase):
                 "nome": cliente.nome,
                 "telefone": cliente.telefone,
                 "ativo": True,
+            },
+        )
+
+    def test_admin_me_anonimo_negado_com_401(self):
+        response = self.client.get(self.admin_me_url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_admin_me_cliente_comum_negado_com_403(self):
+        self.criar_usuario_cliente()
+        self.login_cliente()
+
+        response = self.client.get(self.admin_me_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_me_staff_permitido(self):
+        user = get_user_model().objects.create_user(
+            username="admin@email.com",
+            email="admin@email.com",
+            password="SenhaForte123!",
+            first_name="Admin",
+            last_name="BabyPlays",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(self.admin_me_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data,
+            {
+                "id": user.id,
+                "email": "admin@email.com",
+                "nome": "Admin BabyPlays",
+                "is_staff": True,
+                "is_superuser": False,
             },
         )
 

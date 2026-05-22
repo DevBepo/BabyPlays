@@ -16,6 +16,14 @@ export type AuthMeResponse = {
   cliente: ClienteResumo;
 };
 
+export type AdminMeResponse = {
+  id: number;
+  email: string;
+  nome: string | null;
+  is_staff: boolean;
+  is_superuser: boolean;
+};
+
 export type LoginPayload = {
   email: string;
   senha: string;

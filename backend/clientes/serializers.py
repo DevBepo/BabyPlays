@@ -35,6 +35,19 @@ class AuthClienteSerializer(serializers.Serializer):
     cliente = ClienteResumoSerializer(read_only=True)
 
 
+class AdminMeSerializer(serializers.ModelSerializer):
+    nome = serializers.SerializerMethodField()
+
+    class Meta:
+        model = get_user_model()
+        fields = ("id", "email", "nome", "is_staff", "is_superuser")
+        read_only_fields = fields
+
+    def get_nome(self, user):
+        nome = user.get_full_name().strip()
+        return nome or None
+
+
 class CadastroClienteSerializer(serializers.Serializer):
     nome = serializers.CharField(max_length=200, trim_whitespace=True)
     email = serializers.EmailField(max_length=150)
