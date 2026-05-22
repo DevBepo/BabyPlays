@@ -116,6 +116,13 @@ function LoginForm() {
             </Button>
           </form>
         </Card>
+        <p className="text-center text-sm text-zinc-600">
+          Ainda não tem uma conta?{" "}
+          <Link href="/register" className="font-semibold text-teal-600 hover:text-teal-700">
+            Crie aqui
+          </Link>
+        </p>
+
       </div>
     </main>
   );
