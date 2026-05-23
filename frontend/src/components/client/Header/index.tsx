@@ -81,15 +81,19 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   return (
     <header className="w-full bg-white border-b border-zinc-100 sticky top-0 z-40">
       <div className="max-w-1600px mx-auto px-6 h-20 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2 cursor-pointer select-none shrink-0">
-          <Image
-            src="/assets/SomenteLogo.jpg"
-            alt="Logo BabyPlays"
-            width={100}
-            height={100}
-            priority
-            className="object-contain"
-          />
+        <Link href="/" className="flex items-center gap-3 cursor-pointer select-none shrink-0">
+          <span className="relative block h-14 w-16 shrink-0 overflow-hidden">
+            <Image
+              src="/assets/SomenteLogo.jpg"
+              alt="Logo BabyPlays"
+              width={128}
+              height={102}
+              priority
+              unoptimized
+              sizes="64px"
+              className="absolute left-1/2 top-1/2 h-[92px] w-[115px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+            />
+          </span>
           <div className="text-xl font-black tracking-tight flex items-center">
             <span className="text-teal-600">BABYPLAYS</span>
             <span className="text-zinc-300 mx-0.5">.</span>
