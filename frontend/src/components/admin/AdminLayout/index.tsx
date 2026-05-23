@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useLayoutEffect, useState } from "react";
 
 import { AdminSidebar } from "../AdminSideBar";
 import { getAdminMe } from "@/services/auth";
@@ -13,6 +13,13 @@ interface AdminLayoutProps {
   children: ReactNode;
 }
 
+type AdminAccessState =
+  | { status: "loading"; admin: null; message: string }
+  | { status: "allowed"; admin: AdminMeResponse; message: string }
+  | { status: "unauthenticated"; admin: null; message: string }
+  | { status: "forbidden"; admin: null; message: string }
+  | { status: "error"; admin: null; message: string };
+
 function isApiError(error: unknown): error is ApiError {
   return (
     typeof error === "object" &&
@@ -20,6 +27,45 @@ function isApiError(error: unknown): error is ApiError {
     "status" in error &&
     typeof (error as { status: unknown }).status === "number"
   );
+}
+
+function isNetworkError(error: unknown): boolean {
+  return error instanceof TypeError;
+}
+
+function getAdminAccessErrorState(error: unknown): AdminAccessState {
+  if (isApiError(error) && error.status === 401) {
+    return {
+      status: "unauthenticated",
+      admin: null,
+      message: "Entre com uma conta administrativa para acessar o painel.",
+    };
+  }
+
+  if (isApiError(error) && error.status === 403) {
+    return {
+      status: "forbidden",
+      admin: null,
+      message:
+        "Sua conta esta autenticada, mas nao tem permissao staff/admin para acessar este painel.",
+    };
+  }
+
+  if (isNetworkError(error)) {
+    return {
+      status: "error",
+      admin: null,
+      message:
+        "Nao foi possivel conectar ao backend. Confirme se o servidor esta rodando em 127.0.0.1:8000 e tente novamente.",
+    };
+  }
+
+  return {
+    status: "error",
+    admin: null,
+    message:
+      "Nao foi possivel verificar o acesso agora. Tente novamente em instantes.",
+  };
 }
 
 function AdminAccessFeedback({
@@ -44,43 +90,46 @@ function AdminAccessFeedback({
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
-  const [admin, setAdmin] = useState<AdminMeResponse | null>(null);
-  const [status, setStatus] = useState<
-    "loading" | "allowed" | "unauthenticated" | "forbidden" | "error"
-  >("loading");
+  const [access, setAccess] = useState<AdminAccessState>({
+    status: "loading",
+    admin: null,
+    message: "Aguarde enquanto confirmamos sua sessao administrativa.",
+  });
   const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let active = true;
 
     async function verificarAdmin() {
+      let nextAccess: AdminAccessState = {
+        status: "error",
+        admin: null,
+        message:
+          "Nao foi possivel verificar o acesso agora. Tente novamente em instantes.",
+      };
+
       try {
         const data = await getAdminMe();
 
-        if (!active) {
-          return;
-        }
-
-        setAdmin(data);
-        setStatus("allowed");
+        nextAccess =
+          data.is_staff || data.is_superuser
+            ? {
+                status: "allowed",
+                admin: data,
+                message: "",
+              }
+            : {
+                status: "forbidden",
+                admin: null,
+                message:
+                  "Sua conta esta autenticada, mas nao tem permissao staff/admin para acessar este painel.",
+              };
       } catch (error) {
-        if (!active) {
-          return;
+        nextAccess = getAdminAccessErrorState(error);
+      } finally {
+        if (active) {
+          setAccess(nextAccess);
         }
-
-        setAdmin(null);
-
-        if (isApiError(error) && error.status === 401) {
-          setStatus("unauthenticated");
-          return;
-        }
-
-        if (isApiError(error) && error.status === 403) {
-          setStatus("forbidden");
-          return;
-        }
-
-        setStatus("error");
       }
     }
 
@@ -91,20 +140,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     };
   }, []);
 
-  if (status === "loading") {
+  if (access.status === "loading") {
     return (
       <AdminAccessFeedback
         title="Verificando acesso"
-        message="Aguarde enquanto confirmamos sua sessao administrativa."
+        message={access.message}
       />
     );
   }
 
-  if (status === "unauthenticated") {
+  if (access.status === "unauthenticated") {
     return (
       <AdminAccessFeedback
         title="Login necessario"
-        message="Entre com uma conta administrativa para acessar o painel."
+        message={access.message}
         action={
           <Link
             href={loginHref}
@@ -117,20 +166,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  if (status === "forbidden") {
+  if (access.status === "forbidden") {
     return (
       <AdminAccessFeedback
         title="Acesso negado"
-        message="Sua conta esta autenticada, mas nao tem permissao staff/admin para acessar este painel."
+        message={access.message}
       />
     );
   }
 
-  if (status === "error" || !admin) {
+  if (access.status === "error") {
     return (
       <AdminAccessFeedback
         title="Nao foi possivel verificar o acesso"
-        message="Tente novamente em instantes. O painel administrativo nao sera exibido ate a permissao ser confirmada pelo servidor."
+        message={access.message}
       />
     );
   }
@@ -153,7 +202,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 Modo Administrador
               </span>
               <span className="text-xs text-zinc-400 font-medium">
-                {admin.email}
+                {access.admin.email}
               </span>
             </div>
             <div className="w-10 h-10 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 font-bold text-sm select-none">
