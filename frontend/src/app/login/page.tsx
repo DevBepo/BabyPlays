@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 
+import { getAdminMe } from "@/services/auth";
 import { useAuth } from "@/hooks/useAuth";
 import type { ApiError } from "@/types/api";
 import { Button } from "@/components/ui/Button";
@@ -12,12 +13,29 @@ import { Input } from "@/components/ui/Input";
 
 import Image from "next/image";
 
-function getSafeNextPath(next: string | null): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/";
+const DEFAULT_CLIENT_REDIRECT = "/";
+const DEFAULT_ADMIN_REDIRECT = "/admin/pedidos";
+
+function getSafeNextPath(next: string | null): string | null {
+  if (
+    !next ||
+    !next.startsWith("/") ||
+    next.startsWith("//") ||
+    next.startsWith("/\\")
+  ) {
+    return null;
   }
 
   return next;
+}
+
+async function getDefaultRedirectPath(): Promise<string> {
+  try {
+    await getAdminMe();
+    return DEFAULT_ADMIN_REDIRECT;
+  } catch {
+    return DEFAULT_CLIENT_REDIRECT;
+  }
 }
 
 function getLoginErrorMessage(error: unknown): string {
@@ -33,11 +51,42 @@ function getLoginErrorMessage(error: unknown): string {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { isAuthenticated, loading: authLoading, login } = useAuth();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nextPath = getSafeNextPath(searchParams.get("next"));
+
+  const getRedirectPath = useCallback(async () => {
+    if (nextPath) {
+      return nextPath;
+    }
+
+    return getDefaultRedirectPath();
+  }, [nextPath]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function redirectAuthenticatedUser() {
+      if (authLoading || loading || !isAuthenticated) {
+        return;
+      }
+
+      const redirectPath = await getRedirectPath();
+
+      if (active) {
+        router.replace(redirectPath);
+      }
+    }
+
+    void redirectAuthenticatedUser();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, getRedirectPath, isAuthenticated, loading, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -46,7 +95,7 @@ function LoginForm() {
 
     try {
       await login({ email, senha });
-      router.push(getSafeNextPath(searchParams.get("next")));
+      router.push(await getRedirectPath());
     } catch (err) {
       setSenha("");
       setError(getLoginErrorMessage(err));
