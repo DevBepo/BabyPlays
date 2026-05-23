@@ -89,7 +89,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = env_bool("DEBUG", False)
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["localhost", "127.0.0.1"])
-CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+LOCAL_FRONTEND_ORIGINS = ["http://127.0.0.1:3000", "http://localhost:3000"]
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    LOCAL_FRONTEND_ORIGINS if DEBUG else [],
+)
 
 GOOGLE_ROUTES_API_KEY = os.environ.get("GOOGLE_ROUTES_API_KEY", "").strip()
 
@@ -191,7 +195,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    ["http://localhost:3000", "http://127.0.0.1:3000"],
+    LOCAL_FRONTEND_ORIGINS if DEBUG else [],
 )
 CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", True)
 

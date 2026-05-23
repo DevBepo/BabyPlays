@@ -2,6 +2,16 @@
 
 Sistema real de produção para locação de brinquedos e kits de festa.
 
+Ambiente local oficial:
+- Frontend: http://127.0.0.1:3000
+- Backend: http://127.0.0.1:8000
+- `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`
+- Backend: `python manage.py runserver 127.0.0.1:8000`
+- Frontend: `npm.cmd run dev -- -H 127.0.0.1`
+- Acesse o site sempre em http://127.0.0.1:3000 durante o desenvolvimento.
+- Não alternar entre `localhost` e `127.0.0.1` no mesmo fluxo. Como a autenticação usa Django sessions, CSRF e cookies, misturar os hosts pode quebrar sessão, CSRF e login/admin.
+- Se existir `frontend/.env.local`, ele é arquivo local ignorado pelo Git; use-o apenas para refletir o padrão acima.
+
 Funcionalidades principais:
 - Site público com catálogo.
 - Área do cliente.
