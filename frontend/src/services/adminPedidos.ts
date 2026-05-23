@@ -1,5 +1,6 @@
 import { apiGet } from "@/lib/api";
 import type {
+  AdminPedidoDetail,
   AdminPedidosListParams,
   AdminPedidosPaginatedResponse,
 } from "@/types/adminPedidos";
@@ -29,4 +30,8 @@ export function listarPedidosAdmin(
   return apiGet<AdminPedidosPaginatedResponse>(
     `/api/admin/pedidos/${buildQueryString(params)}`,
   );
+}
+
+export function obterAdminPedido(id: number | string): Promise<AdminPedidoDetail> {
+  return apiGet<AdminPedidoDetail>(`/api/admin/pedidos/${id}/`);
 }

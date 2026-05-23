@@ -19,6 +19,90 @@ export type AdminPedidoClienteSnapshot = {
   telefone: string;
 };
 
+export type AdminPedidoUsuarioResumo = {
+  id: number;
+  email: string;
+} | null;
+
+export type AdminPedidoEnderecoEntrega = {
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+};
+
+export type AdminPedidoValores = {
+  subtotal_itens_snapshot: string;
+  distancia_ida_km_snapshot: string;
+  distancia_total_km_snapshot: string;
+  valor_por_km_snapshot: string;
+  taxa_entrega_retirada_snapshot: string;
+  total_estimado_snapshot: string;
+};
+
+export type AdminPedidoResumoComposicao = {
+  tipo: string;
+  brinquedo?: {
+    id: number | null;
+    nome: string;
+  };
+  kit_festa?: {
+    id: number | null;
+    nome: string;
+  };
+  configuracao?: {
+    id: number | null;
+    nome: string;
+  };
+  itens?: unknown[];
+};
+
+export type AdminPedidoItem = {
+  id: number;
+  tipo_item: string;
+  quantidade: number;
+  nome_snapshot: string;
+  preco_unitario_snapshot: string;
+  subtotal_snapshot: string;
+  resumo_composicao: AdminPedidoResumoComposicao;
+  criado_em: string;
+};
+
+export type AdminPedidoAceiteContrato = {
+  id: number;
+  contrato: number;
+  versao_aceita: string;
+  aceito_em: string;
+  nome_cliente_snapshot: string;
+  email_cliente_snapshot: string;
+  ip: string;
+  user_agent: string;
+} | null;
+
+export type AdminPedidoUnidadeResumo = {
+  id: number;
+  codigo: string;
+  status: string;
+};
+
+export type AdminPedidoBrinquedoResumo = {
+  id: number;
+  nome: string;
+};
+
+export type AdminPedidoReserva = {
+  id: number;
+  item_pedido: number | null;
+  unidade: AdminPedidoUnidadeResumo;
+  brinquedo: AdminPedidoBrinquedoResumo;
+  data_inicio: string;
+  data_fim: string;
+  status: string;
+};
+
 export type AdminPedidoListItem = {
   id: number;
   status: AdminPedidoStatus;
@@ -46,4 +130,29 @@ export type AdminPedidosPaginatedResponse = {
   next: string | null;
   previous: string | null;
   results: AdminPedidoListItem[];
+};
+
+export type AdminPedidoDetail = {
+  id: number;
+  status: AdminPedidoStatus;
+  usuario: AdminPedidoUsuarioResumo;
+  cliente: AdminPedidoClienteResumo;
+  cliente_snapshot: AdminPedidoClienteSnapshot;
+  data_evento_pretendida: string;
+  data_inicio_locacao: string;
+  data_fim_locacao: string;
+  observacoes_cliente: string;
+  endereco_entrega: AdminPedidoEnderecoEntrega;
+  valores: AdminPedidoValores;
+  itens: AdminPedidoItem[];
+  aceite_contrato: AdminPedidoAceiteContrato;
+  reservas: AdminPedidoReserva[];
+  unidades_reservadas: AdminPedidoUnidadeResumo[];
+  tem_aceite_contrato: boolean;
+  possui_reservas_ativas: boolean;
+  confirmado_em: string | null;
+  confirmado_por: AdminPedidoUsuarioResumo;
+  acoes_disponiveis: string[];
+  criado_em: string;
+  atualizado_em: string;
 };
