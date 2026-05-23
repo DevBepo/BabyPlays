@@ -1,5 +1,6 @@
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import type {
+  AdminPedidoActionResponse,
   AdminPedidoDetail,
   AdminPedidosListParams,
   AdminPedidosPaginatedResponse,
@@ -34,4 +35,40 @@ export function listarPedidosAdmin(
 
 export function obterAdminPedido(id: number | string): Promise<AdminPedidoDetail> {
   return apiGet<AdminPedidoDetail>(`/api/admin/pedidos/${id}/`);
+}
+
+export function reservarUnidadesAdminPedido(
+  id: number | string,
+): Promise<AdminPedidoActionResponse> {
+  return apiPost<AdminPedidoActionResponse>(
+    `/api/admin/pedidos/${id}/reservar-unidades/`,
+    {},
+  );
+}
+
+export function confirmarAdminPedido(
+  id: number | string,
+): Promise<AdminPedidoActionResponse> {
+  return apiPost<AdminPedidoActionResponse>(
+    `/api/admin/pedidos/${id}/confirmar/`,
+    {},
+  );
+}
+
+export function iniciarLocacaoAdminPedido(
+  id: number | string,
+): Promise<AdminPedidoActionResponse> {
+  return apiPost<AdminPedidoActionResponse>(
+    `/api/admin/pedidos/${id}/iniciar-locacao/`,
+    {},
+  );
+}
+
+export function registrarRetiradaAdminPedido(
+  id: number | string,
+): Promise<AdminPedidoActionResponse> {
+  return apiPost<AdminPedidoActionResponse>(
+    `/api/admin/pedidos/${id}/registrar-retirada/`,
+    {},
+  );
 }

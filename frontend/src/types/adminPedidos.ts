@@ -6,6 +6,12 @@ export type AdminPedidoStatus =
   | "retirado"
   | "cancelado";
 
+export type AdminPedidoAction =
+  | "reservar_unidades"
+  | "confirmar"
+  | "iniciar_locacao"
+  | "registrar_retirada";
+
 export type AdminPedidoClienteResumo = {
   id: number;
   nome: string;
@@ -152,7 +158,25 @@ export type AdminPedidoDetail = {
   possui_reservas_ativas: boolean;
   confirmado_em: string | null;
   confirmado_por: AdminPedidoUsuarioResumo;
-  acoes_disponiveis: string[];
+  acoes_disponiveis: AdminPedidoAction[];
   criado_em: string;
   atualizado_em: string;
+};
+
+export type AdminPedidoActionResponse = {
+  id?: number;
+  pedido_id?: number;
+  status: AdminPedidoStatus;
+  reservas?: AdminPedidoReserva[];
+  reservas_criadas?: AdminPedidoReserva[];
+  reservas_encerradas?: Array<{
+    id: number;
+    status: string;
+  }>;
+  unidades_atualizadas?: Array<{
+    id: number;
+    status: string;
+  }>;
+  confirmado_em?: string | null;
+  confirmado_por?: number | null;
 };

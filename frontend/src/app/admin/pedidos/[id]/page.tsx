@@ -6,9 +6,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { obterAdminPedido } from "@/services/adminPedidos";
-import type { ApiError } from "@/types/api";
-import type { AdminPedidoDetail, AdminPedidoItem } from "@/types/adminPedidos";
+import {
+  confirmarAdminPedido,
+  iniciarLocacaoAdminPedido,
+  obterAdminPedido,
+  registrarRetiradaAdminPedido,
+  reservarUnidadesAdminPedido,
+} from "@/services/adminPedidos";
+import type { ApiError, ApiErrorData } from "@/types/api";
+import type {
+  AdminPedidoAction,
+  AdminPedidoDetail,
+  AdminPedidoItem,
+} from "@/types/adminPedidos";
 
 function isApiError(error: unknown): error is ApiError {
   return (
@@ -21,6 +31,32 @@ function isApiError(error: unknown): error is ApiError {
 
 function getPedidoId(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function collectErrorMessages(data: ApiErrorData): string[] {
+  if (typeof data === "string") {
+    return [data];
+  }
+
+  if (Array.isArray(data)) {
+    return data.filter((item): item is string => typeof item === "string");
+  }
+
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  return Object.values(data).flatMap((value) => {
+    if (typeof value === "string") {
+      return [value];
+    }
+
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === "string");
+    }
+
+    return [];
+  });
 }
 
 function getDetalhePedidoErrorMessage(error: unknown) {
@@ -41,6 +77,27 @@ function getDetalhePedidoErrorMessage(error: unknown) {
   }
 
   return "Nao foi possivel carregar o pedido administrativo agora.";
+}
+
+function getAdminActionErrorMessage(error: unknown) {
+  if (isApiError(error)) {
+    if (error.status === 401) {
+      return "Voce precisa estar autenticado para executar esta acao administrativa.";
+    }
+
+    if (error.status === 403) {
+      return "Seu usuario nao tem permissao de admin/staff para executar esta acao.";
+    }
+
+    const messages = collectErrorMessages(error.data);
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
+
+    return error.message;
+  }
+
+  return "Nao foi possivel executar a acao administrativa agora.";
 }
 
 function formatDate(value: string) {
@@ -142,11 +199,39 @@ const renderStatusBadge = (status: AdminPedidoDetail["status"]) => {
   }
 };
 
-const actionLabels: Record<string, string> = {
-  reservar_unidades: "Reservar unidades",
-  confirmar: "Confirmar pedido",
-  iniciar_locacao: "Iniciar locacao",
-  registrar_retirada: "Registrar retirada",
+const actionConfig: Record<
+  AdminPedidoAction,
+  {
+    label: string;
+    confirmMessage: string;
+    successMessage: string;
+    run: (pedidoId: string) => Promise<unknown>;
+  }
+> = {
+  reservar_unidades: {
+    label: "Reservar unidades",
+    confirmMessage: "Reservar as unidades deste pedido agora?",
+    successMessage: "Unidades reservadas com sucesso.",
+    run: reservarUnidadesAdminPedido,
+  },
+  confirmar: {
+    label: "Confirmar pedido",
+    confirmMessage: "Confirmar este pedido agora?",
+    successMessage: "Pedido confirmado com sucesso.",
+    run: confirmarAdminPedido,
+  },
+  iniciar_locacao: {
+    label: "Iniciar locacao",
+    confirmMessage: "Iniciar a locacao deste pedido agora?",
+    successMessage: "Locacao iniciada com sucesso.",
+    run: iniciarLocacaoAdminPedido,
+  },
+  registrar_retirada: {
+    label: "Registrar retirada",
+    confirmMessage: "Registrar a retirada deste pedido agora?",
+    successMessage: "Retirada registrada com sucesso.",
+    run: registrarRetiradaAdminPedido,
+  },
 };
 
 export default function DetalhePedidoPage() {
@@ -157,15 +242,20 @@ export default function DetalhePedidoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [executingAction, setExecutingAction] = useState<AdminPedidoAction | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
 
-    async function carregarPedido() {
+    async function carregarPedidoInicial() {
       if (!pedidoId || !/^\d+$/.test(pedidoId)) {
         setPedido(null);
         setError("Pedido administrativo nao encontrado.");
         setErrorStatus(404);
+        setSuccessMessage(null);
         setLoading(false);
         return;
       }
@@ -173,6 +263,7 @@ export default function DetalhePedidoPage() {
       setLoading(true);
       setError(null);
       setErrorStatus(null);
+      setSuccessMessage(null);
 
       try {
         const data = await obterAdminPedido(pedidoId);
@@ -197,7 +288,7 @@ export default function DetalhePedidoPage() {
       }
     }
 
-    void carregarPedido();
+    void carregarPedidoInicial();
 
     return () => {
       active = false;
@@ -208,6 +299,38 @@ export default function DetalhePedidoPage() {
     () => pedido?.acoes_disponiveis ?? [],
     [pedido?.acoes_disponiveis],
   );
+
+  async function handleAction(acao: AdminPedidoAction) {
+    if (!pedidoId || !/^\d+$/.test(pedidoId)) {
+      setError("Pedido administrativo nao encontrado.");
+      setErrorStatus(404);
+      return;
+    }
+
+    const config = actionConfig[acao];
+    const confirmed = window.confirm(config.confirmMessage);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setExecutingAction(acao);
+    setError(null);
+    setErrorStatus(null);
+    setSuccessMessage(null);
+
+    try {
+      await config.run(pedidoId);
+      const data = await obterAdminPedido(pedidoId);
+      setPedido(data);
+      setSuccessMessage(config.successMessage);
+    } catch (err) {
+      setError(getAdminActionErrorMessage(err));
+      setErrorStatus(isApiError(err) ? err.status : null);
+    } finally {
+      setExecutingAction(null);
+    }
+  }
 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
@@ -236,8 +359,14 @@ export default function DetalhePedidoPage() {
           <div className="flex flex-wrap items-center gap-3 self-start rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:self-auto">
             {acoesDisponiveis.length > 0 ? (
               acoesDisponiveis.map((acao) => (
-                <Button key={acao} variant="outline" disabled>
-                  {actionLabels[acao] ?? acao}
+                <Button
+                  key={acao}
+                  variant="outline"
+                  loading={executingAction === acao}
+                  disabled={executingAction !== null}
+                  onClick={() => void handleAction(acao)}
+                >
+                  {actionConfig[acao]?.label ?? acao}
                 </Button>
               ))
             ) : (
@@ -246,11 +375,20 @@ export default function DetalhePedidoPage() {
               </span>
             )}
             <span className="text-xs font-medium text-zinc-500">
-              Acoes ainda nao integradas
+              O backend valida cada acao
             </span>
           </div>
         )}
       </div>
+
+      {successMessage && (
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-700"
+        >
+          {successMessage}
+        </div>
+      )}
 
       {error && (
         <div
