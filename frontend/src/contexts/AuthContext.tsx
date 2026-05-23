@@ -11,7 +11,12 @@ import {
 
 import * as authService from "@/services/auth";
 import type { ApiError } from "@/types/api";
-import type { AuthUser, ClienteResumo, LoginPayload } from "@/types/auth";
+import type {
+  AuthMeResponse,
+  AuthUser,
+  ClienteResumo,
+  LoginPayload,
+} from "@/types/auth";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -54,14 +59,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setCliente(null);
   }, []);
 
+  const applyAuthState = useCallback(
+    (data: AuthMeResponse) => {
+      if (data.authenticated && data.user) {
+        setUser(data.user);
+        setCliente(data.cliente);
+        return;
+      }
+
+      clearSession();
+    },
+    [clearSession],
+  );
+
   const refreshMe = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const data = await authService.getMe();
-      setUser(data.user);
-      setCliente(data.cliente);
+      applyAuthState(data);
     } catch (err) {
       clearSession();
 
@@ -71,14 +88,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, [clearSession]);
+  }, [applyAuthState, clearSession]);
 
   const login = useCallback(async (payload: LoginPayload) => {
     setError(null);
     const data = await authService.login(payload);
-    setUser(data.user);
-    setCliente(data.cliente);
-  }, []);
+    applyAuthState(data);
+  }, [applyAuthState]);
 
   const logout = useCallback(async () => {
     setError(null);
@@ -106,8 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
 
-        setUser(data.user);
-        setCliente(data.cliente);
+        applyAuthState(data);
         setError(null);
       } catch (err) {
         if (!active) {
@@ -131,7 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       active = false;
     };
-  }, [clearSession]);
+  }, [applyAuthState, clearSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

@@ -10,11 +10,19 @@ export type ClienteResumo = {
   ativo: boolean;
 };
 
-export type AuthMeResponse = {
-  authenticated: boolean;
+export type AuthenticatedAuthResponse = {
+  authenticated: true;
   user: AuthUser;
   cliente: ClienteResumo | null;
 };
+
+export type AnonymousAuthResponse = {
+  authenticated: false;
+  user: null;
+  cliente: null;
+};
+
+export type AuthMeResponse = AuthenticatedAuthResponse | AnonymousAuthResponse;
 
 export type AdminMeResponse = {
   id: number;
@@ -29,7 +37,7 @@ export type LoginPayload = {
   senha: string;
 };
 
-export type LoginResponse = AuthMeResponse;
+export type LoginResponse = AuthenticatedAuthResponse;
 
 export type LogoutResponse = {
   message: string;

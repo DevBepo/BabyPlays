@@ -36,8 +36,9 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [quantidadeCarrinho, setQuantidadeCarrinho] = useState(0);
   
-  const { cliente, isAuthenticated, logout } = useAuth();
+  const { cliente, user, isAuthenticated, logout } = useAuth();
   const currentSearchQuery = searchQuery ?? localSearchQuery;
+  const accountLabel = cliente?.nome ?? user?.email ?? "cliente";
 
   useEffect(() => {
     async function carregarQuantidadeCarrinho() {
@@ -119,7 +120,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
             <div className="flex items-center gap-3 select-none">
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-zinc-500 font-medium leading-tight">
-                  Olá, {cliente?.nome ?? "cliente"}
+                  Olá, {accountLabel}
                 </p>
                 <button
                   type="button"

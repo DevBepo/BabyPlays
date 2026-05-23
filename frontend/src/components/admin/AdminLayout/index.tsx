@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 
 import { AdminSidebar } from "../AdminSideBar";
@@ -42,10 +43,12 @@ function AdminAccessFeedback({
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
+  const pathname = usePathname();
   const [admin, setAdmin] = useState<AdminMeResponse | null>(null);
   const [status, setStatus] = useState<
     "loading" | "allowed" | "unauthenticated" | "forbidden" | "error"
   >("loading");
+  const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
 
   useEffect(() => {
     let active = true;
@@ -104,7 +107,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         message="Entre com uma conta administrativa para acessar o painel."
         action={
           <Link
-            href="/login"
+            href={loginHref}
             className="inline-flex h-10 items-center justify-center rounded-md bg-teal-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
           >
             Ir para login
