@@ -13,7 +13,7 @@ export type ClienteResumo = {
 export type AuthMeResponse = {
   authenticated: boolean;
   user: AuthUser;
-  cliente: ClienteResumo;
+  cliente: ClienteResumo | null;
 };
 
 export type AdminMeResponse = {

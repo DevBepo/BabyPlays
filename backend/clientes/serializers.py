@@ -32,7 +32,7 @@ class UserResumoSerializer(serializers.ModelSerializer):
 class AuthClienteSerializer(serializers.Serializer):
     authenticated = serializers.BooleanField(read_only=True)
     user = UserResumoSerializer(read_only=True)
-    cliente = ClienteResumoSerializer(read_only=True)
+    cliente = ClienteResumoSerializer(read_only=True, allow_null=True)
 
 
 class AdminMeSerializer(serializers.ModelSerializer):
@@ -128,7 +128,11 @@ class LoginClienteSerializer(serializers.Serializer):
         )
         if authenticated_user is None:
             self.fail("invalid_credentials")
-        if not hasattr(authenticated_user, "cliente"):
+        if (
+            not authenticated_user.is_staff
+            and not authenticated_user.is_superuser
+            and not hasattr(authenticated_user, "cliente")
+        ):
             self.fail("invalid_credentials")
 
         attrs["user"] = authenticated_user

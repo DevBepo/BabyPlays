@@ -158,6 +158,22 @@ class ClienteAuthAPITests(APITestCase):
         )
         return user, cliente
 
+    def criar_usuario_sem_cliente(
+        self,
+        username="usuario",
+        email="usuario@email.com",
+        senha="SenhaForte123!",
+        is_staff=False,
+        is_superuser=False,
+    ):
+        return get_user_model().objects.create_user(
+            username=username,
+            email=email,
+            password=senha,
+            is_staff=is_staff,
+            is_superuser=is_superuser,
+        )
+
     def criar_brinquedo(self):
         categoria = Categoria.objects.create(
             nome="Brinquedos grandes",
@@ -219,6 +235,22 @@ class ClienteAuthAPITests(APITestCase):
         self.assertNotIn("confirmacao_senha", response.data)
         self.assertEqual(response.data["user"]["email"], "cliente@email.com")
         self.assertEqual(response.data["cliente"]["id"], cliente.id)
+
+    def test_cadastro_publico_nao_cria_usuario_staff(self):
+        payload = self.payload_cadastro(is_staff=True, is_superuser=True)
+
+        response = self.client.post(
+            self.cadastro_url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = get_user_model().objects.get(email="cliente@email.com")
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertNotIn("is_staff", response.data["user"])
+        self.assertNotIn("is_superuser", response.data["user"])
 
     def test_cadastro_rejeita_email_duplicado(self):
         self.criar_usuario_cliente()
@@ -282,6 +314,38 @@ class ClienteAuthAPITests(APITestCase):
         self.assertNotIn("is_superuser", response.data["user"])
         me = self.client.get(self.me_url)
         self.assertEqual(me.status_code, status.HTTP_200_OK)
+
+    def test_login_staff_sem_cliente_autentica_por_email(self):
+        user = self.criar_usuario_sem_cliente(
+            username="admin",
+            email="admin@email.com",
+            is_staff=True,
+        )
+
+        response = self.login_cliente(email="admin@email.com")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["authenticated"])
+        self.assertEqual(response.data["user"], {"id": user.id, "email": user.email})
+        self.assertIsNone(response.data["cliente"])
+        admin_me = self.client.get(self.admin_me_url)
+        self.assertEqual(admin_me.status_code, status.HTTP_200_OK)
+
+    def test_login_usuario_comum_sem_cliente_retorna_erro_generico(self):
+        self.criar_usuario_sem_cliente(
+            username="usuario",
+            email="usuario@email.com",
+        )
+
+        response = self.login_cliente(email="usuario@email.com")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            str(response.data["non_field_errors"][0]),
+            "E-mail ou senha invalidos.",
+        )
+        me = self.client.get(self.me_url)
+        self.assertEqual(me.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_endpoint_token_jwt_legado_nao_existe(self):
         response = self.client.post(

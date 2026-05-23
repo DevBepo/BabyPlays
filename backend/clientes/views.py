@@ -22,7 +22,7 @@ def dados_auth_cliente(user):
     return {
         "authenticated": True,
         "user": user,
-        "cliente": user.cliente,
+        "cliente": getattr(user, "cliente", None),
     }
 
 
