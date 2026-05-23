@@ -388,6 +388,24 @@ class ClienteAuthAPITests(APITestCase):
         self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
         self.assertEqual(me_response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_logout_staff_sem_cliente_encerra_auth_e_acesso_admin(self):
+        self.criar_usuario_sem_cliente(
+            username="admin",
+            email="admin@email.com",
+            is_staff=True,
+        )
+        login_response = self.login_cliente(email="admin@email.com")
+        admin_me_autenticado = self.client.get(self.admin_me_url)
+        logout_response = self.client.post(self.logout_url, {}, format="json")
+        me_response = self.client.get(self.me_url)
+        admin_me_apos_logout = self.client.get(self.admin_me_url)
+
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(admin_me_autenticado.status_code, status.HTTP_200_OK)
+        self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(me_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(admin_me_apos_logout.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_me_exige_login(self):
         response = self.client.get(self.me_url)
 

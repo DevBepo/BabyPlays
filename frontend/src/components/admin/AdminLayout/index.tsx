@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useLayoutEffect, useState } from "react";
 
 import { AdminSidebar } from "../AdminSideBar";
+import { useAuth } from "@/hooks/useAuth";
 import { getAdminMe } from "@/services/auth";
 import type { ApiError } from "@/types/api";
 import type { AdminMeResponse } from "@/types/auth";
@@ -90,12 +91,30 @@ function AdminAccessFeedback({
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const [access, setAccess] = useState<AdminAccessState>({
     status: "loading",
     admin: null,
     message: "Aguarde enquanto confirmamos sua sessao administrativa.",
   });
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    setLogoutError(null);
+
+    try {
+      await logout();
+      router.replace("/login");
+    } catch {
+      setLogoutError("Nao foi possivel sair. Atualize a pagina e tente novamente.");
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
 
   useLayoutEffect(() => {
     let active = true;
@@ -204,7 +223,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <span className="text-xs text-zinc-400 font-medium">
                 {access.admin.email}
               </span>
+              {logoutError ? (
+                <span className="mt-1 max-w-72 text-xs font-medium text-red-600">
+                  {logoutError}
+                </span>
+              ) : null}
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={logoutLoading}
+              className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {logoutLoading ? "Saindo..." : "Sair"}
+            </button>
             <div className="w-10 h-10 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 font-bold text-sm select-none">
               ADM
             </div>

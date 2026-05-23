@@ -34,6 +34,7 @@ type HeaderProps = {
 export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const [quantidadeCarrinho, setQuantidadeCarrinho] = useState(0);
   
   const { cliente, user, isAuthenticated, logout } = useAuth();
@@ -67,10 +68,11 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
 
   const handleLogout = async () => {
     setLogoutLoading(true);
+    setLogoutError(null);
     try {
       await logout();
     } catch {
-      // Erro leve tratado pelo contexto.
+      setLogoutError("Nao foi possivel sair. Atualize a pagina e tente novamente.");
     } finally {
       setLogoutLoading(false);
     }
@@ -130,6 +132,11 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
                 >
                   {logoutLoading ? "Saindo..." : "Sair"}
                 </button>
+                {logoutError ? (
+                  <p className="mt-1 max-w-48 text-xs font-medium leading-tight text-red-600">
+                    {logoutError}
+                  </p>
+                ) : null}
               </div>
               <div className="p-2 text-zinc-700 bg-zinc-50 rounded-full transition-colors">
                 <IconUser />

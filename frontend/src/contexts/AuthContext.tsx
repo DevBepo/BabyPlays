@@ -44,6 +44,39 @@ function isAnonymousAuthError(error: unknown): boolean {
   return isApiError(error) && (error.status === 401 || error.status === 403);
 }
 
+function errorTextIncludes(error: ApiError, value: string): boolean {
+  const normalizedValue = value.toLowerCase();
+  const data = error.data;
+  const candidates = [error.message];
+
+  if (typeof data === "string") {
+    candidates.push(data);
+  }
+
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const detail = data.detail;
+
+    if (typeof detail === "string") {
+      candidates.push(detail);
+    }
+  }
+
+  return candidates.some((candidate) =>
+    candidate.toLowerCase().includes(normalizedValue),
+  );
+}
+
+function isCsrfLogoutError(error: unknown): boolean {
+  return isApiError(error) && error.status === 403 && errorTextIncludes(error, "csrf");
+}
+
+function isAlreadyLoggedOutError(error: unknown): boolean {
+  return (
+    isApiError(error) &&
+    (error.status === 401 || (error.status === 403 && !isCsrfLogoutError(error)))
+  );
+}
+
 type AuthProviderProps = {
   children: ReactNode;
 };
@@ -101,13 +134,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       await authService.logout();
-    } catch (err) {
-      if (!isAnonymousAuthError(err)) {
-        setError("Nao foi possivel sair da conta agora.");
-        throw err;
-      }
-    } finally {
       clearSession();
+    } catch (err) {
+      if (isAlreadyLoggedOutError(err)) {
+        clearSession();
+        return;
+      }
+
+      if (isCsrfLogoutError(err)) {
+        setError("Nao foi possivel validar a seguranca da sessao para sair. Atualize a pagina e tente novamente.");
+      } else {
+        setError("Nao foi possivel encerrar a sessao no servidor agora.");
+      }
+
+      throw err;
     }
   }, [clearSession]);
 
