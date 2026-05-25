@@ -10,7 +10,7 @@ from .models import (
     Pedido,
     ReservaUnidade,
 )
-from .services import CarrinhoService
+from .services import AdminPedidoAcoesService, CarrinhoService
 
 
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
@@ -408,17 +408,7 @@ class PedidoAdminDetailSerializer(serializers.ModelSerializer):
         )
 
     def get_acoes_disponiveis(self, obj):
-        if obj.status == Pedido.Status.AGUARDANDO_ANALISE:
-            if hasattr(obj, "aceite_contrato"):
-                return ["reservar_unidades"]
-            return []
-        if obj.status == Pedido.Status.RESERVADO:
-            return ["confirmar"]
-        if obj.status == Pedido.Status.CONFIRMADO:
-            return ["iniciar_locacao"]
-        if obj.status == Pedido.Status.EM_LOCACAO:
-            return ["registrar_retirada"]
-        return []
+        return AdminPedidoAcoesService.acoes_disponiveis(obj)
 
 
 class ReservaUnidadePedidoSerializer(serializers.ModelSerializer):

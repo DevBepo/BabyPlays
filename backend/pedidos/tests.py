@@ -1541,6 +1541,69 @@ class PedidoAdminAPITests(APITestCase):
         self.assertEqual(len(response.data["unidades_reservadas"]), 1)
         self.assertEqual(response.data["acoes_disponiveis"], ["confirmar"])
 
+    def test_acoes_disponiveis_incluem_reservar_para_pedido_reservavel(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(status_pedido=Pedido.Status.AGUARDANDO_ANALISE)
+        self.criar_item(pedido)
+
+        response = self.client.get(self.detalhe_url(pedido))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["tem_aceite_contrato"], False)
+        self.assertEqual(response.data["acoes_disponiveis"], ["reservar_unidades"])
+
+    def test_acoes_disponiveis_nao_incluem_reservar_sem_itens_ou_periodo(self):
+        self.autenticar_admin()
+        sem_itens = self.criar_pedido(status_pedido=Pedido.Status.AGUARDANDO_ANALISE)
+        periodo_invalido = self.criar_pedido(
+            status_pedido=Pedido.Status.AGUARDANDO_ANALISE,
+            nome_snapshot="Periodo Invalido",
+        )
+        periodo_invalido.data_fim_locacao = periodo_invalido.data_inicio_locacao
+        periodo_invalido.save(update_fields=["data_fim_locacao", "atualizado_em"])
+        self.criar_item(periodo_invalido)
+
+        response_sem_itens = self.client.get(self.detalhe_url(sem_itens))
+        response_periodo_invalido = self.client.get(
+            self.detalhe_url(periodo_invalido)
+        )
+
+        self.assertEqual(response_sem_itens.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_sem_itens.data["acoes_disponiveis"], [])
+        self.assertEqual(response_periodo_invalido.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_periodo_invalido.data["acoes_disponiveis"], [])
+
+    def test_acoes_disponiveis_dos_principais_status(self):
+        self.autenticar_admin()
+        reservado = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
+        item_reservado = self.criar_item(reservado)
+        self.criar_aceite(reservado)
+        self.criar_reserva(reservado, item_reservado)
+        reservado_sem_aceite = self.criar_pedido(
+            status_pedido=Pedido.Status.RESERVADO,
+            nome_snapshot="Reservado Sem Aceite",
+        )
+        item_sem_aceite = self.criar_item(reservado_sem_aceite)
+        self.criar_reserva(reservado_sem_aceite, item_sem_aceite)
+        confirmado = self.criar_pedido(status_pedido=Pedido.Status.CONFIRMADO)
+        self.criar_item(confirmado)
+        em_locacao = self.criar_pedido(status_pedido=Pedido.Status.EM_LOCACAO)
+        self.criar_item(em_locacao)
+
+        casos = (
+            (reservado, ["confirmar"]),
+            (reservado_sem_aceite, []),
+            (confirmado, ["iniciar_locacao"]),
+            (em_locacao, ["registrar_retirada"]),
+        )
+
+        for pedido, acoes_esperadas in casos:
+            with self.subTest(status=pedido.status, pedido=pedido.id):
+                response = self.client.get(self.detalhe_url(pedido))
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual(response.data["acoes_disponiveis"], acoes_esperadas)
+
     def test_filtro_por_status_funciona(self):
         self.autenticar_admin()
         reservado = self.criar_pedido(status_pedido=Pedido.Status.RESERVADO)
@@ -1953,7 +2016,7 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
         self.assertEqual(self.pedido.status, Pedido.Status.RESERVADO)
         self.assertEqual(response.data["status"], Pedido.Status.RESERVADO)
 
-    def test_reserva_exige_contrato_aceito(self):
+    def test_reserva_nao_exige_contrato_aceito(self):
         self.autenticar_admin()
         self.pedido = self.criar_pedido(aceitar=False)
         self.criar_item_brinquedo()
@@ -1961,9 +2024,9 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
 
         response = self.client.post(self.url(), {}, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("contrato", response.data)
-        self.assertEqual(ReservaUnidade.objects.count(), 0)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], Pedido.Status.RESERVADO)
+        self.assertEqual(ReservaUnidade.objects.count(), 1)
 
     def test_reserva_exige_status_aguardando_analise(self):
         self.autenticar_admin()

@@ -629,10 +629,6 @@ class ReservaPedidoService:
             raise serializers.ValidationError(
                 {"status": "Pedido em status nao reservavel."}
             )
-        if not hasattr(pedido, "aceite_contrato"):
-            raise serializers.ValidationError(
-                {"contrato": "Pedido sem contrato aceito."}
-            )
         if not pedido.data_inicio_locacao or not pedido.data_fim_locacao:
             raise serializers.ValidationError(
                 {"periodo": "Pedido sem periodo de locacao definido."}
@@ -919,6 +915,36 @@ class ReservaPedidoService:
             reservas_criadas,
             reservas_criadas,
         )
+
+
+class AdminPedidoAcoesService:
+    @staticmethod
+    def acoes_disponiveis(pedido):
+        if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
+            if AdminPedidoAcoesService._tem_itens_e_periodo_reservaveis(pedido):
+                return ["reservar_unidades"]
+            return []
+        if pedido.status == Pedido.Status.RESERVADO:
+            if hasattr(pedido, "aceite_contrato"):
+                return ["confirmar"]
+            return []
+        if pedido.status == Pedido.Status.CONFIRMADO:
+            return ["iniciar_locacao"]
+        if pedido.status == Pedido.Status.EM_LOCACAO:
+            return ["registrar_retirada"]
+        return []
+
+    @staticmethod
+    def _tem_itens_e_periodo_reservaveis(pedido):
+        if not pedido.data_inicio_locacao or not pedido.data_fim_locacao:
+            return False
+        if pedido.data_fim_locacao <= pedido.data_inicio_locacao:
+            return False
+        try:
+            demandas = ReservaPedidoService._montar_demandas(pedido)
+        except serializers.ValidationError:
+            return False
+        return bool(demandas)
 
 
 class ConfirmacaoPedidoService:
