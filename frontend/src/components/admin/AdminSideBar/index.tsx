@@ -39,7 +39,7 @@ export function AdminSidebar() {
   const menuItems = [
     { label: "Visão Geral", icon: <IconDashboard />, href: "/admin" },
     { label: "Agenda", icon: <IconAgenda />, href: "/admin/agenda" },
-    { label: "Brinquedos", icon: <IconToy />, href: "/admin/brinquedos/novo" },
+    { label: "Brinquedos", icon: <IconToy />, href: "/admin/brinquedos" },
     { label: "Categorias", icon: <IconCategory />, href: "/admin/categorias" },
     { label: "Kits Festas", icon: <IconKits />, href: "/admin/kits" },
     { label: "Pedidos", icon: <IconOrders />, href: "/admin/pedidos" },

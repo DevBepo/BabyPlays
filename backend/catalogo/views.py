@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from .models import UnidadeBrinquedo, ImagemBrinquedo
 
 from .models import UnidadeBrinquedo
 from .serializers import (
@@ -73,6 +74,31 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
             serializer.validated_data["quantidade"],
         )
         return Response(resultado)
+    
+    # Criação do endpoint para o upload de imagem na criação de um brinquedo
+    
+    @action(detail=True, methods=["post"], url_path="imagens")
+    def upload_imagem(self, request, pk=None):
+        brinquedo = self.get_object()
+        imagem_arquivo = request.FILES.get('imagem')
+
+        if not imagem_arquivo:
+            return Response({"erro": "Nenhuma imagem foi enviada."}, status=400)
+
+        # Se for a primeira imagem, marca como principal automaticamente
+        is_principal = not brinquedo.imagens.exists()
+
+        nova_imagem = ImagemBrinquedo.objects.create(
+            brinquedo=brinquedo,
+            imagem=imagem_arquivo,
+            principal=is_principal
+        )
+
+        return Response({
+            "mensagem": "Imagem salva com sucesso!",
+            "id": nova_imagem.id,
+            "url": request.build_absolute_uri(nova_imagem.imagem.url)
+        })
 
 
 class AdminLiberarDisponibilidadeUnidadeView(APIView):
