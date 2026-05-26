@@ -25,32 +25,42 @@ const eventTypeStyles: Record<
   AdminAgendaEventType,
   {
     card: string;
+    badge: string;
     dot: string;
+    rail: string;
     summary: string;
     text: string;
   }
 > = {
   entrega: {
+    badge: "border-cyan-200 bg-cyan-100 text-cyan-800",
     card: "border-cyan-200 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100",
     dot: "bg-cyan-500",
+    rail: "border-l-cyan-500",
     summary: "border-cyan-200 bg-cyan-50",
     text: "text-cyan-800",
   },
   retirada: {
+    badge: "border-emerald-200 bg-emerald-100 text-emerald-800",
     card: "border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100",
     dot: "bg-emerald-500",
+    rail: "border-l-emerald-500",
     summary: "border-emerald-200 bg-emerald-50",
     text: "text-emerald-800",
   },
   contrato_pendente: {
+    badge: "border-rose-200 bg-rose-100 text-rose-800",
     card: "border-rose-200 bg-rose-50 hover:border-rose-300 hover:bg-rose-100",
     dot: "bg-rose-500",
+    rail: "border-l-rose-500",
     summary: "border-rose-200 bg-rose-50",
     text: "text-rose-800",
   },
   locacao_em_andamento: {
+    badge: "border-indigo-200 bg-indigo-100 text-indigo-800",
     card: "border-indigo-200 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100",
     dot: "bg-indigo-500",
+    rail: "border-l-indigo-500",
     summary: "border-indigo-200 bg-indigo-50",
     text: "text-indigo-800",
   },
@@ -162,6 +172,14 @@ function getStatusLabel(status: string) {
   return statusLabels[status] ?? status;
 }
 
+function getDayEventText(count: number) {
+  if (count === 1) {
+    return "1 evento";
+  }
+
+  return `${count} eventos`;
+}
+
 function AgendaEventCard({ event }: { event: AdminAgendaEvent }) {
   const router = useRouter();
   const styles = eventTypeStyles[event.tipo];
@@ -171,12 +189,12 @@ function AgendaEventCard({ event }: { event: AdminAgendaEvent }) {
     <button
       type="button"
       onClick={() => router.push(`/admin/pedidos/${event.pedido.id}`)}
-      className={`w-full rounded-lg border p-3 text-left shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 ${styles.card}`}
+      className={`group w-full cursor-pointer rounded-lg border border-l-4 p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${styles.card} ${styles.rail}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${styles.dot}`} />
-          <span className={`truncate text-xs font-bold uppercase ${styles.text}`}>
+          <span className={`truncate text-[11px] font-black uppercase ${styles.text}`}>
             {event.label}
           </span>
         </div>
@@ -189,9 +207,14 @@ function AgendaEventCard({ event }: { event: AdminAgendaEvent }) {
         <span className="truncate text-sm font-bold text-zinc-900">
           {event.pedido.cliente_nome}
         </span>
-        <span className="text-xs font-medium text-zinc-600">
-          {getStatusLabel(event.pedido.status)}
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-xs font-medium text-zinc-600">
+            {getStatusLabel(event.pedido.status)}
+          </span>
+          <span className="text-[11px] font-bold text-zinc-400 transition-colors group-hover:text-zinc-600">
+            Ver pedido
+          </span>
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -229,6 +252,9 @@ export default function AdminAgendaPage() {
   );
   const todayKey = formatApiDate(new Date());
   const hasEvents = Boolean(agenda && agenda.eventos.length > 0);
+  const selectedTypeLabel =
+    eventTypeOptions.find((option) => option.value === typeFilter)?.label ??
+    "Todos os tipos";
 
   useEffect(() => {
     let active = true;
@@ -283,55 +309,90 @@ export default function AdminAgendaPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Agenda operacional</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Eventos reais de pedidos, reservas e contratos no painel administrativo.
-          </p>
+    <div className="flex flex-col gap-5">
+      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-5 border-b border-zinc-100 p-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <span className="text-xs font-black uppercase text-teal-700">
+              Painel operacional
+            </span>
+            <h1 className="mt-1 text-2xl font-black text-zinc-950">
+              Agenda operacional
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
+              Visualize entregas, retiradas, contratos pendentes e locacoes em
+              andamento geradas pelo backend.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={goToToday}
+                className="h-10 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-black text-zinc-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              >
+                Hoje
+              </button>
+              <button
+                type="button"
+                onClick={goToPreviousWeek}
+                aria-label="Semana anterior"
+                className="h-10 w-10 rounded-lg border border-zinc-200 bg-white text-lg font-black text-zinc-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              >
+                &lt;
+              </button>
+              <button
+                type="button"
+                onClick={goToNextWeek}
+                aria-label="Proxima semana"
+                className="h-10 w-10 rounded-lg border border-zinc-200 bg-white text-lg font-black text-zinc-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              >
+                &gt;
+              </button>
+            </div>
+
+            <div className="min-w-60 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-black text-zinc-900">
+              {weekLabel}
+            </div>
+
+            <div className="w-full md:w-64">
+              <Select
+                label="Tipo"
+                options={eventTypeOptions}
+                value={typeFilter}
+                onChange={(event) =>
+                  setTypeFilter(event.target.value as AdminAgendaTypeFilter)
+                }
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm md:flex-row md:items-end">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={goToToday}
-              className="h-10 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-            >
-              Hoje
-            </button>
-            <button
-              type="button"
-              onClick={goToPreviousWeek}
-              aria-label="Semana anterior"
-              className="h-10 w-10 rounded-lg border border-zinc-200 bg-white text-lg font-bold text-zinc-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-            >
-              &lt;
-            </button>
-            <button
-              type="button"
-              onClick={goToNextWeek}
-              aria-label="Proxima semana"
-              className="h-10 w-10 rounded-lg border border-zinc-200 bg-white text-lg font-bold text-zinc-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-            >
-              &gt;
-            </button>
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {eventTypeOptions
+              .filter(
+                (option): option is { value: AdminAgendaEventType; label: string } =>
+                  option.value !== "todos",
+              )
+              .map((option) => {
+                const styles = eventTypeStyles[option.value];
+
+                return (
+                  <span
+                    key={option.value}
+                    className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-black ${styles.badge}`}
+                  >
+                    <span className={`h-2.5 w-2.5 rounded-full ${styles.dot}`} />
+                    {option.label}
+                  </span>
+                );
+              })}
           </div>
 
-          <div className="min-w-60 rounded-lg border border-zinc-100 bg-zinc-50 px-4 py-2.5 text-sm font-bold text-zinc-800">
-            {weekLabel}
-          </div>
-
-          <div className="w-full md:w-64">
-            <Select
-              label="Tipo"
-              options={eventTypeOptions}
-              value={typeFilter}
-              onChange={(event) =>
-                setTypeFilter(event.target.value as AdminAgendaTypeFilter)
-              }
-            />
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-600">
+            Filtro ativo: <span className="text-zinc-950">{selectedTypeLabel}</span>
           </div>
         </div>
       </div>
@@ -348,7 +409,7 @@ export default function AdminAgendaPage() {
       {!error ? (
         <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 text-sm font-medium text-zinc-600 shadow-sm">
           {loading
-            ? "Carregando agenda operacional..."
+            ? "Carregando eventos operacionais..."
             : `${agenda?.resumo.total ?? 0} evento(s) no periodo selecionado.`}
         </div>
       ) : null}
@@ -374,65 +435,84 @@ export default function AdminAgendaPage() {
                     key={option.value}
                     className={`rounded-lg border px-4 py-3 shadow-sm ${styles.summary}`}
                   >
-                    <span className={`text-2xl font-black ${styles.text}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-black uppercase text-zinc-500">
+                        {eventTypeLabels[option.value]}
+                      </span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${styles.dot}`} />
+                    </div>
+                    <span className={`mt-3 block text-3xl font-black ${styles.text}`}>
                       {agenda.resumo.por_tipo[option.value]}
-                    </span>
-                    <span className="mt-1 block text-xs font-bold uppercase text-zinc-500">
-                      {eventTypeLabels[option.value]}
                     </span>
                   </div>
                 );
               })}
             <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 shadow-sm">
-              <span className="text-2xl font-black text-zinc-900">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-black uppercase text-zinc-500">
+                  Total
+                </span>
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-900" />
+              </div>
+              <span className="mt-3 block text-3xl font-black text-zinc-900">
                 {agenda.resumo.total}
-              </span>
-              <span className="mt-1 block text-xs font-bold uppercase text-zinc-500">
-                Total
               </span>
             </div>
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
-            <div className="grid min-w-[980px] grid-cols-7 border-b border-zinc-200 bg-zinc-50">
+            <div className="grid min-w-[1050px] grid-cols-7 border-b border-zinc-200 bg-zinc-50">
               {weekDays.map((date) => {
                 const dateKey = formatApiDate(date);
                 const isToday = dateKey === todayKey;
-
-                return (
-                  <div
-                    key={dateKey}
-                    className="border-r border-zinc-200 px-4 py-3 last:border-r-0"
-                  >
-                    <span className="block text-xs font-bold uppercase text-zinc-400">
-                      {formatDayName(date)}
-                    </span>
-                    <span
-                      className={`mt-1 inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-black ${
-                        isToday
-                          ? "bg-teal-600 text-white"
-                          : "bg-white text-zinc-900"
-                      }`}
-                    >
-                      {String(date.getDate()).padStart(2, "0")}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="grid min-w-[980px] grid-cols-7">
-              {weekDays.map((date) => {
-                const dateKey = formatApiDate(date);
                 const dayEvents = eventsByDay[dateKey] ?? [];
 
                 return (
                   <div
                     key={dateKey}
-                    className="min-h-[420px] border-r border-zinc-200 bg-white p-3 last:border-r-0"
+                    className={`border-r border-zinc-200 px-4 py-3 last:border-r-0 ${
+                      isToday ? "bg-teal-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="block text-xs font-black uppercase text-zinc-400">
+                          {formatDayName(date)}
+                        </span>
+                        <span
+                          className={`mt-1 inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-black ${
+                            isToday
+                              ? "bg-teal-600 text-white"
+                              : "bg-white text-zinc-900"
+                          }`}
+                        >
+                          {String(date.getDate()).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <span className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-bold text-zinc-500">
+                        {getDayEventText(dayEvents.length)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid min-w-[1050px] grid-cols-7">
+              {weekDays.map((date) => {
+                const dateKey = formatApiDate(date);
+                const dayEvents = eventsByDay[dateKey] ?? [];
+                const isToday = dateKey === todayKey;
+
+                return (
+                  <div
+                    key={dateKey}
+                    className={`min-h-[440px] border-r border-zinc-200 p-3 last:border-r-0 ${
+                      isToday ? "bg-teal-50/40" : "bg-white"
+                    }`}
                   >
                     {dayEvents.length === 0 ? (
-                      <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-3 text-center text-xs font-medium text-zinc-400">
+                      <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50/80 px-3 text-center text-xs font-medium text-zinc-400">
                         Sem eventos
                       </div>
                     ) : (
