@@ -1692,6 +1692,448 @@ class PedidoAdminAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
+class PedidoAdminAgendaAPITests(APITestCase):
+    agenda_url = "/api/admin/agenda/"
+
+    def setUp(self):
+        self.data_inicio = timezone.localdate() + timedelta(days=30)
+        self.data_fim = self.data_inicio + timedelta(days=6)
+        self.admin = get_user_model().objects.create_user(
+            username="admin-agenda",
+            email="admin-agenda@email.com",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+        self.usuario = get_user_model().objects.create_user(
+            username="cliente-agenda",
+            email="cliente-agenda@email.com",
+            password="senha-segura-123",
+        )
+        self.cliente = Cliente.objects.create(
+            user=self.usuario,
+            nome="Cliente Agenda",
+            telefone="51999999999",
+        )
+        self.categoria = Categoria.objects.create(
+            nome="Brinquedos agenda",
+            slug="brinquedos-agenda",
+        )
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Cama elastica agenda",
+            descricao="Brinquedo para agenda.",
+            categoria=self.categoria,
+            preco_aluguel=Decimal("220.00"),
+        )
+        self.outro_brinquedo = Brinquedo.objects.create(
+            nome="Piscina de bolinhas agenda",
+            descricao="Brinquedo de apoio para kit.",
+            categoria=self.categoria,
+            preco_aluguel=Decimal("160.00"),
+        )
+        self.kit_festa = KitFesta.objects.create(
+            nome="Kit Festa Agenda",
+            descricao="Kit usado em evento de agenda.",
+            preco_aluguel=Decimal("350.00"),
+        )
+        ItemKitFesta.objects.create(
+            kit=self.kit_festa,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        self.contrato = Contrato.objects.create(
+            titulo="Contrato agenda",
+            versao="2026-05-agenda",
+            texto="Texto vigente do contrato para agenda.",
+            ativo=True,
+        )
+
+    def parametros(self, **extra):
+        params = {
+            "inicio": self.data_inicio.isoformat(),
+            "fim": self.data_fim.isoformat(),
+        }
+        params.update(extra)
+        return params
+
+    def autenticar_admin(self):
+        self.client.force_authenticate(user=self.admin)
+
+    def criar_pedido(
+        self,
+        status_pedido,
+        data_inicio=None,
+        data_fim=None,
+        nome_snapshot="Cliente Agenda",
+    ):
+        data_inicio = data_inicio or self.data_inicio
+        data_fim = data_fim or data_inicio + timedelta(days=2)
+        return Pedido.objects.create(
+            usuario=self.usuario,
+            cliente=self.cliente,
+            nome_cliente_snapshot=nome_snapshot,
+            telefone_cliente_snapshot="51999999999",
+            email_cliente_snapshot="cliente-agenda@email.com",
+            observacoes_cliente="Entregar com antecedencia.",
+            data_evento_pretendida=data_inicio,
+            data_inicio_locacao=data_inicio,
+            data_fim_locacao=data_fim,
+            subtotal_itens_snapshot=Decimal("220.00"),
+            endereco_entrega_snapshot={
+                "cep": "01001000",
+                "logradouro": "Praca da Se",
+                "numero": "100",
+                "bairro": "Se",
+                "cidade": "Sao Paulo",
+                "uf": "SP",
+            },
+            distancia_ida_km_snapshot=Decimal("8.00"),
+            distancia_total_km_snapshot=Decimal("16.00"),
+            valor_por_km_snapshot=Decimal("3.00"),
+            taxa_entrega_retirada_snapshot=Decimal("48.00"),
+            total_estimado_snapshot=Decimal("268.00"),
+            status=status_pedido,
+        )
+
+    def criar_item_brinquedo(self, pedido, brinquedo=None):
+        brinquedo = brinquedo or self.brinquedo
+        return ItemPedido.objects.create(
+            pedido=pedido,
+            tipo_item=ItemCarrinho.TipoItem.BRINQUEDO,
+            brinquedo=brinquedo,
+            quantidade=1,
+            nome_snapshot=brinquedo.nome,
+            preco_unitario_snapshot=brinquedo.preco_aluguel,
+            subtotal_snapshot=brinquedo.preco_aluguel,
+            snapshot={
+                "tipo_item": "brinquedo",
+                "brinquedo": {"id": brinquedo.id, "nome": brinquedo.nome},
+                "quantidade": 1,
+            },
+        )
+
+    def criar_item_kit_festa(self, pedido):
+        return ItemPedido.objects.create(
+            pedido=pedido,
+            tipo_item=ItemCarrinho.TipoItem.KIT_FESTA,
+            kit_festa=self.kit_festa,
+            quantidade=1,
+            nome_snapshot=self.kit_festa.nome,
+            preco_unitario_snapshot=self.kit_festa.preco_aluguel,
+            subtotal_snapshot=self.kit_festa.preco_aluguel,
+            snapshot={
+                "tipo_item": "kit_festa",
+                "kit_festa": {
+                    "id": self.kit_festa.id,
+                    "nome": self.kit_festa.nome,
+                    "itens": [
+                        {
+                            "brinquedo_id": self.brinquedo.id,
+                            "nome": self.brinquedo.nome,
+                            "quantidade": 1,
+                        }
+                    ],
+                },
+                "quantidade": 1,
+            },
+        )
+
+    def criar_unidade(self, brinquedo=None, status_unidade=None, codigo=None):
+        brinquedo = brinquedo or self.brinquedo
+        return UnidadeBrinquedo.objects.create(
+            brinquedo=brinquedo,
+            codigo=codigo or f"AGENDA-{UnidadeBrinquedo.objects.count() + 1:03d}",
+            status=status_unidade or UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+    def criar_reserva(self, pedido, item, unidade):
+        return ReservaUnidade.objects.create(
+            pedido=pedido,
+            item_pedido=item,
+            unidade_brinquedo=unidade,
+            data_inicio=pedido.data_inicio_locacao,
+            data_fim=pedido.data_fim_locacao,
+            status=ReservaUnidade.Status.ATIVA,
+        )
+
+    def criar_aceite(self, pedido):
+        return AceiteContrato.objects.create(
+            pedido=pedido,
+            contrato=self.contrato,
+            contrato_versao_snapshot=self.contrato.versao,
+            contrato_texto_snapshot=self.contrato.texto,
+            nome_cliente_snapshot=pedido.nome_cliente_snapshot,
+            email_cliente_snapshot=pedido.email_cliente_snapshot,
+            aceito_em=timezone.now(),
+            ip="203.0.113.50",
+            user_agent="Agenda Test Browser",
+        )
+
+    def preparar_cenario_agenda(self):
+        entrega = self.criar_pedido(
+            Pedido.Status.CONFIRMADO,
+            data_inicio=self.data_inicio + timedelta(days=1),
+        )
+        item_entrega = self.criar_item_kit_festa(entrega)
+        unidade_entrega = self.criar_unidade(codigo="AGENDA-ENTREGA-001")
+        self.criar_reserva(entrega, item_entrega, unidade_entrega)
+        self.criar_aceite(entrega)
+
+        em_locacao = self.criar_pedido(
+            Pedido.Status.EM_LOCACAO,
+            data_inicio=self.data_inicio + timedelta(days=2),
+            data_fim=self.data_inicio + timedelta(days=4),
+            nome_snapshot="Cliente em locacao",
+        )
+        item_em_locacao = self.criar_item_brinquedo(em_locacao)
+        unidade_em_locacao = self.criar_unidade(
+            status_unidade=UnidadeBrinquedo.Status.EM_LOCACAO,
+            codigo="AGENDA-LOCACAO-001",
+        )
+        self.criar_reserva(em_locacao, item_em_locacao, unidade_em_locacao)
+        self.criar_aceite(em_locacao)
+
+        contrato_pendente = self.criar_pedido(
+            Pedido.Status.RESERVADO,
+            data_inicio=self.data_inicio + timedelta(days=3),
+            nome_snapshot="Cliente sem contrato",
+        )
+        item_contrato = self.criar_item_brinquedo(contrato_pendente)
+        unidade_contrato = self.criar_unidade(codigo="AGENDA-CONTRATO-001")
+        self.criar_reserva(contrato_pendente, item_contrato, unidade_contrato)
+
+        reservado_com_aceite = self.criar_pedido(
+            Pedido.Status.RESERVADO,
+            data_inicio=self.data_inicio + timedelta(days=3),
+            nome_snapshot="Cliente com contrato",
+        )
+        self.criar_item_brinquedo(reservado_com_aceite)
+        self.criar_aceite(reservado_com_aceite)
+
+        higienizacao = self.criar_pedido(
+            Pedido.Status.RETIRADO,
+            data_inicio=self.data_inicio + timedelta(days=5),
+            nome_snapshot="Cliente retirado",
+        )
+        item_higienizacao = self.criar_item_brinquedo(higienizacao)
+        unidade_higienizacao = self.criar_unidade(
+            status_unidade=UnidadeBrinquedo.Status.HIGIENIZACAO,
+            codigo="AGENDA-HIG-001",
+        )
+        self.criar_reserva(higienizacao, item_higienizacao, unidade_higienizacao)
+
+        standby = self.criar_unidade(
+            status_unidade=UnidadeBrinquedo.Status.STANDBY,
+            codigo="AGENDA-STANDBY-001",
+        )
+
+        return {
+            "entrega": entrega,
+            "em_locacao": em_locacao,
+            "contrato_pendente": contrato_pendente,
+            "reservado_com_aceite": reservado_com_aceite,
+            "higienizacao": higienizacao,
+            "standby": standby,
+        }
+
+    def test_anonimo_nao_acessa_agenda_admin(self):
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_comum_nao_acessa_agenda_admin(self):
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_lista_eventos_operacionais_do_periodo(self):
+        self.autenticar_admin()
+        pedidos = self.preparar_cenario_agenda()
+
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["periodo"],
+            {
+                "inicio": self.data_inicio.isoformat(),
+                "fim": self.data_fim.isoformat(),
+            },
+        )
+        self.assertEqual(response.data["resumo"]["total"], 4)
+        self.assertEqual(
+            response.data["resumo"]["por_tipo"],
+            {
+                "entrega": 1,
+                "retirada": 1,
+                "contrato_pendente": 1,
+                "locacao_em_andamento": 1,
+            },
+        )
+
+        eventos_por_tipo = {evento["tipo"]: evento for evento in response.data["eventos"]}
+        self.assertEqual(
+            eventos_por_tipo["entrega"]["id"],
+            f"pedido-{pedidos['entrega'].id}-entrega",
+        )
+        self.assertEqual(
+            eventos_por_tipo["entrega"]["data"],
+            pedidos["entrega"].data_inicio_locacao.isoformat(),
+        )
+        self.assertIsNone(eventos_por_tipo["entrega"]["hora_inicio"])
+        self.assertTrue(eventos_por_tipo["entrega"]["pedido"]["tem_kit_festa"])
+        self.assertTrue(
+            eventos_por_tipo["entrega"]["pedido"]["tem_aceite_contrato"]
+        )
+        self.assertEqual(
+            eventos_por_tipo["entrega"]["unidades"][0]["codigo"],
+            "AGENDA-ENTREGA-001",
+        )
+
+        self.assertEqual(
+            eventos_por_tipo["retirada"]["data"],
+            pedidos["em_locacao"].data_fim_locacao.isoformat(),
+        )
+        self.assertEqual(
+            eventos_por_tipo["locacao_em_andamento"]["data"],
+            pedidos["em_locacao"].data_inicio_locacao.isoformat(),
+        )
+        self.assertEqual(
+            eventos_por_tipo["contrato_pendente"]["pedido"]["id"],
+            pedidos["contrato_pendente"].id,
+        )
+
+        ids_pedidos = {
+            evento["pedido"]["id"]
+            for evento in response.data["eventos"]
+        }
+        self.assertNotIn(pedidos["reservado_com_aceite"].id, ids_pedidos)
+        self.assertNotIn(pedidos["higienizacao"].id, ids_pedidos)
+        codigos_unidades = {
+            unidade["codigo"]
+            for evento in response.data["eventos"]
+            for unidade in evento["unidades"]
+        }
+        self.assertNotIn("AGENDA-HIG-001", codigos_unidades)
+        self.assertNotIn("AGENDA-STANDBY-001", codigos_unidades)
+
+    def test_agenda_filtra_por_tipo(self):
+        self.autenticar_admin()
+        self.preparar_cenario_agenda()
+
+        response = self.client.get(
+            self.agenda_url,
+            self.parametros(tipo="retirada,contrato_pendente"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [evento["tipo"] for evento in response.data["eventos"]],
+            ["contrato_pendente", "retirada"],
+        )
+        self.assertEqual(response.data["resumo"]["total"], 2)
+        self.assertEqual(response.data["resumo"]["por_tipo"]["entrega"], 0)
+        self.assertEqual(response.data["resumo"]["por_tipo"]["retirada"], 1)
+
+    def test_agenda_filtra_por_status_do_pedido(self):
+        self.autenticar_admin()
+        self.preparar_cenario_agenda()
+
+        response = self.client.get(
+            self.agenda_url,
+            self.parametros(status=Pedido.Status.EM_LOCACAO),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [evento["tipo"] for evento in response.data["eventos"]],
+            ["locacao_em_andamento", "retirada"],
+        )
+
+    def test_locacao_em_andamento_ancora_no_inicio_do_periodo_consultado(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(
+            Pedido.Status.EM_LOCACAO,
+            data_inicio=self.data_inicio - timedelta(days=2),
+            data_fim=self.data_inicio + timedelta(days=2),
+        )
+        item = self.criar_item_brinquedo(pedido)
+        unidade = self.criar_unidade(
+            status_unidade=UnidadeBrinquedo.Status.EM_LOCACAO,
+            codigo="AGENDA-LOCACAO-ANTERIOR-001",
+        )
+        self.criar_reserva(pedido, item, unidade)
+
+        response = self.client.get(
+            self.agenda_url,
+            self.parametros(tipo="locacao_em_andamento"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["eventos"]), 1)
+        self.assertEqual(
+            response.data["eventos"][0]["data"],
+            self.data_inicio.isoformat(),
+        )
+
+    def test_agenda_exige_inicio_e_fim_validos(self):
+        self.autenticar_admin()
+
+        sem_inicio = self.client.get(
+            self.agenda_url,
+            {"fim": self.data_fim.isoformat()},
+        )
+        fim_antes_inicio = self.client.get(
+            self.agenda_url,
+            {
+                "inicio": self.data_fim.isoformat(),
+                "fim": self.data_inicio.isoformat(),
+            },
+        )
+        intervalo_longo = self.client.get(
+            self.agenda_url,
+            {
+                "inicio": self.data_inicio.isoformat(),
+                "fim": (self.data_inicio + timedelta(days=31)).isoformat(),
+            },
+        )
+
+        self.assertEqual(sem_inicio.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("inicio", sem_inicio.data)
+        self.assertEqual(fim_antes_inicio.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("fim", fim_antes_inicio.data)
+        self.assertEqual(intervalo_longo.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("fim", intervalo_longo.data)
+
+    def test_agenda_rejeita_tipo_invalido(self):
+        self.autenticar_admin()
+
+        response = self.client.get(
+            self.agenda_url,
+            self.parametros(tipo="entrega,higienizacao"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("tipo", response.data)
+
+    def test_agenda_nao_expoe_dados_sensiveis_do_aceite(self):
+        self.autenticar_admin()
+        self.preparar_cenario_agenda()
+
+        response = self.client.get(
+            self.agenda_url,
+            self.parametros(tipo="entrega"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        evento = response.data["eventos"][0]
+        self.assertNotIn("aceite_contrato", evento)
+        self.assertNotIn("email_cliente_snapshot", evento["pedido"])
+        self.assertNotIn("ip", evento["pedido"])
+        self.assertNotIn("user_agent", evento["pedido"])
+
+
 class ReservaUnidadesPedidoAdminTests(APITestCase):
     def setUp(self):
         self.url_template = "/api/admin/pedidos/{}/reservar-unidades/"

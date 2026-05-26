@@ -10,7 +10,7 @@ from .models import (
     Pedido,
     ReservaUnidade,
 )
-from .services import AdminPedidoAcoesService, CarrinhoService
+from .services import AdminPedidoAcoesService, AgendaAdminService, CarrinhoService
 
 
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
@@ -209,6 +209,106 @@ class UnidadeBrinquedoAdminResumoSerializer(serializers.Serializer):
 class BrinquedoAdminResumoSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     nome = serializers.CharField()
+
+
+class AdminAgendaQuerySerializer(serializers.Serializer):
+    inicio = serializers.DateField(required=True)
+    fim = serializers.DateField(required=True)
+    tipo = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+    status = serializers.ChoiceField(
+        choices=Pedido.Status.choices,
+        required=False,
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        inicio = attrs.get("inicio")
+        fim = attrs.get("fim")
+
+        if inicio and fim:
+            if fim < inicio:
+                raise serializers.ValidationError(
+                    {"fim": "A data final deve ser igual ou posterior ao inicio."}
+                )
+
+            quantidade_dias = (fim - inicio).days + 1
+            if quantidade_dias > 31:
+                raise serializers.ValidationError(
+                    {"fim": "O intervalo maximo da agenda e de 31 dias."}
+                )
+
+        tipos_raw = attrs.get("tipo", "")
+        tipos = []
+        if tipos_raw:
+            tipos = [
+                tipo.strip()
+                for tipo in tipos_raw.split(",")
+                if tipo.strip()
+            ]
+            tipos_invalidos = sorted(
+                set(tipos) - set(AgendaAdminService.TIPOS_EVENTO)
+            )
+            if tipos_invalidos:
+                raise serializers.ValidationError(
+                    {
+                        "tipo": (
+                            "Tipo(s) de evento invalido(s): "
+                            + ", ".join(tipos_invalidos)
+                            + "."
+                        )
+                    }
+                )
+
+        attrs["tipos"] = tipos or list(AgendaAdminService.TIPOS_EVENTO)
+        return attrs
+
+
+class AdminAgendaPeriodoSerializer(serializers.Serializer):
+    inicio = serializers.DateField()
+    fim = serializers.DateField()
+
+
+class AdminAgendaPedidoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    cliente_nome = serializers.CharField()
+    cliente_telefone = serializers.CharField(allow_blank=True)
+    data_inicio_locacao = serializers.DateField()
+    data_fim_locacao = serializers.DateField()
+    tem_aceite_contrato = serializers.BooleanField()
+    tem_kit_festa = serializers.BooleanField()
+
+
+class AdminAgendaUnidadeSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    codigo = serializers.CharField()
+    brinquedo = serializers.CharField()
+    status = serializers.CharField()
+
+
+class AdminAgendaEventoSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    tipo = serializers.ChoiceField(choices=AgendaAdminService.TIPOS_EVENTO)
+    label = serializers.CharField()
+    data = serializers.DateField()
+    hora_inicio = serializers.TimeField(allow_null=True)
+    pedido = AdminAgendaPedidoSerializer()
+    unidades = AdminAgendaUnidadeSerializer(many=True)
+
+
+class AdminAgendaResumoSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    por_tipo = serializers.DictField(child=serializers.IntegerField())
+
+
+class AdminAgendaResponseSerializer(serializers.Serializer):
+    periodo = AdminAgendaPeriodoSerializer()
+    eventos = AdminAgendaEventoSerializer(many=True)
+    resumo = AdminAgendaResumoSerializer()
 
 
 class ItemPedidoAdminSerializer(serializers.ModelSerializer):

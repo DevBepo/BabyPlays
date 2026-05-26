@@ -12,6 +12,8 @@ from .serializers import (
     AceitarContratoSerializer,
     AceiteContratoSerializer,
     AdicionarItemCarrinhoSerializer,
+    AdminAgendaQuerySerializer,
+    AdminAgendaResponseSerializer,
     AlterarItemCarrinhoSerializer,
     CarrinhoSerializer,
     ConfirmacaoPedidoSerializer,
@@ -25,6 +27,7 @@ from .serializers import (
     ReservaPedidoResultadoSerializer,
 )
 from .services import (
+    AgendaAdminService,
     CarrinhoService,
     ConfirmacaoPedidoService,
     ContratoService,
@@ -305,6 +308,22 @@ class AdminPedidoDetailView(AdminPedidoQuerysetMixin, APIView):
     def get(self, request, pedido_id):
         pedido = get_object_or_404(self.queryset_detalhe(), id=pedido_id)
         return Response(PedidoAdminDetailSerializer(pedido).data)
+
+
+class AdminAgendaView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        serializer = AdminAgendaQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        dados = serializer.validated_data
+        agenda = AgendaAdminService.gerar(
+            inicio=dados["inicio"],
+            fim=dados["fim"],
+            tipos=dados["tipos"],
+            status=dados.get("status"),
+        )
+        return Response(AdminAgendaResponseSerializer(agenda).data)
 
 
 class AdminReservarUnidadesPedidoView(APIView):

@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AceitarContratoPedidoView,
+    AdminAgendaView,
     AdminConfirmarPedidoView,
     AdminPedidoDetailView,
     AdminPedidoListView,
@@ -51,6 +52,11 @@ urlpatterns = [
         "admin/pedidos/",
         AdminPedidoListView.as_view(),
         name="admin-pedido-lista",
+    ),
+    path(
+        "admin/agenda/",
+        AdminAgendaView.as_view(),
+        name="admin-agenda",
     ),
     path(
         "admin/pedidos/<int:pedido_id>/",

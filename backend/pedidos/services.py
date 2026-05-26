@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.http import Http404
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -915,6 +916,248 @@ class ReservaPedidoService:
             reservas_criadas,
             reservas_criadas,
         )
+
+
+class AgendaAdminService:
+    EVENTO_ENTREGA = "entrega"
+    EVENTO_RETIRADA = "retirada"
+    EVENTO_CONTRATO_PENDENTE = "contrato_pendente"
+    EVENTO_LOCACAO_EM_ANDAMENTO = "locacao_em_andamento"
+
+    TIPOS_EVENTO = (
+        EVENTO_ENTREGA,
+        EVENTO_RETIRADA,
+        EVENTO_CONTRATO_PENDENTE,
+        EVENTO_LOCACAO_EM_ANDAMENTO,
+    )
+
+    LABELS = {
+        EVENTO_ENTREGA: "Entrega",
+        EVENTO_RETIRADA: "Retirada",
+        EVENTO_CONTRATO_PENDENTE: "Contrato pendente",
+        EVENTO_LOCACAO_EM_ANDAMENTO: "Locacao em andamento",
+    }
+
+    ORDEM_TIPOS = {
+        EVENTO_ENTREGA: 1,
+        EVENTO_RETIRADA: 2,
+        EVENTO_CONTRATO_PENDENTE: 3,
+        EVENTO_LOCACAO_EM_ANDAMENTO: 4,
+    }
+
+    @classmethod
+    def gerar(cls, inicio, fim, tipos=None, status=None):
+        tipos = tuple(tipos or cls.TIPOS_EVENTO)
+        eventos = []
+
+        if cls.EVENTO_ENTREGA in tipos:
+            eventos.extend(cls._eventos_entrega(inicio, fim, status))
+        if cls.EVENTO_RETIRADA in tipos:
+            eventos.extend(cls._eventos_retirada(inicio, fim, status))
+        if cls.EVENTO_CONTRATO_PENDENTE in tipos:
+            eventos.extend(cls._eventos_contrato_pendente(inicio, fim, status))
+        if cls.EVENTO_LOCACAO_EM_ANDAMENTO in tipos:
+            eventos.extend(cls._eventos_locacao_em_andamento(inicio, fim, status))
+
+        eventos.sort(
+            key=lambda evento: (
+                evento["data"],
+                cls.ORDEM_TIPOS.get(evento["tipo"], 99),
+                evento["pedido"]["id"],
+                evento["id"],
+            )
+        )
+
+        return {
+            "periodo": {
+                "inicio": inicio,
+                "fim": fim,
+            },
+            "eventos": eventos,
+            "resumo": cls._resumo(eventos),
+        }
+
+    @classmethod
+    def _queryset_base(cls):
+        reservas_ativas = (
+            ReservaUnidade.objects.filter(status=ReservaUnidade.Status.ATIVA)
+            .select_related(
+                "unidade_brinquedo",
+                "unidade_brinquedo__brinquedo",
+            )
+            .order_by("id")
+        )
+        return (
+            Pedido.objects.select_related("cliente", "aceite_contrato")
+            .prefetch_related(
+                "itens",
+                Prefetch(
+                    "reservas_unidades",
+                    queryset=reservas_ativas,
+                    to_attr="reservas_ativas_agenda",
+                ),
+            )
+            .order_by("data_inicio_locacao", "id")
+        )
+
+    @staticmethod
+    def _filtrar_status(queryset, status):
+        if status:
+            return queryset.filter(status=status)
+        return queryset
+
+    @classmethod
+    def _eventos_entrega(cls, inicio, fim, status):
+        queryset = cls._queryset_base().filter(
+            status=Pedido.Status.CONFIRMADO,
+            data_inicio_locacao__gte=inicio,
+            data_inicio_locacao__lte=fim,
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            cls._montar_evento(pedido, cls.EVENTO_ENTREGA, pedido.data_inicio_locacao)
+            for pedido in queryset
+        ]
+
+    @classmethod
+    def _eventos_retirada(cls, inicio, fim, status):
+        queryset = cls._queryset_base().filter(
+            status=Pedido.Status.EM_LOCACAO,
+            data_fim_locacao__gte=inicio,
+            data_fim_locacao__lte=fim,
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            cls._montar_evento(pedido, cls.EVENTO_RETIRADA, pedido.data_fim_locacao)
+            for pedido in queryset
+        ]
+
+    @classmethod
+    def _eventos_contrato_pendente(cls, inicio, fim, status):
+        queryset = cls._queryset_base().filter(
+            status=Pedido.Status.RESERVADO,
+            aceite_contrato__isnull=True,
+            data_inicio_locacao__gte=inicio,
+            data_inicio_locacao__lte=fim,
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            cls._montar_evento(
+                pedido,
+                cls.EVENTO_CONTRATO_PENDENTE,
+                pedido.data_inicio_locacao,
+            )
+            for pedido in queryset
+        ]
+
+    @classmethod
+    def _eventos_locacao_em_andamento(cls, inicio, fim, status):
+        queryset = cls._queryset_base().filter(
+            status=Pedido.Status.EM_LOCACAO,
+            data_inicio_locacao__lte=fim,
+            data_fim_locacao__gte=inicio,
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            cls._montar_evento(
+                pedido,
+                cls.EVENTO_LOCACAO_EM_ANDAMENTO,
+                max(pedido.data_inicio_locacao, inicio),
+            )
+            for pedido in queryset
+        ]
+
+    @classmethod
+    def _montar_evento(cls, pedido, tipo, data):
+        return {
+            "id": cls._id_evento(pedido, tipo),
+            "tipo": tipo,
+            "label": cls.LABELS[tipo],
+            "data": data,
+            "hora_inicio": None,
+            "pedido": cls._pedido_resumo(pedido),
+            "unidades": cls._unidades_resumo(pedido),
+        }
+
+    @staticmethod
+    def _id_evento(pedido, tipo):
+        return f"pedido-{pedido.id}-{tipo.replace('_', '-')}"
+
+    @classmethod
+    def _pedido_resumo(cls, pedido):
+        cliente_nome = (
+            pedido.cliente.nome
+            if pedido.cliente_id and pedido.cliente
+            else pedido.nome_cliente_snapshot
+        )
+        cliente_telefone = (
+            pedido.cliente.telefone
+            if pedido.cliente_id and pedido.cliente
+            else pedido.telefone_cliente_snapshot
+        )
+        return {
+            "id": pedido.id,
+            "status": pedido.status,
+            "cliente_nome": cliente_nome,
+            "cliente_telefone": cliente_telefone,
+            "data_inicio_locacao": pedido.data_inicio_locacao,
+            "data_fim_locacao": pedido.data_fim_locacao,
+            "tem_aceite_contrato": cls._tem_aceite_contrato(pedido),
+            "tem_kit_festa": cls._tem_kit_festa(pedido),
+        }
+
+    @staticmethod
+    def _tem_aceite_contrato(pedido):
+        return hasattr(pedido, "aceite_contrato")
+
+    @staticmethod
+    def _tem_kit_festa(pedido):
+        return any(
+            item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA
+            for item in pedido.itens.all()
+        )
+
+    @staticmethod
+    def _unidades_resumo(pedido):
+        reservas = getattr(pedido, "reservas_ativas_agenda", None)
+        if reservas is None:
+            reservas = (
+                pedido.reservas_unidades.filter(
+                    status=ReservaUnidade.Status.ATIVA,
+                )
+                .select_related(
+                    "unidade_brinquedo",
+                    "unidade_brinquedo__brinquedo",
+                )
+                .order_by("id")
+            )
+
+        unidades = []
+        unidade_ids = set()
+        for reserva in reservas:
+            unidade = reserva.unidade_brinquedo
+            if unidade.id in unidade_ids:
+                continue
+            unidade_ids.add(unidade.id)
+            unidades.append(
+                {
+                    "id": unidade.id,
+                    "codigo": unidade.codigo,
+                    "brinquedo": unidade.brinquedo.nome,
+                    "status": unidade.status,
+                }
+            )
+        return unidades
+
+    @classmethod
+    def _resumo(cls, eventos):
+        por_tipo = {tipo: 0 for tipo in cls.TIPOS_EVENTO}
+        for evento in eventos:
+            por_tipo[evento["tipo"]] += 1
+        return {
+            "total": len(eventos),
+            "por_tipo": por_tipo,
+        }
 
 
 class AdminPedidoAcoesService:
