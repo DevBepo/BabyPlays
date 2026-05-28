@@ -243,7 +243,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-8 max-w-[1600px] w-full mx-auto animate-in fade-in duration-300">
+        <main className="flex-1 p-8 max-w-1600px w-full mx-auto animate-in fade-in duration-300">
           {children}
         </main>
       </div>

@@ -400,6 +400,7 @@ export default function Home() {
                     return (
                       <ProductCard
                         key={brinquedo.id}
+                        id={brinquedo.id}
                         nome={brinquedo.nome}
                         descricao={brinquedo.descricao}
                         precoAluguel={brinquedo.preco_aluguel}
