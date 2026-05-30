@@ -208,19 +208,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <AdminSidebar />
 
       <div className="pl-64 flex flex-col min-h-screen">
-        <header className="h-20 bg-white border-b border-zinc-200 px-8 flex items-center justify-between sticky top-0 z-20">
+        <header className="h-14 bg-white border-b border-zinc-200 px-6 flex items-center justify-between sticky top-0 z-20">
           <div>
-            <h1 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+            <h1 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">
               Ambiente de Gestao
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex flex-col text-right">
-              <span className="text-sm font-bold text-zinc-800">
+              <span className="text-xs font-semibold text-zinc-800">
                 Modo Administrador
               </span>
-              <span className="text-xs text-zinc-400 font-medium">
+              <span className="text-[11px] text-zinc-500 font-normal">
                 {access.admin.email}
               </span>
               {logoutError ? (
@@ -233,17 +233,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               type="button"
               onClick={handleLogout}
               disabled={logoutLoading}
-              className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-8 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {logoutLoading ? "Saindo..." : "Sair"}
             </button>
-            <div className="w-10 h-10 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 font-bold text-sm select-none">
+            <div className="w-8 h-8 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 font-semibold text-xs select-none">
               ADM
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-8 max-w-1600px w-full mx-auto animate-in fade-in duration-300">
+        <main className="flex-1 p-5 max-w-1600px w-full mx-auto animate-in fade-in duration-300">
           {children}
         </main>
       </div>

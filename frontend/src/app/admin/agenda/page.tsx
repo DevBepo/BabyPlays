@@ -35,6 +35,15 @@ const eventTypeSingleLabels: Record<AdminAgendaEventType, string> = {
   locacao_em_andamento: "Locação em andamento",
 };
 
+const calendarStartHour = 7;
+const calendarEndHour = 19;
+const calendarHours = Array.from(
+  { length: calendarEndHour - calendarStartHour },
+  (_, index) => index + calendarStartHour,
+);
+const untimedEventTopOffset = 12;
+const untimedEventGap = 76;
+
 const eventTypeStyles: Record<
   AdminAgendaEventType,
   {
@@ -49,39 +58,39 @@ const eventTypeStyles: Record<
 > = {
   entrega: {
     accent: "border-l-cyan-500",
-    badge: "border-cyan-200 bg-cyan-50 text-cyan-800",
-    card: "border-cyan-200 bg-cyan-50/80 hover:bg-cyan-100",
+    badge: "border-cyan-200 bg-cyan-50 text-zinc-800",
+    card: "border-cyan-200 bg-cyan-50/70 hover:bg-cyan-100/70",
     dot: "bg-cyan-500",
     legend: "border-cyan-100 bg-cyan-50/60",
     summary: "border-cyan-200 bg-cyan-50",
-    text: "text-cyan-800",
+    text: "text-zinc-800",
   },
   retirada: {
     accent: "border-l-emerald-500",
-    badge: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    card: "border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100",
+    badge: "border-emerald-200 bg-emerald-50 text-zinc-800",
+    card: "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70",
     dot: "bg-emerald-500",
     legend: "border-emerald-100 bg-emerald-50/60",
     summary: "border-emerald-200 bg-emerald-50",
-    text: "text-emerald-800",
+    text: "text-zinc-800",
   },
   contrato_pendente: {
     accent: "border-l-rose-500",
-    badge: "border-rose-200 bg-rose-50 text-rose-800",
-    card: "border-rose-200 bg-rose-50/80 hover:bg-rose-100",
+    badge: "border-rose-200 bg-rose-50 text-zinc-800",
+    card: "border-rose-200 bg-rose-50/70 hover:bg-rose-100/70",
     dot: "bg-rose-500",
     legend: "border-rose-100 bg-rose-50/60",
     summary: "border-rose-200 bg-rose-50",
-    text: "text-rose-800",
+    text: "text-zinc-800",
   },
   locacao_em_andamento: {
     accent: "border-l-violet-500",
-    badge: "border-violet-200 bg-violet-50 text-violet-800",
-    card: "border-violet-200 bg-violet-50/80 hover:bg-violet-100",
+    badge: "border-violet-200 bg-violet-50 text-zinc-800",
+    card: "border-violet-200 bg-violet-50/70 hover:bg-violet-100/70",
     dot: "bg-violet-500",
     legend: "border-violet-100 bg-violet-50/60",
     summary: "border-violet-200 bg-violet-50",
-    text: "text-violet-800",
+    text: "text-zinc-800",
   },
 };
 
@@ -212,6 +221,46 @@ function getPeriodLabel(start: Date, end: Date) {
   return `${formatPeriodDate(start)} - ${formatPeriodDate(end)}`;
 }
 
+function formatCalendarHour(hour: number) {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+function getCalendarHourTopOffset(hour: number) {
+  const percentage =
+    ((hour - calendarStartHour) / (calendarEndHour - calendarStartHour)) * 100;
+
+  return `${percentage}%`;
+}
+
+function formatEventTime(event: AdminAgendaEvent) {
+  return event.hora_inicio ? event.hora_inicio.slice(0, 5) : "Sem horário";
+}
+
+function getEventTopOffset(event: AdminAgendaEvent, index: number) {
+  if (!event.hora_inicio) {
+    return `${untimedEventTopOffset + index * untimedEventGap}px`;
+  }
+
+  const [hourText, minuteText = "0"] = event.hora_inicio.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return `${untimedEventTopOffset + index * untimedEventGap}px`;
+  }
+
+  const eventHour = hour + minute / 60;
+  const clampedHour = Math.min(
+    Math.max(eventHour, calendarStartHour),
+    calendarEndHour,
+  );
+  const percentage =
+    ((clampedHour - calendarStartHour) / (calendarEndHour - calendarStartHour)) *
+    100;
+
+  return `calc(${percentage}% + 6px)`;
+}
+
 function AgendaEventCard({
   event,
   isSelected,
@@ -228,36 +277,40 @@ function AgendaEventCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`group w-full cursor-pointer rounded-md border border-l-4 px-2.5 py-2 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 ${styles.card} ${styles.accent} ${
+      className={`group w-full cursor-pointer rounded border border-l-4 px-2 py-1.5 text-left transition-colors hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 ${styles.card} ${styles.accent} ${
         isSelected ? "ring-2 ring-teal-500" : ""
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={`truncate text-[10px] font-black uppercase ${styles.text}`}>
-          {eventTypeSingleLabels[event.tipo]}
+        <span className="shrink-0 text-[10px] font-semibold text-zinc-800">
+          {formatEventTime(event)}
         </span>
-        <span className="shrink-0 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-black text-zinc-700">
+        <span className="shrink-0 rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
           #{event.pedido.id}
         </span>
       </div>
 
-      <span className="mt-1 block truncate text-xs font-black text-zinc-950">
+      <span className={`mt-0.5 block truncate text-[10px] font-semibold ${styles.text}`}>
+        {eventTypeSingleLabels[event.tipo]}
+      </span>
+
+      <span className="mt-0.5 block truncate text-xs font-semibold text-zinc-900">
         {event.pedido.cliente_nome}
       </span>
 
-      <div className="mt-1 flex items-center justify-between gap-2">
-        <span className="truncate text-[11px] font-semibold text-zinc-600">
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <span className="truncate text-[11px] font-normal text-zinc-600">
           {getStatusLabel(event.pedido.status)}
         </span>
         {unitCount > 0 ? (
-          <span className="shrink-0 text-[10px] font-bold text-zinc-500">
+          <span className="shrink-0 text-[10px] font-normal text-zinc-500">
             {unitCount} un.
           </span>
         ) : null}
       </div>
 
       {event.pedido.tem_kit_festa ? (
-        <span className="mt-1.5 inline-flex rounded border border-pink-200 bg-pink-50 px-1.5 py-0.5 text-[10px] font-black text-pink-700">
+        <span className="mt-1 inline-flex rounded border border-pink-200 bg-pink-50 px-1.5 py-0.5 text-[10px] font-normal text-zinc-700">
           Kit festa
         </span>
       ) : null}
@@ -271,8 +324,8 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
   if (!event) {
     return (
       <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm xl:sticky xl:top-4 xl:h-fit">
-        <div className="flex min-h-80 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 text-center">
-          <span className="text-sm font-black text-zinc-700">
+        <div className="flex min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 text-center">
+          <span className="text-sm font-semibold text-zinc-700">
             Nenhum evento selecionado
           </span>
           <p className="mt-2 text-xs leading-5 text-zinc-500">
@@ -292,11 +345,11 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <span
-              className={`inline-flex rounded-md border px-2 py-1 text-[11px] font-black uppercase ${styles.badge}`}
+              className={`inline-flex rounded-md border px-2 py-1 text-[11px] font-medium uppercase ${styles.badge}`}
             >
               {eventTypeSingleLabels[event.tipo]}
             </span>
-            <h2 className="mt-3 text-lg font-black text-zinc-950">
+            <h2 className="mt-3 text-lg font-bold text-zinc-950">
               Pedido #{event.pedido.id}
             </h2>
           </div>
@@ -306,10 +359,10 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
 
       <div className="space-y-4 p-5">
         <div>
-          <span className="text-[11px] font-black uppercase text-zinc-400">
+          <span className="text-[11px] font-semibold uppercase text-zinc-500">
             Cliente
           </span>
-          <p className="mt-1 text-sm font-black text-zinc-950">
+          <p className="mt-1 text-sm font-semibold text-zinc-950">
             {event.pedido.cliente_nome}
           </p>
           {event.pedido.cliente_telefone ? (
@@ -321,26 +374,26 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
 
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <dt className="text-[11px] font-black uppercase text-zinc-400">
+            <dt className="text-[11px] font-semibold uppercase text-zinc-500">
               Status
             </dt>
-            <dd className="mt-1 font-bold text-zinc-900">
+            <dd className="mt-1 font-medium text-zinc-900">
               {getStatusLabel(event.pedido.status)}
             </dd>
           </div>
           <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <dt className="text-[11px] font-black uppercase text-zinc-400">
+            <dt className="text-[11px] font-semibold uppercase text-zinc-500">
               Data
             </dt>
-            <dd className="mt-1 font-bold text-zinc-900">
+            <dd className="mt-1 font-medium text-zinc-900">
               {formatApiDisplayDate(event.data)}
             </dd>
           </div>
           <div className="col-span-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <dt className="text-[11px] font-black uppercase text-zinc-400">
+            <dt className="text-[11px] font-semibold uppercase text-zinc-500">
               Período da locação
             </dt>
-            <dd className="mt-1 font-bold text-zinc-900">
+            <dd className="mt-1 font-medium text-zinc-900">
               {formatApiDisplayDate(event.pedido.data_inicio_locacao)} até{" "}
               {formatApiDisplayDate(event.pedido.data_fim_locacao)}
             </dd>
@@ -348,7 +401,7 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
         </dl>
 
         <div>
-          <span className="text-[11px] font-black uppercase text-zinc-400">
+          <span className="text-[11px] font-semibold uppercase text-zinc-500">
             Unidades
           </span>
           {event.unidades.length > 0 ? (
@@ -358,7 +411,7 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
                   key={unidade.id}
                   className="rounded-md border border-zinc-200 bg-white p-3"
                 >
-                  <p className="truncate text-sm font-black text-zinc-950">
+                  <p className="truncate text-sm font-semibold text-zinc-950">
                     {unidade.brinquedo}
                   </p>
                   <p className="mt-1 text-xs font-medium text-zinc-500">
@@ -377,7 +430,7 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
         <button
           type="button"
           onClick={() => router.push(`/admin/pedidos/${event.pedido.id}`)}
-          className="h-10 w-full rounded-lg bg-teal-600 px-4 text-sm font-black text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          className="h-10 w-full rounded-lg bg-teal-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
         >
           Ver pedido
         </button>
@@ -469,21 +522,21 @@ export default function AdminAgendaPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-[calc(100vh-5.5rem)] flex-col gap-3">
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-zinc-100 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-black text-zinc-950">Agenda</h1>
-            <span className="text-sm font-medium text-zinc-600">
+        <div className="flex flex-col gap-3 border-b border-zinc-100 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-xl font-bold text-zinc-950">Agenda</h1>
+            <span className="text-xs font-normal text-zinc-600">
               {weekLabel}
             </span>
           </div>
 
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-            <div className="inline-flex h-9 w-fit rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
+          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+            <div className="inline-flex h-8 w-fit rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
               <button
                 type="button"
-                className="rounded px-3 text-sm font-medium text-zinc-950 shadow-sm ring-1 ring-zinc-200 bg-white"
+                className="rounded px-3 text-xs font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 bg-white"
               >
                 Semana
               </button>
@@ -491,7 +544,7 @@ export default function AdminAgendaPage() {
                 type="button"
                 disabled
                 aria-label="Visualizacao mensal ainda nao disponivel"
-                className="rounded px-3 text-sm font-medium text-zinc-400"
+                className="rounded px-3 text-xs font-normal text-zinc-400"
               >
                 Mês
               </button>
@@ -501,7 +554,7 @@ export default function AdminAgendaPage() {
               <button
                 type="button"
                 onClick={goToToday}
-                className="h-8 rounded px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                className="h-7 rounded px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
               >
                 Hoje
               </button>
@@ -509,24 +562,24 @@ export default function AdminAgendaPage() {
                 type="button"
                 onClick={goToPreviousWeek}
                 aria-label="Semana anterior"
-                className="h-8 w-8 rounded text-lg font-medium text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                className="h-7 w-7 rounded text-base font-normal text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
               >
                 &lt;
               </button>
-              <span className="hidden min-w-32 px-2 text-center text-sm font-medium text-zinc-900 sm:inline">
+              <span className="hidden min-w-28 px-1 text-center text-xs font-normal text-zinc-800 sm:inline">
                 {compactWeekLabel}
               </span>
               <button
                 type="button"
                 onClick={goToNextWeek}
                 aria-label="Próxima semana"
-                className="h-8 w-8 rounded text-lg font-medium text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                className="h-7 w-7 rounded text-base font-normal text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
               >
                 &gt;
               </button>
             </div>
 
-            <div className="w-full lg:w-56">
+            <div className="w-full lg:w-52">
               <Select
                 aria-label="Tipo"
                 options={eventTypeOptions}
@@ -534,13 +587,13 @@ export default function AdminAgendaPage() {
                 onChange={(event) =>
                   setTypeFilter(event.target.value as AdminAgendaTypeFilter)
                 }
-                className="h-9 py-1.5 text-sm"
+                className="h-8 rounded-md px-3 py-1 text-xs"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 px-4 py-3">
+        <div className="flex flex-wrap gap-1.5 px-4 py-2">
           {eventTypeOptions
             .filter(
               (option): option is { value: AdminAgendaEventType; label: string } =>
@@ -552,9 +605,9 @@ export default function AdminAgendaPage() {
               return (
                 <span
                   key={option.value}
-                  className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-normal text-zinc-950 ${styles.legend}`}
+                  className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-normal text-zinc-700 ${styles.legend}`}
                 >
-                  <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${styles.dot}`} />
+                  <span className={`h-2 w-2 shrink-0 rounded-sm ${styles.dot}`} />
                   {option.label}
                 </span>
               );
@@ -572,7 +625,7 @@ export default function AdminAgendaPage() {
       ) : null}
 
       {!error ? (
-        <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 shadow-sm">
+        <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-normal text-zinc-600 shadow-sm">
           {loading
             ? "Carregando eventos operacionais..."
             : `${agenda?.resumo.total ?? 0} evento(s) no período selecionado.`}
@@ -587,9 +640,10 @@ export default function AdminAgendaPage() {
 
       {!loading && !error && agenda ? (
         <>
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
             <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
-              <div className="grid min-w-[980px] grid-cols-7 border-b border-zinc-200 bg-zinc-50">
+              <div className="grid min-w-[840px] grid-cols-[44px_repeat(7,minmax(0,1fr))] border-b border-zinc-200 bg-zinc-50">
+                <div className="border-r border-zinc-200" />
                 {weekDays.map((date) => {
                   const dateKey = formatApiDate(date);
                   const isToday = dateKey === todayKey;
@@ -598,13 +652,13 @@ export default function AdminAgendaPage() {
                   return (
                     <div
                       key={dateKey}
-                      className={`border-r border-zinc-200 px-3 py-2.5 last:border-r-0 ${
+                      className={`border-r border-zinc-200 px-2.5 py-2 last:border-r-0 ${
                         isToday ? "bg-teal-50" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <span className="block text-[11px] font-black uppercase text-zinc-400">
+                          <span className="block text-[11px] font-semibold uppercase text-zinc-500">
                             {formatDayName(date)}
                           </span>
                           <span
@@ -617,7 +671,7 @@ export default function AdminAgendaPage() {
                             {String(date.getDate()).padStart(2, "0")}
                           </span>
                         </div>
-                        <span className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-zinc-500">
+                        <span className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-normal text-zinc-500">
                           {getDayEventText(dayEvents.length)}
                         </span>
                       </div>
@@ -626,7 +680,19 @@ export default function AdminAgendaPage() {
                 })}
               </div>
 
-              <div className="grid min-w-[980px] grid-cols-7">
+              <div className="grid min-w-[840px] grid-cols-[44px_repeat(7,minmax(0,1fr))]">
+                <div className="relative min-h-[calc(100vh-17.5rem)] border-r border-zinc-200 bg-zinc-50/80">
+                  {calendarHours.map((hour) => (
+                    <span
+                      key={hour}
+                      className="absolute right-2 -translate-y-1/2 text-[10px] font-normal text-zinc-500"
+                      style={{ top: getCalendarHourTopOffset(hour) }}
+                    >
+                      {formatCalendarHour(hour)}
+                    </span>
+                  ))}
+                </div>
+
                 {weekDays.map((date) => {
                   const dateKey = formatApiDate(date);
                   const dayEvents = eventsByDay[dateKey] ?? [];
@@ -635,26 +701,35 @@ export default function AdminAgendaPage() {
                   return (
                     <div
                       key={dateKey}
-                      className={`min-h-[520px] border-r border-zinc-200 p-2.5 last:border-r-0 ${
+                      className={`min-h-[calc(100vh-17.5rem)] border-r border-zinc-200 last:border-r-0 ${
                         isToday ? "bg-teal-50/40" : "bg-white"
                       }`}
+                      style={{
+                        backgroundImage:
+                          "repeating-linear-gradient(to bottom, transparent 0, transparent calc((100% / 12) - 1px), rgba(212, 212, 216, 0.7) calc((100% / 12) - 1px), rgba(212, 212, 216, 0.7) calc(100% / 12))",
+                      }}
                     >
-                      {dayEvents.length === 0 ? (
-                        <div className="flex h-full min-h-28 items-center justify-center rounded-md border border-dashed border-zinc-200 bg-zinc-50/70 px-2 text-center text-[11px] font-medium text-zinc-400">
-                          Sem eventos
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1.5">
-                          {dayEvents.map((event) => (
-                            <AgendaEventCard
+                      <div className="relative h-full min-h-[calc(100vh-17.5rem)]">
+                        {dayEvents.length === 0 ? (
+                          <span className="absolute left-2 top-3 rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-normal text-zinc-400">
+                            Sem eventos
+                          </span>
+                        ) : (
+                          dayEvents.map((event, eventIndex) => (
+                            <div
                               key={event.id}
-                              event={event}
-                              isSelected={selectedEvent?.id === event.id}
-                              onSelect={() => setSelectedEvent(event)}
-                            />
-                          ))}
-                        </div>
-                      )}
+                              className="absolute left-2 right-2"
+                              style={{ top: getEventTopOffset(event, eventIndex) }}
+                            >
+                              <AgendaEventCard
+                                event={event}
+                                isSelected={selectedEvent?.id === event.id}
+                                onSelect={() => setSelectedEvent(event)}
+                              />
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -664,7 +739,7 @@ export default function AdminAgendaPage() {
             <EventDetailsPanel event={selectedEvent} />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-sm md:grid-cols-5">
             {eventTypeOptions
               .filter(
                 (option): option is { value: AdminAgendaEventType; label: string } =>
@@ -676,22 +751,22 @@ export default function AdminAgendaPage() {
                 return (
                   <div
                     key={option.value}
-                    className={`rounded-md border px-3 py-2 ${styles.summary}`}
+                    className={`rounded-md border px-2.5 py-1.5 ${styles.summary}`}
                   >
-                    <span className={`block text-xl font-black ${styles.text}`}>
+                    <span className={`block text-lg font-semibold ${styles.text}`}>
                       {agenda.resumo.por_tipo[option.value]}
                     </span>
-                    <span className="mt-0.5 block text-[10px] font-black uppercase text-zinc-500">
+                    <span className="mt-0.5 block text-[10px] font-normal uppercase text-zinc-500">
                       {eventTypeLabels[option.value]}
                     </span>
                   </div>
                 );
               })}
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <span className="block text-xl font-black text-zinc-950">
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5">
+              <span className="block text-lg font-semibold text-zinc-950">
                 {agenda.resumo.total}
               </span>
-              <span className="mt-0.5 block text-[10px] font-black uppercase text-zinc-500">
+              <span className="mt-0.5 block text-[10px] font-normal uppercase text-zinc-500">
                 Total de eventos
               </span>
             </div>
