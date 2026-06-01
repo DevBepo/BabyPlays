@@ -198,6 +198,8 @@ class KitFestaPublicSerializer(serializers.ModelSerializer):
 
 
 class KitFestaAdminSerializer(serializers.ModelSerializer):
+    itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
+
     class Meta:
         model = KitFesta
         fields = (
@@ -207,6 +209,7 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
             "preco_aluguel",
             "ativo",
             "ordem",
+            "itens",
             "criado_em",
             "atualizado_em",
         )

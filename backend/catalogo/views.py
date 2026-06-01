@@ -6,10 +6,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import UnidadeBrinquedo, ImagemBrinquedo
 
-from .models import UnidadeBrinquedo
+from .models import Categoria, UnidadeBrinquedo
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
+    CategoriaResumoSerializer,
     ConfiguracaoKitPersonalizavelAdminSerializer,
     ConfiguracaoKitPersonalizavelPublicSerializer,
     DisponibilidadeKitPersonalizavelSerializer,
@@ -101,6 +102,14 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
         })
 
 
+class CategoriaViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = CategoriaResumoSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return Categoria.objects.filter(ativo=True).order_by("ordem", "nome")
+
+
 class AdminLiberarDisponibilidadeUnidadeView(APIView):
     permission_classes = [IsAdminUser]
 
@@ -116,12 +125,20 @@ class AdminLiberarDisponibilidadeUnidadeView(APIView):
 class KitFestaViewSet(viewsets.ModelViewSet):
     serializer_class = KitFestaAdminSerializer
 
+    def is_admin_request(self):
+        user = self.request.user
+        return bool(user and user.is_authenticated and user.is_staff)
+
     def get_serializer_class(self):
-        if self.action in ["list", "retrieve", "disponibilidade"]:
+        if self.action in ["list", "retrieve"] and not self.is_admin_request():
+            return KitFestaPublicSerializer
+        if self.action == "disponibilidade":
             return KitFestaPublicSerializer
         return KitFestaAdminSerializer
 
     def get_queryset(self):
+        if self.action in ["list", "retrieve"] and self.is_admin_request():
+            return KitFestaService.list_all()
         if self.action in ["list", "retrieve", "disponibilidade"]:
             return KitFestaService.list_public_catalog()
         return KitFestaService.list_all()

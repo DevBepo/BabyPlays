@@ -1,11 +1,16 @@
 import { apiGet, apiPost } from "@/lib/api";
-import type { BrinquedoCatalogo, KitFestaCatalogo } from "@/types/catalogo";
+import type { BrinquedoCatalogo, CategoriaCatalogo, KitFestaCatalogo } from "@/types/catalogo";
 import { getCsrfToken } from "@/lib/csrf";
 
 const CATALOGO_ENDPOINTS = {
+  categorias: "/api/categorias/",
   brinquedos: "/api/brinquedos/",
   kitsFesta: "/api/kits-festa/",
 };
+
+export function listarCategorias(): Promise<CategoriaCatalogo[]> {
+  return apiGet<CategoriaCatalogo[]>(CATALOGO_ENDPOINTS.categorias);
+}
 
 export function listarBrinquedos(): Promise<BrinquedoCatalogo[]> {
   return apiGet<BrinquedoCatalogo[]>(CATALOGO_ENDPOINTS.brinquedos);

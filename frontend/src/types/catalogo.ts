@@ -4,6 +4,8 @@ export type CategoriaResumo = {
   slug: string;
 };
 
+export type CategoriaCatalogo = CategoriaResumo;
+
 export type ImagemBrinquedo = {
   id: number;
   url: string | null;

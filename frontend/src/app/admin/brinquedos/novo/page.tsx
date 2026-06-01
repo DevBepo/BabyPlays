@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
@@ -9,15 +9,28 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/TextArea";
-import { criarBrinquedo, uploadImagemBrinquedo } from "@/services/catalogo";
+import { criarBrinquedo, listarCategorias, uploadImagemBrinquedo } from "@/services/catalogo";
+import type { ApiError } from "@/types/api";
+import type { CategoriaCatalogo } from "@/types/catalogo";
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  );
+}
 
 export default function NovoBrinquedo() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [categoriasLoading, setCategoriasLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [categorias, setCategorias] = useState<CategoriaCatalogo[]>([]);
 
   const [nome, setNome] = useState("");
-  const [categoriaId, setCategoriaId] = useState("1");
+  const [categoriaId, setCategoriaId] = useState("");
   const [preco, setPreco] = useState("");
   const [descricao, setDescricao] = useState("");
   const [ativo, setAtivo] = useState(true);
@@ -25,12 +38,42 @@ export default function NovoBrinquedo() {
   // NOVO ESTADO: Guardar o arquivo de imagem
   const [imagem, setImagem] = useState<File | null>(null);
 
-  const categoriasOptions = [
-    { value: "1", label: "Montar & Construir" },
-    { value: "2", label: "Educativos" },
-    { value: "3", label: "Faz de Conta" },
-    { value: "4", label: "Primeira Infancia" },
-  ];
+  const categoriasOptions = categorias.map((categoria) => ({
+    value: String(categoria.id),
+    label: categoria.nome,
+  }));
+
+  useEffect(() => {
+    let active = true;
+
+    async function carregarCategorias() {
+      setCategoriasLoading(true);
+      setErro(null);
+
+      try {
+        const dados = await listarCategorias();
+
+        if (active) {
+          setCategorias(dados);
+          setCategoriaId(dados[0] ? String(dados[0].id) : "");
+        }
+      } catch {
+        if (active) {
+          setErro("Nao foi possivel carregar as categorias cadastradas.");
+        }
+      } finally {
+        if (active) {
+          setCategoriasLoading(false);
+        }
+      }
+    }
+
+    void carregarCategorias();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +81,11 @@ export default function NovoBrinquedo() {
     setErro(null);
 
     try {
+      if (!categoriaId) {
+        setErro("Cadastre ou carregue uma categoria antes de salvar o brinquedo.");
+        return;
+      }
+
       // 1. Cria o brinquedo (dados de texto)
       const novoBrinquedo = await criarBrinquedo({
         nome,
@@ -55,9 +103,13 @@ export default function NovoBrinquedo() {
       alert("Brinquedo e imagem criados com sucesso!");
       router.push("/admin/brinquedos");
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro:", err);
-      setErro("Ocorreu um erro ao salvar o brinquedo ou a imagem.");
+      setErro(
+        isApiError(err)
+          ? err.message
+          : "Ocorreu um erro ao salvar o brinquedo ou a imagem.",
+      );
     } finally {
       setLoading(false);
     }
@@ -114,7 +166,19 @@ export default function NovoBrinquedo() {
               <div className="md:col-span-2">
                 <Input label="Nome *" placeholder="Ex: Cadeira de Balanco Fisher Price" value={nome} onChange={(e) => setNome(e.target.value)} required />
               </div>
-              <Select label="Categoria" options={categoriasOptions} value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} />
+              <Select
+                label="Categoria"
+                options={categoriasOptions}
+                value={categoriaId}
+                onChange={(e) => setCategoriaId(e.target.value)}
+                disabled={categoriasLoading || categoriasOptions.length === 0}
+                required
+                placeholder={
+                  categoriasLoading
+                    ? "Carregando categorias..."
+                    : "Selecione uma categoria..."
+                }
+              />
               <Input label="Preço de aluguel (R$) *" type="number" step="0.01" min="0" placeholder="0.00" value={preco} onChange={(e) => setPreco(e.target.value)} required />
             </div>
           </div>
@@ -129,7 +193,14 @@ export default function NovoBrinquedo() {
 
           <div className="flex items-center justify-end gap-4 pt-4 border-t border-zinc-100 mt-2">
             <Button type="button" variant="ghost" onClick={() => router.back()}>Cancelar</Button>
-            <Button type="submit" variant="primary" loading={loading}>Guardar brinquedo</Button>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={loading}
+              disabled={loading || categoriasLoading || categoriasOptions.length === 0}
+            >
+              Guardar brinquedo
+            </Button>
           </div>
         </form>
       </Card>

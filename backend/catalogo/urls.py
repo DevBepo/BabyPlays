@@ -3,11 +3,13 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AdminLiberarDisponibilidadeUnidadeView,
     BrinquedoViewSet,
+    CategoriaViewSet,
     KitFestaViewSet,
     KitPersonalizavelViewSet,
 )
 
 router = DefaultRouter()
+router.register(r'categorias', CategoriaViewSet, basename='categorias')
 router.register(r'brinquedos', BrinquedoViewSet, basename ='brinquedos')
 router.register(r'kits-festa', KitFestaViewSet, basename='kits-festa')
 router.register(

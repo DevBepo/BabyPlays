@@ -619,6 +619,38 @@ class LiberarDisponibilidadeUnidadeAdminTests(APITestCase):
         self.assertTrue(any("Falha controlada" in msg for msg in mensagens))
 
 
+class CategoriaAPITests(APITestCase):
+    categorias_url = "/api/categorias/"
+
+    def test_lista_categorias_ativas_em_ordem(self):
+        Categoria.objects.create(
+            nome="Inativa",
+            slug="inativa",
+            ativo=False,
+            ordem=1,
+        )
+        segunda = Categoria.objects.create(
+            nome="Piscinas de Bolinhas",
+            slug="piscinas-de-bolinhas",
+            ativo=True,
+            ordem=20,
+        )
+        primeira = Categoria.objects.create(
+            nome="Brinquedos",
+            slug="brinquedos",
+            ativo=True,
+            ordem=10,
+        )
+
+        response = self.client.get(self.categorias_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [categoria["id"] for categoria in response.data],
+            [primeira.id, segunda.id],
+        )
+
+
 class BrinquedoAPITests(APITestCase):
     brinquedos_url = "/api/brinquedos/"
 
@@ -1169,6 +1201,44 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(KitFesta.objects.count(), 2)
         self.assertEqual(response.data["nome"], "Kit Premium")
         self.assertTrue(response.data["ativo"])
+
+    def test_usuario_admin_lista_kits_ativos_e_inativos(self):
+        kit_inativo = KitFesta.objects.create(
+            nome="Kit Inativo",
+            descricao="Kit fora do catalogo publico.",
+            preco_aluguel="250.00",
+            ativo=False,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(self.kits_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [kit["id"] for kit in response.data]
+        self.assertIn(self.kit.id, ids)
+        self.assertIn(kit_inativo.id, ids)
+        self.assertIn("ativo", response.data[0])
+
+    def test_usuario_admin_consegue_detalhar_kit_inativo(self):
+        self.kit.ativo = False
+        self.kit.save(update_fields=["ativo"])
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.kit.id)
+        self.assertFalse(response.data["ativo"])
+
+    def test_criacao_de_kit_valida_campos_obrigatorios(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(self.kits_url, {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("nome", response.data)
+        self.assertIn("descricao", response.data)
+        self.assertIn("preco_aluguel", response.data)
 
     def test_api_publica_retorna_itens_do_kit(self):
         ItemKitFesta.objects.create(
