@@ -17,6 +17,7 @@ export type BrinquedoCatalogo = {
   nome: string;
   descricao: string;
   preco_aluguel: string;
+  ativo?: boolean;
   categoria: CategoriaResumo | null;
   quantidade_disponivel: number;
   imagem_principal: ImagemBrinquedo | null;

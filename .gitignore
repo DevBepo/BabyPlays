@@ -2,6 +2,7 @@
 **/.env
 **/*.sqlite3
 backend/media/
+backend/staticfiles/
 # Arquivos de Cache do Python
 **/__pycache__/
 **/.mypy_cache/
