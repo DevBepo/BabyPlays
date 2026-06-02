@@ -159,9 +159,18 @@ export default function GestaoKitsPage() {
             Cadastre pacotes prontos usando os dados reais do backend.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void carregarKits()} disabled={loading}>
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => document.getElementById("novo-kit-festa")?.scrollIntoView()}
+          >
+            Novo Kit Festa
+          </Button>
+          <Button variant="outline" onClick={() => void carregarKits()} disabled={loading}>
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {erro ? (
@@ -176,8 +185,8 @@ export default function GestaoKitsPage() {
         </div>
       ) : null}
 
-      <section className="rounded-lg border border-zinc-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-zinc-900">Novo kit festa</h2>
+      <section id="novo-kit-festa" className="rounded-lg border border-zinc-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-zinc-900">Novo Kit Festa</h2>
         <form onSubmit={handleSubmit} className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="md:col-span-2">
             <Input

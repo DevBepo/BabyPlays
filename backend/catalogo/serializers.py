@@ -19,6 +19,22 @@ class CategoriaResumoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CategoriaAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Categoria
+        fields = (
+            "id",
+            "nome",
+            "slug",
+            "descricao",
+            "ativo",
+            "ordem",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = ("id", "criado_em", "atualizado_em")
+
+
 class CategoriaField(serializers.PrimaryKeyRelatedField):
     def use_pk_only_optimization(self):
         return False

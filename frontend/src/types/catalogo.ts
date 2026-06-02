@@ -4,7 +4,13 @@ export type CategoriaResumo = {
   slug: string;
 };
 
-export type CategoriaCatalogo = CategoriaResumo;
+export type CategoriaCatalogo = CategoriaResumo & {
+  descricao?: string;
+  ativo?: boolean;
+  ordem?: number;
+  criado_em?: string;
+  atualizado_em?: string;
+};
 
 export type ImagemBrinquedo = {
   id: number;

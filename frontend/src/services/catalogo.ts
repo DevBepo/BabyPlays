@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import type { BrinquedoCatalogo, CategoriaCatalogo, KitFestaCatalogo } from "@/types/catalogo";
 import { getCsrfToken } from "@/lib/csrf";
 
@@ -12,6 +12,32 @@ export function listarCategorias(): Promise<CategoriaCatalogo[]> {
   return apiGet<CategoriaCatalogo[]>(CATALOGO_ENDPOINTS.categorias);
 }
 
+export type CriarCategoriaPayload = {
+  nome: string;
+  slug: string;
+  descricao: string;
+  ativo: boolean;
+  ordem: number;
+};
+
+export type AtualizarCategoriaPayload = Partial<CriarCategoriaPayload>;
+
+export function criarCategoria(
+  dados: CriarCategoriaPayload,
+): Promise<CategoriaCatalogo> {
+  return apiPost<CategoriaCatalogo>(CATALOGO_ENDPOINTS.categorias, dados);
+}
+
+export function atualizarCategoria(
+  categoriaId: number,
+  dados: AtualizarCategoriaPayload,
+): Promise<CategoriaCatalogo> {
+  return apiPatch<CategoriaCatalogo>(
+    `${CATALOGO_ENDPOINTS.categorias}${categoriaId}/`,
+    dados,
+  );
+}
+
 export function listarBrinquedos(): Promise<BrinquedoCatalogo[]> {
   return apiGet<BrinquedoCatalogo[]>(CATALOGO_ENDPOINTS.brinquedos);
 }
@@ -20,17 +46,41 @@ export function listarKitsFesta(): Promise<KitFestaCatalogo[]> {
   return apiGet<KitFestaCatalogo[]>(CATALOGO_ENDPOINTS.kitsFesta);
 }
 
-export function criarBrinquedo(dados: {
+export type CriarBrinquedoPayload = {
   nome: string;
   descricao: string;
   categoria?: number;
   preco_aluguel: string | number;
   ativo: boolean;
-}): Promise<any> {
-  return apiPost(CATALOGO_ENDPOINTS.brinquedos, dados);
+};
+
+type UploadImagemBrinquedoResponse = {
+  mensagem: string;
+  id: number;
+  url: string;
+};
+
+type CriarBrinquedoResponse = {
+  id: number;
+  nome: string;
+  descricao: string;
+  categoria: CategoriaCatalogo | null;
+  preco_aluguel: string;
+  ativo: boolean;
+  data_cadastro: string;
+  quantidade_disponivel: number;
+};
+
+export function criarBrinquedo(
+  dados: CriarBrinquedoPayload,
+): Promise<CriarBrinquedoResponse> {
+  return apiPost<CriarBrinquedoResponse>(CATALOGO_ENDPOINTS.brinquedos, dados);
 }
 
-export async function uploadImagemBrinquedo(brinquedoId: number, arquivo: File): Promise<any> {
+export async function uploadImagemBrinquedo(
+  brinquedoId: number,
+  arquivo: File,
+): Promise<UploadImagemBrinquedoResponse> {
   const csrfToken = await getCsrfToken();
   const formData = new FormData();
   formData.append("imagem", arquivo);
@@ -45,5 +95,5 @@ export async function uploadImagemBrinquedo(brinquedoId: number, arquivo: File):
   });
 
   if (!response.ok) throw new Error("Falha ao enviar a imagem.");
-  return response.json();
+  return response.json() as Promise<UploadImagemBrinquedoResponse>;
 }

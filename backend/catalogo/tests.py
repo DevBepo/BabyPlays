@@ -622,6 +622,17 @@ class LiberarDisponibilidadeUnidadeAdminTests(APITestCase):
 class CategoriaAPITests(APITestCase):
     categorias_url = "/api/categorias/"
 
+    def setUp(self):
+        self.usuario_comum = get_user_model().objects.create_user(
+            username="cliente-categoria",
+            password="senha-segura-123",
+        )
+        self.usuario_admin = get_user_model().objects.create_user(
+            username="admin-categoria",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+
     def test_lista_categorias_ativas_em_ordem(self):
         Categoria.objects.create(
             nome="Inativa",
@@ -649,6 +660,107 @@ class CategoriaAPITests(APITestCase):
             [categoria["id"] for categoria in response.data],
             [primeira.id, segunda.id],
         )
+
+    def test_usuario_admin_lista_categorias_ativas_e_inativas(self):
+        ativa = Categoria.objects.create(
+            nome="Ativa",
+            slug="ativa",
+            ativo=True,
+            ordem=1,
+        )
+        inativa = Categoria.objects.create(
+            nome="Inativa",
+            slug="inativa",
+            ativo=False,
+            ordem=2,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(self.categorias_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [categoria["id"] for categoria in response.data]
+        self.assertEqual(ids, [ativa.id, inativa.id])
+        self.assertIn("ativo", response.data[0])
+        self.assertIn("descricao", response.data[0])
+
+    def test_usuario_anonimo_nao_consegue_criar_categoria(self):
+        response = self.client.post(
+            self.categorias_url,
+            {
+                "nome": "Bebes",
+                "slug": "bebes",
+                "descricao": "Brinquedos para bebes.",
+                "ativo": True,
+                "ordem": 10,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Categoria.objects.count(), 0)
+
+    def test_usuario_comum_nao_consegue_criar_categoria(self):
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        response = self.client.post(
+            self.categorias_url,
+            {
+                "nome": "Bebes",
+                "slug": "bebes",
+                "descricao": "Brinquedos para bebes.",
+                "ativo": True,
+                "ordem": 10,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Categoria.objects.count(), 0)
+
+    def test_usuario_admin_consegue_criar_categoria(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            self.categorias_url,
+            {
+                "nome": "Bebes",
+                "slug": "bebes",
+                "descricao": "Brinquedos para bebes.",
+                "ativo": True,
+                "ordem": 10,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Categoria.objects.count(), 1)
+        self.assertEqual(response.data["nome"], "Bebes")
+        self.assertEqual(response.data["slug"], "bebes")
+        self.assertTrue(response.data["ativo"])
+
+    def test_usuario_admin_consegue_editar_e_desativar_categoria(self):
+        categoria = Categoria.objects.create(
+            nome="Bebes",
+            slug="bebes",
+            ativo=True,
+            ordem=10,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.patch(
+            f"{self.categorias_url}{categoria.id}/",
+            {
+                "nome": "Bebes e toddlers",
+                "ativo": False,
+            },
+            format="json",
+        )
+
+        categoria.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(categoria.nome, "Bebes e toddlers")
+        self.assertFalse(categoria.ativo)
 
 
 class BrinquedoAPITests(APITestCase):

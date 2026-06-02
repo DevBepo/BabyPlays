@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Ícones estruturais do Painel Administrativo
 const IconDashboard = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
 );
 
 const IconAgenda = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+);
+
+const IconCatalog = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
 );
 
 const IconToy = () => (
@@ -32,50 +35,49 @@ const IconDelivery = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="11" x="2" y="6" rx="2"/><path d="M16 17h2l4-4V6h-6v11Z"/><circle cx="7.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
 );
 
+const menuItems = [
+  { label: "Visao Geral", icon: <IconDashboard />, href: "/admin" },
+  { label: "Agenda", icon: <IconAgenda />, href: "/admin/agenda" },
+  { label: "Catalogo", icon: <IconCatalog />, href: "/admin/catalogo" },
+  { label: "Brinquedos", icon: <IconToy />, href: "/admin/brinquedos" },
+  { label: "Categorias", icon: <IconCategory />, href: "/admin/categorias" },
+  { label: "Kits Festa", icon: <IconKits />, href: "/admin/kits" },
+  { label: "Pedidos", icon: <IconOrders />, href: "/admin/pedidos" },
+  { label: "Entregas", icon: <IconDelivery />, href: "/admin/entregas" },
+];
+
 export function AdminSidebar() {
   const pathname = usePathname();
 
-  // Menu estruturado com base nos apps e models do Django
-  const menuItems = [
-    { label: "Visão Geral", icon: <IconDashboard />, href: "/admin" },
-    { label: "Agenda", icon: <IconAgenda />, href: "/admin/agenda" },
-    { label: "Brinquedos", icon: <IconToy />, href: "/admin/brinquedos" },
-    { label: "Categorias", icon: <IconCategory />, href: "/admin/categorias" },
-    { label: "Kits Festas", icon: <IconKits />, href: "/admin/kits" },
-    { label: "Pedidos", icon: <IconOrders />, href: "/admin/pedidos" },
-    { label: "Entregas", icon: <IconDelivery />, href: "/admin/entregas" },
-  ];
-
   return (
-    <aside className="w-64 h-screen bg-zinc-900 text-zinc-300 flex flex-col fixed inset-y-0 left-0 border-r border-zinc-800 z-30">
-      {/* Identificação do Painel Administrativo */}
-      <div className="h-20 flex items-center px-6 border-b border-zinc-800 shrink-0">
+    <aside className="fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-900 text-zinc-300">
+      <div className="flex h-20 shrink-0 items-center border-b border-zinc-800 px-6">
         <div className="flex flex-col">
           <span className="text-sm font-black tracking-wider text-white">BABYPLAYS</span>
-          <span className="text-[10px] text-teal-400 font-bold tracking-widest uppercase">Painel de Controle</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-teal-400">Painel de Controle</span>
         </div>
       </div>
 
-      {/* Links de Navegação */}
-      <nav className="flex-1 overflow-y-auto py-6 px-4">
+      <nav className="flex-1 overflow-y-auto px-4 py-6">
         <ul className="flex flex-col gap-1.5">
-          {menuItems.map((item, index) => {
-            // Verifica se a rota atual começa com o href do menu para deixar o link ativo
-            const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+          {menuItems.map((item) => {
+            const isActive =
+              pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
 
             return (
-              <li key={index}>
+              <li key={item.href}>
                 <Link
                   href={item.href}
                   className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-150
-                    ${isActive 
-                      ? "bg-teal-600 text-white shadow-md shadow-teal-900/20 font-bold" 
-                      : "hover:bg-zinc-800 hover:text-white"
+                    flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-150
+                    ${
+                      isActive
+                        ? "bg-teal-600 font-bold text-white shadow-md shadow-teal-900/20"
+                        : "hover:bg-zinc-800 hover:text-white"
                     }
                   `}
                 >
-                  <span className={isActive ? "text-white" : "text-zinc-500 group-hover:text-zinc-300"}>
+                  <span className={isActive ? "text-white" : "text-zinc-500"}>
                     {item.icon}
                   </span>
                   {item.label}
@@ -86,10 +88,11 @@ export function AdminSidebar() {
         </ul>
       </nav>
 
-      {/* Rodapé do Menu */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-950/40 text-xs text-zinc-500 flex items-center justify-between">
+      <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-950/40 p-4 text-xs text-zinc-500">
         <span>Admin v1.0</span>
-        <Link href="/" className="text-teal-400 hover:underline font-medium">Ver Loja →</Link>
+        <Link href="/" className="font-medium text-teal-400 hover:underline">
+          Ver Loja
+        </Link>
       </div>
     </aside>
   );

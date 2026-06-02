@@ -10,6 +10,7 @@ from .models import Categoria, UnidadeBrinquedo
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
+    CategoriaAdminSerializer,
     CategoriaResumoSerializer,
     ConfiguracaoKitPersonalizavelAdminSerializer,
     ConfiguracaoKitPersonalizavelPublicSerializer,
@@ -102,12 +103,29 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
         })
 
 
-class CategoriaViewSet(viewsets.ReadOnlyModelViewSet):
+class CategoriaViewSet(viewsets.ModelViewSet):
     serializer_class = CategoriaResumoSerializer
-    permission_classes = [AllowAny]
+
+    def is_admin_request(self):
+        user = self.request.user
+        return bool(user and user.is_authenticated and user.is_staff)
+
+    def get_serializer_class(self):
+        if self.is_admin_request():
+            return CategoriaAdminSerializer
+        return CategoriaResumoSerializer
 
     def get_queryset(self):
+        if self.is_admin_request():
+            return Categoria.objects.all().order_by("ordem", "nome")
         return Categoria.objects.filter(ativo=True).order_by("ordem", "nome")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAdminUser]
+        return [permission() for permission in permission_classes]
 
 
 class AdminLiberarDisponibilidadeUnidadeView(APIView):
