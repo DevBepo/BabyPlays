@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import * as authService from "@/services/auth";
+import { clearCsrfToken } from "@/lib/csrf";
 import type { ApiError } from "@/types/api";
 import type {
   AuthMeResponse,
@@ -126,6 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback(async (payload: LoginPayload) => {
     setError(null);
     const data = await authService.login(payload);
+    clearCsrfToken();
     applyAuthState(data);
   }, [applyAuthState]);
 
@@ -134,9 +136,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       await authService.logout();
+      clearCsrfToken();
       clearSession();
     } catch (err) {
       if (isAlreadyLoggedOutError(err)) {
+        clearCsrfToken();
         clearSession();
         return;
       }

@@ -227,3 +227,9 @@ SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SESSION_COOKIE_SAMESITE = env_str("SESSION_COOKIE_SAMESITE", "Lax" if DEBUG else "None")
 CSRF_COOKIE_SAMESITE = env_str("CSRF_COOKIE_SAMESITE", "Lax" if DEBUG else "None")
+
+# When running behind a proxy that terminates TLS (e.g. Railway), ensure
+# Django trusts the proxy headers so it knows the original request was HTTPS.
+# Railway sets the `X-Forwarded-Proto` header to 'https'.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True

@@ -1,4 +1,4 @@
-import { getCsrfToken } from "./csrf";
+import { clearCsrfToken, getCsrfToken } from "./csrf";
 import type { ApiError, ApiErrorData, ApiFieldErrors } from "@/types/api";
 
 type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -128,7 +128,25 @@ function normalizeApiError(status: number, data: ApiErrorData): ApiError {
   };
 }
 
-export async function apiRequest<T>(
+function isCsrfError(error: ApiError): boolean {
+  const candidates = [error.message];
+
+  if (typeof error.data === "string") {
+    candidates.push(error.data);
+  }
+
+  if (error.data && typeof error.data === "object" && !Array.isArray(error.data)) {
+    const detail = error.data.detail;
+
+    if (typeof detail === "string") {
+      candidates.push(detail);
+    }
+  }
+
+  return error.status === 403 && candidates.some((text) => text.toLowerCase().includes("csrf"));
+}
+
+async function apiRequestOnce<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
@@ -164,6 +182,31 @@ export async function apiRequest<T>(
   }
 
   return data as T;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const method = options.method ?? "GET";
+
+  try {
+    return await apiRequestOnce<T>(path, options);
+  } catch (error) {
+    if (
+      MUTABLE_METHODS.has(method) &&
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      typeof (error as { status: unknown }).status === "number" &&
+      isCsrfError(error as ApiError)
+    ) {
+      clearCsrfToken();
+      return apiRequestOnce<T>(path, options);
+    }
+
+    throw error;
+  }
 }
 
 export function apiGet<T>(

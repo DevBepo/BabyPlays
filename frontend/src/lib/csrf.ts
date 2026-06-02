@@ -6,6 +6,10 @@ type CsrfResponse = {
 
 let cachedCsrfToken: string | null = null;
 
+export function clearCsrfToken(): void {
+  cachedCsrfToken = null;
+}
+
 function getApiBaseUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
