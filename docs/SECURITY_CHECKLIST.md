@@ -142,10 +142,18 @@ Referências:
 
 ## 11. Configuração de produção Django
 
-- [ ] DEBUG=False em produção.
-- [ ] SECRET_KEY vem de variável de ambiente.
-- [ ] ALLOWED_HOSTS configurado corretamente.
-- [ ] CSRF_TRUSTED_ORIGINS configurado.
+- [ ] `DEBUG=False` em Railway/homologacao/producao.
+- [ ] `DEBUG=True` usado somente em ambiente local.
+- [ ] `SECRET_KEY` vem de variavel de ambiente, nunca hardcoded.
+- [ ] `DATABASE_URL` vem de variavel de ambiente, nunca hardcoded.
+- [ ] Variaveis sensiveis ficam em Railway Variables ou provedor equivalente.
+- [ ] `.env`, `.env.local` e secrets reais nao sao commitados.
+- [ ] `ALLOWED_HOSTS` configurado corretamente, com hosts sem `https://`.
+- [ ] `CSRF_TRUSTED_ORIGINS` configurado com origens completas usando `https://`.
+- [ ] `CORS_ALLOWED_ORIGINS` configurado com origens completas usando `https://`.
+- [ ] URLs locais, como `127.0.0.1`, nao aparecem em configuracao de Railway/homologacao/producao.
+- [ ] Railway/homologacao libera `https://babyplays.up.railway.app` em CSRF/CORS.
+- [ ] Dominio final libera `https://www.babyplays.com.br` e `https://babyplays.com.br` em CSRF/CORS.
 - [ ] Banco de produção não usa SQLite.
 - [ ] CORS restrito aos domínios reais.
 - [ ] HTTPS ativo.
@@ -226,7 +234,11 @@ Antes de aceitar uma tarefa crítica, verificar se existem testes para:
 
 - [ ] Todos os testes passam.
 - [ ] `python manage.py check --deploy` executado.
-- [ ] DEBUG=False.
+- [ ] `DEBUG=False`.
+- [ ] Nenhuma URL local (`127.0.0.1` ou `localhost`) esta em variaveis de Railway/homologacao/producao.
+- [ ] `NEXT_PUBLIC_API_BASE_URL` aponta para a API do ambiente correto.
+- [ ] Frontend recebeu redeploy apos mudanca em `NEXT_PUBLIC_API_BASE_URL`.
+- [ ] Backend recebeu restart/redeploy apos mudancas em variaveis de ambiente.
 - [ ] Domínio real configurado.
 - [ ] HTTPS ativo.
 - [ ] Backup configurado.

@@ -1,10 +1,12 @@
 # Frontend BABYPLAYS.BRINQUEDOS
 
-## Ambiente local oficial
+Este projeto usa autenticacao por Django sessions, CSRF e cookies. Consulte tambem [docs/DEPLOY.md](../docs/DEPLOY.md) antes de tarefas sobre Railway, deploy, homologacao, producao, DNS, dominio ou variaveis de ambiente.
 
-Este projeto usa autenticação por Django sessions, CSRF e cookies. Em desenvolvimento, use sempre `127.0.0.1` para frontend e backend. Não alterne entre `localhost` e `127.0.0.1` no mesmo fluxo, pois isso pode quebrar sessão, cookies, CSRF e login/admin.
+## Ambientes
 
-Configure o frontend com:
+### Ambiente local oficial
+
+Use `127.0.0.1` apenas para desenvolvimento e testes locais.
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
@@ -22,14 +24,35 @@ Rode o frontend a partir de `frontend/`:
 npm.cmd run dev -- -H 127.0.0.1
 ```
 
-Acesse o site em:
+Acesse o site local em:
 
 [http://127.0.0.1:3000](http://127.0.0.1:3000)
 
-Se existir `frontend/.env.local`, mantenha esse padrão nele. Esse arquivo é local e não deve ser commitado quando estiver ignorado pelo Git.
+Nao alterne entre `localhost` e `127.0.0.1` no mesmo fluxo local, pois isso pode quebrar sessao, cookies, CSRF e login/admin.
 
-## Observações
+### Railway/homologacao
 
-- `frontend/.env.example` deve apontar para `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`.
-- O backend deve aceitar as origens locais `http://127.0.0.1:3000` e `http://localhost:3000` para CSRF/CORS de desenvolvimento.
-- Produção deve usar variáveis de ambiente próprias e domínios reais.
+- Frontend: https://babyplays.up.railway.app
+- Backend/API: https://api-babyplays.up.railway.app
+- `NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app`
+- `DEBUG=False` no backend.
+- O backend deve liberar `https://babyplays.up.railway.app` em CSRF/CORS.
+- Configure `NEXT_PUBLIC_API_BASE_URL` no Railway Variables do frontend.
+- Build Command: `npm run build`
+- Start Command: `npm run start -- -H 0.0.0.0 -p $PORT`
+
+### Dominio final planejado
+
+- Frontend: https://www.babyplays.com.br
+- API: https://api.babyplays.com.br
+- `NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br`
+- O backend deve liberar `https://www.babyplays.com.br` e `https://babyplays.com.br` em CSRF/CORS.
+
+## Observacoes
+
+- `frontend/.env.example` documenta exemplo local e exemplo Railway sem secrets.
+- Se existir `frontend/.env.local`, mantenha-o como arquivo local e nao commite.
+- Producao/homologacao usa variaveis do Railway, nao valores hardcoded.
+- Alterar `NEXT_PUBLIC_API_BASE_URL` exige novo build/redeploy do frontend.
+- `127.0.0.1` nao deve ser usado como URL principal em tarefas sobre Railway, deploy, producao, homologacao, DNS ou dominio.
+- Nao coloque URLs locais em configuracao de Railway/homologacao/producao.
