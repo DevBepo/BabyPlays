@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 
 export interface ItemCarrinho {
   id: number;
@@ -7,6 +7,15 @@ export interface ItemCarrinho {
   nome_snapshot: string;
   preco_unitario_snapshot: string;
   subtotal_snapshot: string;
+  snapshot: {
+    periodo_locacao?: {
+      tipo: "15_dias" | "30_dias" | "diaria";
+      label: string;
+      dias: number;
+      preco?: string;
+    };
+    [key: string]: unknown;
+  };
 }
 
 export interface Carrinho {
@@ -25,6 +34,7 @@ export function adicionarAoCarrinho(dados: {
   kit_festa_id?: number;
   configuracao_id?: number;
   quantidade: number;
+  periodo_locacao?: "15_dias" | "30_dias" | "diaria";
 }): Promise<ItemCarrinho> {
   return apiPost<ItemCarrinho>("/api/carrinho/itens/", dados);
 }
@@ -40,6 +50,6 @@ export function limparCarrinho(): Promise<void> {
 export function converterCarrinhoEmPedido(dados: {
   data_inicio_locacao: string;
   data_fim_locacao: string;
-}): Promise<any> {
-  return apiPost("/api/pedidos/converter-carrinho/", dados);
+}): Promise<unknown> {
+  return apiPost<unknown>("/api/pedidos/converter-carrinho/", dados);
 }

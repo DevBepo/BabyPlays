@@ -8,8 +8,46 @@ from .models import (
     KitFesta,
     RegraCategoriaKitPersonalizavel,
     UnidadeBrinquedo,
+    periodos_locacao_disponiveis,
+    preco_periodo_valido,
 )
 from .services import BrinquedoService, KitPersonalizavelService
+
+
+PRECO_PERIODO_FIELDS = ("preco_diaria", "preco_15_dias", "preco_30_dias")
+
+
+def primeiro_preco_disponivel(attrs, instance=None):
+    for campo in PRECO_PERIODO_FIELDS:
+        valor = attrs.get(campo, getattr(instance, campo, None) if instance else None)
+        if preco_periodo_valido(valor):
+            return valor
+    return None
+
+
+def validar_precos_por_periodo(attrs, instance=None):
+    if (
+        instance is None
+        and attrs.get("preco_aluguel") is not None
+        and not any(attrs.get(campo) is not None for campo in PRECO_PERIODO_FIELDS)
+    ):
+        attrs["preco_15_dias"] = attrs["preco_aluguel"]
+
+    if primeiro_preco_disponivel(attrs, instance) is None:
+        raise serializers.ValidationError(
+            {
+                "preco_15_dias": (
+                    "Informe ao menos um preco de periodo para locacao."
+                )
+            }
+        )
+
+
+def sincronizar_preco_legado(attrs, instance=None):
+    preco = primeiro_preco_disponivel(attrs, instance)
+    if preco is not None:
+        attrs["preco_aluguel"] = preco
+    return attrs
 
 
 class CategoriaResumoSerializer(serializers.ModelSerializer):
@@ -67,6 +105,7 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
     categoria = CategoriaResumoSerializer(read_only=True)
     imagem_principal = serializers.SerializerMethodField()
     imagens = serializers.SerializerMethodField()
+    periodos_disponiveis = serializers.SerializerMethodField()
 
     class Meta:
         model = Brinquedo
@@ -75,6 +114,11 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "nome",
             "descricao",
             "preco_aluguel",
+            "preco_diaria",
+            "preco_15_dias",
+            "preco_30_dias",
+            "permite_diaria",
+            "periodos_disponiveis",
             "categoria",
             "quantidade_disponivel",
             "imagem_principal",
@@ -87,6 +131,9 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         if quantidade_anotada is not None:
             return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_periodos_disponiveis(self, obj):
+        return periodos_locacao_disponiveis(obj)
 
     def get_imagens_ativas(self, obj):
         imagens = getattr(obj, "imagens_publicas", None)
@@ -113,6 +160,7 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
 class BrinquedoAdminSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
+    periodos_disponiveis = serializers.SerializerMethodField()
     categoria = CategoriaField(
         queryset=Categoria.objects.all(),
         allow_null=True,
@@ -127,17 +175,31 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "descricao",
             "categoria",
             "preco_aluguel",
+            "preco_diaria",
+            "preco_15_dias",
+            "preco_30_dias",
+            "permite_diaria",
+            "periodos_disponiveis",
             "ativo",
             "data_cadastro",
             "quantidade_disponivel",
         )
         read_only_fields = ("id", "data_cadastro", "quantidade_disponivel")
+        extra_kwargs = {"preco_aluguel": {"required": False}}
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        validar_precos_por_periodo(attrs, self.instance)
+        return sincronizar_preco_legado(attrs, self.instance)
 
     def get_quantidade_disponivel(self, obj):
         quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
         if quantidade_anotada is not None:
             return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_periodos_disponiveis(self, obj):
+        return periodos_locacao_disponiveis(obj)
 
 
 BrinquedoSerializer = BrinquedoAdminSerializer
@@ -183,6 +245,10 @@ class BrinquedoElegivelKitPersonalizavelSerializer(BrinquedoKitResumoSerializer)
             "nome",
             "categoria",
             "preco_aluguel",
+            "preco_diaria",
+            "preco_15_dias",
+            "preco_30_dias",
+            "permite_diaria",
             "imagem_principal",
             "quantidade_disponivel",
         )
@@ -206,15 +272,8 @@ class ItemKitFestaPublicSerializer(serializers.ModelSerializer):
 
 class KitFestaPublicSerializer(serializers.ModelSerializer):
     itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = KitFesta
-        fields = ("id", "nome", "descricao", "preco_aluguel", "itens")
-        read_only_fields = fields
-
-
-class KitFestaAdminSerializer(serializers.ModelSerializer):
-    itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
+    periodos_disponiveis = serializers.SerializerMethodField()
+    imagem_url = serializers.SerializerMethodField()
 
     class Meta:
         model = KitFesta
@@ -222,14 +281,75 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
             "id",
             "nome",
             "descricao",
+            "imagem_url",
             "preco_aluguel",
+            "preco_diaria",
+            "preco_15_dias",
+            "preco_30_dias",
+            "permite_diaria",
+            "periodos_disponiveis",
+            "itens",
+        )
+        read_only_fields = fields
+
+    def get_periodos_disponiveis(self, obj):
+        return periodos_locacao_disponiveis(obj)
+
+    def get_imagem_url(self, obj):
+        if not obj.imagem:
+            return None
+
+        url = obj.imagem.url
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+
+class KitFestaAdminSerializer(serializers.ModelSerializer):
+    itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
+    periodos_disponiveis = serializers.SerializerMethodField()
+    imagem_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = KitFesta
+        fields = (
+            "id",
+            "nome",
+            "descricao",
+            "imagem_url",
+            "preco_aluguel",
+            "preco_diaria",
+            "preco_15_dias",
+            "preco_30_dias",
+            "permite_diaria",
+            "periodos_disponiveis",
             "ativo",
             "ordem",
             "itens",
             "criado_em",
             "atualizado_em",
         )
-        read_only_fields = ("id", "criado_em", "atualizado_em")
+        read_only_fields = ("id", "periodos_disponiveis", "criado_em", "atualizado_em")
+        extra_kwargs = {"preco_aluguel": {"required": False}}
+
+    def get_periodos_disponiveis(self, obj):
+        return periodos_locacao_disponiveis(obj)
+
+    def get_imagem_url(self, obj):
+        if not obj.imagem:
+            return None
+
+        url = obj.imagem.url
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        validar_precos_por_periodo(attrs, self.instance)
+        return sincronizar_preco_legado(attrs, self.instance)
 
 
 class RegraCategoriaKitPersonalizavelPublicSerializer(serializers.ModelSerializer):

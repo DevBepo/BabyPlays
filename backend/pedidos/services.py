@@ -41,6 +41,30 @@ from .models import (
 
 
 class CarrinhoService:
+    PERIODOS_LOCACAO = {
+        "15_dias": {"tipo": "15_dias", "label": "15 dias", "dias": 15},
+        "30_dias": {"tipo": "30_dias", "label": "30 dias", "dias": 30},
+        "diaria": {"tipo": "diaria", "label": "Diaria", "dias": 1},
+    }
+
+    @staticmethod
+    def _validar_periodo_locacao(item, periodo_locacao, nome_campo):
+        periodo = CarrinhoService.PERIODOS_LOCACAO.get(periodo_locacao)
+        if not periodo:
+            raise serializers.ValidationError(
+                {nome_campo: "Periodo de locacao invalido."}
+            )
+        preco = item.preco_por_periodo(periodo_locacao)
+        if preco is None:
+            raise serializers.ValidationError(
+                {
+                    nome_campo: (
+                        "Este item nao permite locacao no periodo selecionado."
+                    )
+                }
+            )
+        return {**periodo, "preco": f"{preco:.2f}"}, preco
+
     @staticmethod
     def garantir_session_key(request):
         if not request.session.session_key:
@@ -105,8 +129,13 @@ class CarrinhoService:
         )
 
     @staticmethod
-    def _snapshot_brinquedo(brinquedo, quantidade):
-        preco_unitario = brinquedo.preco_aluguel
+    def _snapshot_brinquedo(brinquedo, quantidade, periodo_locacao="15_dias"):
+        periodo, preco_unitario = CarrinhoService._validar_periodo_locacao(
+            brinquedo,
+            periodo_locacao,
+            "periodo_locacao",
+        )
+
         subtotal = preco_unitario * quantidade
         return {
             "nome": brinquedo.nome,
@@ -118,14 +147,20 @@ class CarrinhoService:
                     "id": brinquedo.id,
                     "nome": brinquedo.nome,
                     "preco_aluguel": str(brinquedo.preco_aluguel),
+                    "preco_periodo": str(preco_unitario),
                 },
+                "periodo_locacao": periodo,
                 "quantidade": quantidade,
             },
         }
 
     @staticmethod
-    def _snapshot_kit_festa(kit_festa, quantidade):
-        preco_unitario = kit_festa.preco_aluguel
+    def _snapshot_kit_festa(kit_festa, quantidade, periodo_locacao="15_dias"):
+        periodo, preco_unitario = CarrinhoService._validar_periodo_locacao(
+            kit_festa,
+            periodo_locacao,
+            "periodo_locacao",
+        )
         subtotal = preco_unitario * quantidade
         itens = []
         for item in kit_festa.itens.select_related("brinquedo").order_by("ordem", "id"):
@@ -147,8 +182,10 @@ class CarrinhoService:
                     "id": kit_festa.id,
                     "nome": kit_festa.nome,
                     "preco_aluguel": str(kit_festa.preco_aluguel),
+                    "preco_periodo": str(preco_unitario),
                     "itens": itens,
                 },
+                "periodo_locacao": periodo,
                 "quantidade": quantidade,
             },
         }
@@ -189,7 +226,12 @@ class CarrinhoService:
 
     @staticmethod
     @transaction.atomic
-    def adicionar_brinquedo(carrinho, brinquedo_id, quantidade):
+    def adicionar_brinquedo(
+        carrinho,
+        brinquedo_id,
+        quantidade,
+        periodo_locacao="15_dias",
+    ):
         brinquedo = Brinquedo.objects.filter(id=brinquedo_id).first()
         if not brinquedo:
             raise serializers.ValidationError(
@@ -200,7 +242,11 @@ class CarrinhoService:
                 {"brinquedo_id": "Brinquedo inativo nao pode ser adicionado."}
             )
 
-        dados = CarrinhoService._snapshot_brinquedo(brinquedo, quantidade)
+        dados = CarrinhoService._snapshot_brinquedo(
+            brinquedo,
+            quantidade,
+            periodo_locacao,
+        )
         item = ItemCarrinho(
             carrinho=carrinho,
             tipo_item=ItemCarrinho.TipoItem.BRINQUEDO,
@@ -217,7 +263,12 @@ class CarrinhoService:
 
     @staticmethod
     @transaction.atomic
-    def adicionar_kit_festa(carrinho, kit_festa_id, quantidade):
+    def adicionar_kit_festa(
+        carrinho,
+        kit_festa_id,
+        quantidade,
+        periodo_locacao="15_dias",
+    ):
         kit_festa = (
             KitFesta.objects.prefetch_related("itens__brinquedo")
             .filter(id=kit_festa_id)
@@ -232,7 +283,11 @@ class CarrinhoService:
                 {"kit_festa_id": "Kit festa inativo nao pode ser adicionado."}
             )
 
-        dados = CarrinhoService._snapshot_kit_festa(kit_festa, quantidade)
+        dados = CarrinhoService._snapshot_kit_festa(
+            kit_festa,
+            quantidade,
+            periodo_locacao,
+        )
         item = ItemCarrinho(
             carrinho=carrinho,
             tipo_item=ItemCarrinho.TipoItem.KIT_FESTA,
@@ -302,12 +357,14 @@ class CarrinhoService:
                 carrinho,
                 dados["brinquedo_id"],
                 quantidade,
+                dados.get("periodo_locacao", "15_dias"),
             )
         if tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
             return CarrinhoService.adicionar_kit_festa(
                 carrinho,
                 dados["kit_festa_id"],
                 quantidade,
+                dados.get("periodo_locacao", "15_dias"),
             )
         if tipo_item == ItemCarrinho.TipoItem.KIT_PERSONALIZADO:
             return CarrinhoService.adicionar_kit_personalizado(
@@ -323,9 +380,25 @@ class CarrinhoService:
     @transaction.atomic
     def alterar_quantidade(item, quantidade):
         if item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO:
-            dados = CarrinhoService._snapshot_brinquedo(item.brinquedo, quantidade)
+            periodo_locacao = item.snapshot.get("periodo_locacao", {}).get(
+                "tipo",
+                "15_dias",
+            )
+            dados = CarrinhoService._snapshot_brinquedo(
+                item.brinquedo,
+                quantidade,
+                periodo_locacao,
+            )
         elif item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
-            dados = CarrinhoService._snapshot_kit_festa(item.kit_festa, quantidade)
+            periodo_locacao = item.snapshot.get("periodo_locacao", {}).get(
+                "tipo",
+                "15_dias",
+            )
+            dados = CarrinhoService._snapshot_kit_festa(
+                item.kit_festa,
+                quantidade,
+                periodo_locacao,
+            )
         else:
             itens = item.snapshot.get("itens", [])
             itens_validacao = [

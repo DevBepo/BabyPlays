@@ -5,7 +5,8 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { obterCarrinhoAtual, removerItemCarrinho, Carrinho } from "@/services/cart";
+import { useCart } from "@/hooks/useCart";
+import { removerItemCarrinho } from "@/services/cart";
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -45,43 +46,30 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
-  
-  // Estados do Carrinho
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [carrinho, setCarrinho] = useState<Carrinho | null>(null);
-  const [cartLoading, setCartLoading] = useState(false);
   const [removendoId, setRemovendoId] = useState<number | null>(null);
   
   const { cliente, user, isAuthenticated, logout } = useAuth();
+  const {
+    carrinho,
+    cartLoading,
+    closeCart,
+    isCartOpen,
+    refreshCart,
+    toggleCart,
+  } = useCart();
   const currentSearchQuery = searchQuery ?? localSearchQuery;
   const accountLabel = cliente?.nome ?? user?.email ?? "cliente";
-
-  const carregarCarrinho = async () => {
-    setCartLoading(true);
-    try {
-      const dados = await obterCarrinhoAtual();
-      setCarrinho(dados);
-    } catch (error) {
-      console.error("Erro ao procurar o carrinho:", error);
-    } finally {
-      setCartLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarCarrinho();
-  }, []);
 
   // Fechar o carrinho ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
-        setIsCartOpen(false);
+        closeCart();
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [closeCart]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,17 +99,12 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     setRemovendoId(itemId);
     try {
       await removerItemCarrinho(itemId);
-      await carregarCarrinho(); // Recarrega os dados para atualizar o número e a lista
-    } catch (err) {
+      await refreshCart();
+    } catch {
       alert("Erro ao remover item do carrinho.");
     } finally {
       setRemovendoId(null);
     }
-  };
-
-  const toggleCart = () => {
-    if (!isCartOpen) carregarCarrinho(); // Garante dados frescos ao abrir
-    setIsCartOpen(!isCartOpen);
   };
 
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
@@ -230,7 +213,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
           <div className="relative" ref={cartRef}>
             <button
               type="button"
-              onClick={toggleCart}
+              onClick={() => void toggleCart()}
               aria-label="Ver carrinho de compras"
               className="relative p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 rounded-full transition-colors cursor-pointer group"
             >
@@ -265,6 +248,11 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
                       <div key={item.id} className="flex gap-3 group">
                         <div className="flex-1">
                           <h4 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h4>
+                          {item.snapshot.periodo_locacao ? (
+                            <p className="mt-0.5 text-xs font-medium text-zinc-500">
+                              Periodo: {item.snapshot.periodo_locacao.label}
+                            </p>
+                          ) : null}
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-sm font-bold text-teal-600">R$ {item.subtotal_snapshot}</span>
                             <span className="text-xs text-zinc-400">Qtd: {item.quantidade}</span>
@@ -295,7 +283,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
                     </div>
                     <button
                       onClick={() => {
-                        setIsCartOpen(false);
+                        closeCart();
                         router.push("/checkout");
                       }}
                       className="w-full py-3 bg-[#FF5A5F] hover:bg-[#ff444a] text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-red-500/20"

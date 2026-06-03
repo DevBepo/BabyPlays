@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type { BrinquedoCatalogo, CategoriaCatalogo, KitFestaCatalogo } from "@/types/catalogo";
 import { getCsrfToken } from "@/lib/csrf";
 
@@ -38,6 +38,10 @@ export function atualizarCategoria(
   );
 }
 
+export function excluirCategoria(categoriaId: number): Promise<void> {
+  return apiDelete<void>(`${CATALOGO_ENDPOINTS.categorias}${categoriaId}/`);
+}
+
 export function listarBrinquedos(): Promise<BrinquedoCatalogo[]> {
   return apiGet<BrinquedoCatalogo[]>(CATALOGO_ENDPOINTS.brinquedos);
 }
@@ -50,14 +54,23 @@ export type CriarBrinquedoPayload = {
   nome: string;
   descricao: string;
   categoria?: number;
-  preco_aluguel: string | number;
+  preco_diaria?: string | number | null;
+  preco_15_dias?: string | number | null;
+  preco_30_dias?: string | number | null;
   ativo: boolean;
 };
+
+export type AtualizarBrinquedoPayload = Partial<CriarBrinquedoPayload>;
 
 type UploadImagemBrinquedoResponse = {
   mensagem: string;
   id: number;
   url: string;
+};
+
+export type RemoverCatalogoResponse = {
+  detail: string;
+  status: "excluido" | "desativado";
 };
 
 type CriarBrinquedoResponse = {
@@ -66,6 +79,9 @@ type CriarBrinquedoResponse = {
   descricao: string;
   categoria: CategoriaCatalogo | null;
   preco_aluguel: string;
+  preco_diaria: string | null;
+  preco_15_dias: string | null;
+  preco_30_dias: string | null;
   ativo: boolean;
   data_cadastro: string;
   quantidade_disponivel: number;
@@ -75,6 +91,24 @@ export function criarBrinquedo(
   dados: CriarBrinquedoPayload,
 ): Promise<CriarBrinquedoResponse> {
   return apiPost<CriarBrinquedoResponse>(CATALOGO_ENDPOINTS.brinquedos, dados);
+}
+
+export function atualizarBrinquedo(
+  brinquedoId: number,
+  dados: AtualizarBrinquedoPayload,
+): Promise<CriarBrinquedoResponse> {
+  return apiPatch<CriarBrinquedoResponse>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/`,
+    dados,
+  );
+}
+
+export function excluirBrinquedo(
+  brinquedoId: number,
+): Promise<RemoverCatalogoResponse> {
+  return apiDelete<RemoverCatalogoResponse>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/`,
+  );
 }
 
 export async function uploadImagemBrinquedo(

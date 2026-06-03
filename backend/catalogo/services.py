@@ -55,6 +55,32 @@ class BrinquedoService:
         """Retorna a quantidade de unidades fisicas disponiveis."""
         return BrinquedoService.unidades_disponiveis(brinquedo).count()
 
+    @staticmethod
+    def possui_vinculos_importantes(brinquedo):
+        from pedidos.models import ItemCarrinho, ItemPedido
+
+        return (
+            brinquedo.unidades.exists()
+            or ItemKitFesta.objects.filter(brinquedo=brinquedo).exists()
+            or brinquedo.configuracoes_kits_personalizaveis.exists()
+            or ItemCarrinho.objects.filter(brinquedo=brinquedo).exists()
+            or ItemPedido.objects.filter(brinquedo=brinquedo).exists()
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def remover_ou_desativar(brinquedo):
+        brinquedo = Brinquedo.objects.select_for_update().get(id=brinquedo.id)
+
+        if BrinquedoService.possui_vinculos_importantes(brinquedo):
+            if brinquedo.ativo:
+                brinquedo.ativo = False
+                brinquedo.save(update_fields=["ativo"])
+            return "desativado"
+
+        brinquedo.delete()
+        return "excluido"
+
 
 class UnidadeBrinquedoOperacaoService:
     STATUS_LIBERAVEIS = {
@@ -109,6 +135,30 @@ class KitFestaService:
     @staticmethod
     def list_public_catalog():
         return KitFestaService.list_all().filter(ativo=True)
+
+    @staticmethod
+    def possui_vinculos_importantes(kit_festa):
+        from pedidos.models import ItemCarrinho, ItemPedido
+
+        return (
+            kit_festa.itens.exists()
+            or ItemCarrinho.objects.filter(kit_festa=kit_festa).exists()
+            or ItemPedido.objects.filter(kit_festa=kit_festa).exists()
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def remover_ou_desativar(kit_festa):
+        kit_festa = KitFesta.objects.select_for_update().get(id=kit_festa.id)
+
+        if KitFestaService.possui_vinculos_importantes(kit_festa):
+            if kit_festa.ativo:
+                kit_festa.ativo = False
+                kit_festa.save(update_fields=["ativo", "atualizado_em"])
+            return "desativado"
+
+        kit_festa.delete()
+        return "excluido"
 
 
 class KitPersonalizavelService:

@@ -762,6 +762,41 @@ class CategoriaAPITests(APITestCase):
         self.assertEqual(categoria.nome, "Bebes e toddlers")
         self.assertFalse(categoria.ativo)
 
+    def test_usuario_admin_consegue_excluir_categoria_sem_uso(self):
+        categoria = Categoria.objects.create(
+            nome="Bebes",
+            slug="bebes",
+            ativo=True,
+            ordem=10,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.categorias_url}{categoria.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Categoria.objects.filter(id=categoria.id).exists())
+
+    def test_usuario_admin_nao_exclui_categoria_em_uso(self):
+        categoria = Categoria.objects.create(
+            nome="Bebes",
+            slug="bebes",
+            ativo=True,
+            ordem=10,
+        )
+        Brinquedo.objects.create(
+            nome="Piscina de Bolinhas",
+            descricao="Brinquedo para festas.",
+            categoria=categoria,
+            preco_aluguel="120.00",
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.categorias_url}{categoria.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(Categoria.objects.filter(id=categoria.id).exists())
+        self.assertIn("categoria em uso", response.data["detail"])
+
 
 class BrinquedoAPITests(APITestCase):
     brinquedos_url = "/api/brinquedos/"
@@ -932,6 +967,47 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Brinquedo.objects.count(), 1)
 
+    def test_usuario_anonimo_nao_consegue_remover_brinquedo(self):
+        response = self.client.delete(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Brinquedo.objects.filter(id=self.brinquedo.id).exists())
+
+    def test_usuario_admin_exclui_brinquedo_sem_vinculos_importantes(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "excluido")
+        self.assertFalse(Brinquedo.objects.filter(id=self.brinquedo.id).exists())
+
+    def test_usuario_admin_desativa_brinquedo_com_unidade_em_vez_de_apagar(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ARQ-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "desativado")
+        self.brinquedo.refresh_from_db()
+        self.assertFalse(self.brinquedo.ativo)
+        self.assertEqual(
+            UnidadeBrinquedo.objects.filter(brinquedo=self.brinquedo).count(),
+            1,
+        )
+
+        self.client.force_authenticate(user=None)
+        public_response = self.client.get(self.brinquedos_url)
+        self.assertNotIn(
+            self.brinquedo.id,
+            [brinquedo["id"] for brinquedo in public_response.data],
+        )
+
     def test_usuario_admin_consegue_criar_brinquedo(self):
         self.client.force_authenticate(user=self.usuario_admin)
 
@@ -978,7 +1054,6 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("nome", response.data)
         self.assertIn("descricao", response.data)
-        self.assertIn("preco_aluguel", response.data)
 
     def test_api_ignora_campos_somente_leitura_na_criacao(self):
         self.client.force_authenticate(user=self.usuario_admin)
@@ -1225,21 +1300,39 @@ class BrinquedoAPITests(APITestCase):
 class KitFestaAPITests(APITestCase):
     kits_url = "/api/kits-festa/"
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root_temporario = tempfile.mkdtemp()
+        cls.override_media_root = override_settings(
+            MEDIA_ROOT=cls.media_root_temporario,
+        )
+        cls.override_media_root.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.override_media_root.disable()
+        shutil.rmtree(cls.media_root_temporario, ignore_errors=True)
+        super().tearDownClass()
+
     def setUp(self):
         self.brinquedo = Brinquedo.objects.create(
             nome="Piscina de bolinhas",
             descricao="Brinquedo para festas infantis.",
             preco_aluguel="150.00",
+            preco_15_dias="150.00",
         )
         self.outro_brinquedo = Brinquedo.objects.create(
             nome="Cama elastica",
             descricao="Brinquedo para festas maiores.",
             preco_aluguel="220.00",
+            preco_15_dias="220.00",
         )
         self.kit = KitFesta.objects.create(
             nome="Kit Diversao",
             descricao="Kit pronto para festa infantil.",
             preco_aluguel="350.00",
+            preco_15_dias="350.00",
             ordem=1,
         )
         self.usuario_comum = get_user_model().objects.create_user(
@@ -1256,10 +1349,22 @@ class KitFestaAPITests(APITestCase):
         return {
             "nome": "Kit Premium",
             "descricao": "Kit pronto premium.",
-            "preco_aluguel": "500.00",
+            "preco_diaria": "180.00",
+            "preco_15_dias": "500.00",
+            "preco_30_dias": "750.00",
             "ativo": True,
             "ordem": 2,
         }
+
+    def imagem_upload(self, nome="kit.jpg", formato="JPEG", tamanho=(80, 80)):
+        arquivo = BytesIO()
+        Image.new("RGB", tamanho, color="pink").save(arquivo, format=formato)
+        arquivo.seek(0)
+        return SimpleUploadedFile(
+            nome,
+            arquivo.read(),
+            content_type=f"image/{formato.lower()}",
+        )
 
     def test_usuario_anonimo_lista_apenas_kits_ativos(self):
         KitFesta.objects.create(
@@ -1304,6 +1409,41 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(KitFesta.objects.count(), 1)
 
+    def test_usuario_anonimo_nao_consegue_remover_kit(self):
+        response = self.client.delete(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(KitFesta.objects.filter(id=self.kit.id).exists())
+
+    def test_usuario_admin_exclui_kit_sem_vinculos_importantes(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "excluido")
+        self.assertFalse(KitFesta.objects.filter(id=self.kit.id).exists())
+
+    def test_usuario_admin_desativa_kit_com_composicao_em_vez_de_apagar(self):
+        ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "desativado")
+        self.kit.refresh_from_db()
+        self.assertFalse(self.kit.ativo)
+        self.assertEqual(ItemKitFesta.objects.filter(kit=self.kit).count(), 1)
+
+        self.client.force_authenticate(user=None)
+        public_response = self.client.get(self.kits_url)
+        self.assertNotIn(self.kit.id, [kit["id"] for kit in public_response.data])
+
     def test_usuario_admin_consegue_criar_kit(self):
         self.client.force_authenticate(user=self.usuario_admin)
 
@@ -1313,6 +1453,79 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(KitFesta.objects.count(), 2)
         self.assertEqual(response.data["nome"], "Kit Premium")
         self.assertTrue(response.data["ativo"])
+        self.assertEqual(
+            response.data["periodos_disponiveis"],
+            [
+                {"tipo": "diaria", "label": "Diaria", "dias": 1, "preco": "180.00"},
+                {"tipo": "15_dias", "label": "15 dias", "dias": 15, "preco": "500.00"},
+                {"tipo": "30_dias", "label": "30 dias", "dias": 30, "preco": "750.00"},
+            ],
+        )
+
+    def test_usuario_admin_consegue_enviar_imagem_do_kit(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.kits_url}{self.kit.id}/imagem/",
+            {"imagem": self.imagem_upload()},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("/media/catalogo/kits-festa/", response.data["url"])
+        self.kit.refresh_from_db()
+        self.assertTrue(self.kit.imagem)
+
+    def test_usuario_anonimo_nao_consegue_enviar_imagem_do_kit(self):
+        response = self.client.post(
+            f"{self.kits_url}{self.kit.id}/imagem/",
+            {"imagem": self.imagem_upload()},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.kit.refresh_from_db()
+        self.assertFalse(self.kit.imagem)
+
+    def test_upload_de_imagem_do_kit_valida_arquivo(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        arquivo = SimpleUploadedFile(
+            "kit.svg",
+            b"<svg><script>alert('x')</script></svg>",
+            content_type="image/svg+xml",
+        )
+
+        response = self.client.post(
+            f"{self.kits_url}{self.kit.id}/imagem/",
+            {"imagem": arquivo},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.kit.refresh_from_db()
+        self.assertFalse(self.kit.imagem)
+
+    def test_api_publica_retorna_imagem_do_kit(self):
+        self.kit.imagem = self.imagem_upload()
+        self.kit.full_clean()
+        self.kit.save(update_fields=["imagem"])
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("/media/catalogo/kits-festa/", response.data["imagem_url"])
+
+    def test_usuario_admin_remove_imagem_do_kit(self):
+        self.kit.imagem = self.imagem_upload()
+        self.kit.full_clean()
+        self.kit.save(update_fields=["imagem"])
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(f"{self.kits_url}{self.kit.id}/imagem/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.kit.refresh_from_db()
+        self.assertFalse(self.kit.imagem)
 
     def test_usuario_admin_lista_kits_ativos_e_inativos(self):
         kit_inativo = KitFesta.objects.create(
@@ -1350,7 +1563,19 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("nome", response.data)
         self.assertIn("descricao", response.data)
-        self.assertIn("preco_aluguel", response.data)
+
+    def test_criacao_de_kit_exige_ao_menos_um_preco_de_periodo(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        payload = {
+            "nome": "Kit sem preco",
+            "descricao": "Kit sem periodo configurado.",
+            "ativo": True,
+        }
+
+        response = self.client.post(self.kits_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("preco_15_dias", response.data)
 
     def test_api_publica_retorna_itens_do_kit(self):
         ItemKitFesta.objects.create(
@@ -1369,6 +1594,31 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(item["ordem"], 1)
         self.assertEqual(item["brinquedo"]["id"], self.brinquedo.id)
         self.assertEqual(item["brinquedo"]["nome"], self.brinquedo.nome)
+
+    def test_api_publica_retorna_periodos_disponiveis_do_kit(self):
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["permite_diaria"])
+        self.assertEqual(
+            response.data["periodos_disponiveis"],
+            [{"tipo": "15_dias", "label": "15 dias", "dias": 15, "preco": "350.00"}],
+        )
+
+        self.kit.preco_diaria = "180.00"
+        self.kit.preco_30_dias = "520.00"
+        self.kit.save(update_fields=["preco_diaria", "preco_30_dias"])
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(
+            response.data["periodos_disponiveis"],
+            [
+                {"tipo": "diaria", "label": "Diaria", "dias": 1, "preco": "180.00"},
+                {"tipo": "15_dias", "label": "15 dias", "dias": 15, "preco": "350.00"},
+                {"tipo": "30_dias", "label": "30 dias", "dias": 30, "preco": "520.00"},
+            ],
+        )
 
     def test_itens_do_kit_sao_retornados_ordenados_por_ordem_depois_id(self):
         item_ordem_2 = ItemKitFesta.objects.create(
@@ -1437,6 +1687,7 @@ class KitPersonalizavelAPITests(APITestCase):
             descricao="Brinquedo para festas maiores.",
             categoria=self.categoria_grandes,
             preco_aluguel="220.00",
+            permite_diaria=True,
         )
         self.brinquedo_bebe = Brinquedo.objects.create(
             nome="Piscina de bolinhas",
@@ -1665,6 +1916,7 @@ class KitPersonalizavelAPITests(APITestCase):
         self.assertEqual(len(brinquedos), 1)
         self.assertEqual(brinquedos[0]["id"], self.brinquedo_grande.id)
         self.assertEqual(brinquedos[0]["preco_aluguel"], "220.00")
+        self.assertTrue(brinquedos[0]["permite_diaria"])
         self.assertIn("quantidade_disponivel", brinquedos[0])
 
     def test_api_publica_retorna_brinquedos_elegiveis_no_modo_brinquedos(self):

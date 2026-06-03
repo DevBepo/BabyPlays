@@ -6,8 +6,26 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 
+const VIACEP_BASE_URL = "https://viacep.com.br/ws/";
+
+type ViaCepResponse = {
+  cep?: string;
+  logradouro?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
+  erro?: boolean;
+};
+
+function normalizarCep(cep: string) {
+  return cep.replace(/[.\-\s]/g, "");
+}
+
 export default function EntregasConfigPage() {
   const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  const [cepSuccess, setCepSuccess] = useState<string | null>(null);
 
   // Mock dos dados atuais que viriam de um GET /api/taxa-entrega-retirada/configuracao/
   const [config, setConfig] = useState({
@@ -20,6 +38,54 @@ export default function EntregasConfigPage() {
     valorPorKm: 1.50,
     ativo: true,
   });
+
+  const handleBuscarCep = async () => {
+    const cep = normalizarCep(config.cep);
+
+    setCepError(null);
+    setCepSuccess(null);
+
+    if (!/^\d{8}$/.test(cep)) {
+      setCepError("CEP invalido. Informe exatamente 8 digitos.");
+      return;
+    }
+
+    setCepLoading(true);
+
+    try {
+      const response = await fetch(`${VIACEP_BASE_URL}${cep}/json/`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        setCepError("Servico externo de CEP indisponivel. Tente novamente em instantes.");
+        return;
+      }
+
+      const data = (await response.json()) as ViaCepResponse;
+
+      if (data.erro) {
+        setCepError("CEP nao encontrado. Confira os numeros informados.");
+        return;
+      }
+
+      setConfig((currentConfig) => ({
+        ...currentConfig,
+        cep,
+        logradouro: data.logradouro?.trim() ?? "",
+        bairro: data.bairro?.trim() ?? "",
+        cidade: data.localidade?.trim() ?? "",
+        estado: data.uf?.trim().toUpperCase() ?? "",
+      }));
+      setCepSuccess("CEP encontrado e endereco preenchido.");
+    } catch {
+      setCepError("Erro de rede ao buscar CEP. Verifique sua conexao e tente novamente.");
+    } finally {
+      setCepLoading(false);
+    }
+  };
 
   const handleSalvar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,15 +127,31 @@ export default function EntregasConfigPage() {
               <Input 
                 label="CEP *" 
                 value={config.cep}
-                onChange={(e) => setConfig({...config, cep: e.target.value})}
+                onChange={(e) => {
+                  setCepError(null);
+                  setCepSuccess(null);
+                  setConfig({...config, cep: e.target.value});
+                }}
+                error={cepError ?? undefined}
                 required 
               />
             </div>
             <div className="md:col-span-8 flex items-end">
-              <Button type="button" variant="secondary" className="w-full md:w-auto">
-                Buscar CEP
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full md:w-auto"
+                loading={cepLoading}
+                onClick={handleBuscarCep}
+              >
+                {cepLoading ? "Buscando..." : "Buscar CEP"}
               </Button>
             </div>
+            {cepSuccess && (
+              <p className="md:col-span-12 text-sm font-medium text-teal-700">
+                {cepSuccess}
+              </p>
+            )}
 
             <div className="md:col-span-9">
               <Input 
@@ -143,7 +225,7 @@ export default function EntregasConfigPage() {
                 onChange={(e) => setConfig({...config, ativo: e.target.checked})}
               />
               <p className="text-xs text-zinc-500 mt-1 pl-8">
-                Se desmarcado, os clientes só poderão escolher a opção "Retirar na Loja".
+                Se desmarcado, os clientes só poderão escolher a opção &quot;Retirar na Loja&quot;.
               </p>
             </div>
           </div>

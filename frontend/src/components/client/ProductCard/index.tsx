@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
+
 import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { useCart } from "@/hooks/useCart";
 import { adicionarAoCarrinho } from "@/services/cart";
+import type { ApiError } from "@/types/api";
+import type { PeriodoLocacao, PeriodoLocacaoDisponivel } from "@/types/catalogo";
 
 interface ProductCardProps {
-  id: number; 
+  id: number;
   nome: string;
   descricao: string;
-  precoAluguel: string;
+  periodosDisponiveis: PeriodoLocacaoDisponivel[];
   categoriaNome?: string;
   quantidadeDisponivel: number;
   imagemUrl?: string | null;
@@ -30,64 +32,108 @@ function formatPrice(value: string) {
   });
 }
 
+function getCartErrorMessage(error: unknown) {
+  const apiError = error as Partial<ApiError> | null;
+
+  if (apiError?.message) {
+    return apiError.message;
+  }
+
+  return "Nao foi possivel adicionar ao carrinho. Tente novamente.";
+}
+
 export function ProductCard({
   id,
   nome,
   descricao,
-  precoAluguel,
+  periodosDisponiveis,
   categoriaNome,
   quantidadeDisponivel,
   imagemUrl,
   imagemAlt,
 }: ProductCardProps) {
-  const router = useRouter();
+  const { openCart, refreshCart } = useCart();
   const [adicionando, setAdicionando] = useState(false);
-  const isAvailable = quantidadeDisponivel > 0;
+  const [periodoSelecionado, setPeriodoSelecionado] =
+    useState<PeriodoLocacao>("15_dias");
+  const adicionandoRef = useRef(false);
+  const periodoAtual = useMemo(
+    () =>
+      periodosDisponiveis.find((periodo) => periodo.tipo === periodoSelecionado) ??
+      periodosDisponiveis[0],
+    [periodosDisponiveis, periodoSelecionado],
+  );
+  const hasPeriodOptions = periodosDisponiveis.length > 0;
+  const periodoEfetivo = periodoAtual?.tipo;
+  const hasStock = quantidadeDisponivel > 0;
+  const isAvailable = hasStock && hasPeriodOptions;
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    // Evita que o clique no botão dispare o link do cartão (se houver algum dele)
-    e.preventDefault(); 
-    e.stopPropagation();
+  const handleAddToCart = async () => {
+    if (!isAvailable || !periodoEfetivo || adicionandoRef.current) {
+      return;
+    }
 
-    if (!isAvailable) return;
-
+    adicionandoRef.current = true;
     setAdicionando(true);
     try {
       await adicionarAoCarrinho({
         tipo_item: "brinquedo",
         brinquedo_id: id,
         quantidade: 1,
+        periodo_locacao: periodoEfetivo,
       });
-      
-      // Atualiza o Header para o Dropdown puxar os novos dados
-      router.refresh(); 
+
+      await refreshCart();
+      openCart();
     } catch (err) {
       console.error("Erro ao adicionar:", err);
-      alert("Ocorreu um erro ao adicionar ao carrinho.");
+      alert(getCartErrorMessage(err));
     } finally {
+      adicionandoRef.current = false;
       setAdicionando(false);
     }
   };
 
   return (
-    <Card
-      padding="none"
-      className="group relative flex flex-col h-full border-zinc-100 transition-shadow duration-200 hover:shadow-md overflow-hidden"
-    >
-      <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+    <article className="group relative flex h-full min-h-[356px] w-[260px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[272px]">
+      <div className="absolute left-3 top-3 z-10">
         {isAvailable ? (
-          <Badge variant="success">Disponível</Badge>
+          <Badge variant="success" className="normal-case tracking-normal">
+            Disponivel
+          </Badge>
         ) : (
-          <Badge variant="default">Indisponível</Badge>
+          <Badge variant="default" className="normal-case tracking-normal">
+            Indisponivel
+          </Badge>
         )}
       </div>
 
-      <div className="h-48 w-full overflow-hidden bg-zinc-50 shrink-0">
+      <button
+        type="button"
+        aria-label={`Favoritar ${nome}`}
+        className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-zinc-500 shadow-sm transition-colors hover:border-[#FF5A5F] hover:text-[#FF5A5F]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M19.5 12.6 12 20l-7.5-7.4a5 5 0 0 1 7.1-7.1l.4.4.4-.4a5 5 0 0 1 7.1 7.1Z" />
+        </svg>
+      </button>
+
+      <div className="h-48 w-full overflow-hidden bg-zinc-50">
         {imagemUrl ? (
           <img
             src={imagemUrl}
             alt={imagemAlt || nome}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center border-b border-dashed border-zinc-200 bg-white text-xs font-medium text-zinc-400">
@@ -96,60 +142,74 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col bg-white p-4">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          {categoriaNome && <Badge variant="brand">{categoriaNome}</Badge>}
-        </div>
-
-        <h3 className="line-clamp-2 text-base font-bold text-zinc-900 leading-tight">
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="line-clamp-2 text-sm font-bold leading-5 text-zinc-900">
           {nome}
         </h3>
 
-        <p className="mt-1.5 line-clamp-2 text-sm text-zinc-500 mb-4">
-          {descricao}
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
+          {categoriaNome || descricao}
         </p>
 
-        {/* Zona de Preço e Botão empurrada para o fundo */}
-        <div className="mt-auto flex flex-col gap-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-0.5">
-                Aluguer
-              </p>
-              <p className="text-xl font-black text-teal-600">
-                {formatPrice(precoAluguel)}
-              </p>
-            </div>
-            <p className="text-right text-xs font-medium text-zinc-400">
-              {quantidadeDisponivel} unid.
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-lg font-black leading-none text-zinc-950">
+              {periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}
+            </p>
+            <p className="mt-1 text-[11px] font-medium text-zinc-500">
+              por periodo
             </p>
           </div>
+          <p className="text-right text-[11px] font-medium leading-4 text-zinc-500">
+            {quantidadeDisponivel} unid.
+          </p>
+        </div>
 
-          <button
-            onClick={handleAddToCart}
-            disabled={!isAvailable || adicionando}
-            className={`w-full py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              !isAvailable
-                ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                : "bg-zinc-900 hover:bg-teal-600 text-white shadow-sm"
-            }`}
-          >
-            {adicionando ? (
-              <span className="flex items-center gap-2">
-                <span className="block w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                A adicionar...
-              </span>
-            ) : isAvailable ? (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/><path d="M12 10v4"/><path d="M10 12h4"/></svg>
-                Adicionar
-              </>
-            ) : (
-              "Esgotado"
-            )}
-          </button>
+        <div className="mt-auto pt-3">
+          {hasPeriodOptions ? (
+            <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Periodo de locacao">
+              {periodosDisponiveis.map((option) => {
+                const selected = periodoEfetivo === option.tipo;
+
+                return (
+                  <button
+                    key={option.tipo}
+                    type="button"
+                    onClick={() => setPeriodoSelecionado(option.tipo)}
+                    aria-pressed={selected}
+                    className={`inline-flex h-7 items-center justify-center rounded-full border px-2.5 text-[11px] font-bold leading-none transition-colors ${
+                      selected
+                        ? "border-teal-600 bg-teal-50 text-teal-800"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mb-2 text-xs font-semibold text-zinc-500">
+              Indisponivel para locacao
+            </p>
+          )}
+
+          {isAvailable ? (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={adicionando}
+              className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#FF5A5F] px-4 text-sm font-bold text-white transition-colors hover:bg-[#e94d52] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {adicionando ? "Adicionando..." : "Adicionar ao carrinho"}
+            </button>
+          ) : (
+            <p className="inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-100 px-4 text-sm font-bold text-zinc-400">
+              {hasStock ? "Indisponivel para locacao" : "Esgotado"}
+            </p>
+          )}
         </div>
       </div>
-    </Card>
+    </article>
   );
 }

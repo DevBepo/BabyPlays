@@ -8,15 +8,18 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/TextArea";
-import { atualizarCategoria, criarCategoria, listarCategorias } from "@/services/catalogo";
+import {
+  atualizarCategoria,
+  criarCategoria,
+  excluirCategoria,
+  listarCategorias,
+} from "@/services/catalogo";
 import type { ApiError, ApiFieldErrors } from "@/types/api";
 import type { CategoriaCatalogo } from "@/types/catalogo";
 
 const FORM_INICIAL = {
   nome: "",
-  slug: "",
   descricao: "",
-  ordem: "0",
   ativo: true,
 };
 
@@ -50,32 +53,13 @@ export default function CategoriasAdminPage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
   const [form, setForm] = useState(FORM_INICIAL);
-  const [slugEditado, setSlugEditado] = useState(false);
+  const [categoriaEditando, setCategoriaEditando] = useState<CategoriaCatalogo | null>(null);
+  const [categoriaExcluindoId, setCategoriaExcluindoId] = useState<number | null>(null);
 
   const categoriasOrdenadas = useMemo(
-    () =>
-      [...categorias].sort(
-        (a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) || a.nome.localeCompare(b.nome),
-      ),
+    () => [...categorias].sort((a, b) => a.nome.localeCompare(b.nome)),
     [categorias],
   );
-
-  async function carregarCategorias() {
-    setLoading(true);
-    setErro(null);
-
-    try {
-      setCategorias(await listarCategorias());
-    } catch (error) {
-      setErro(
-        isApiError(error)
-          ? error.message
-          : "Nao foi possivel carregar as categorias.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
     let active = true;
@@ -120,18 +104,30 @@ export default function CategoriasAdminPage() {
     setFieldErrors(undefined);
 
     try {
-      const novaCategoria = await criarCategoria({
+      const payload = {
         nome: form.nome,
-        slug: form.slug || slugSugerido(form.nome),
+        slug: categoriaEditando?.slug ?? slugSugerido(form.nome),
         descricao: form.descricao,
         ativo: form.ativo,
-        ordem: Number(form.ordem || 0),
-      });
+        ordem: categoriaEditando?.ordem ?? 0,
+      };
 
-      setCategorias((atuais) => [novaCategoria, ...atuais]);
+      if (categoriaEditando) {
+        const categoriaAtualizada = await atualizarCategoria(categoriaEditando.id, payload);
+        setCategorias((atuais) =>
+          atuais.map((categoria) =>
+            categoria.id === categoriaAtualizada.id ? categoriaAtualizada : categoria,
+          ),
+        );
+        setCategoriaEditando(null);
+        setSucesso("Categoria atualizada com sucesso.");
+      } else {
+        const novaCategoria = await criarCategoria(payload);
+        setCategorias((atuais) => [novaCategoria, ...atuais]);
+        setSucesso("Categoria criada com sucesso.");
+      }
+
       setForm(FORM_INICIAL);
-      setSlugEditado(false);
-      setSucesso("Categoria criada com sucesso.");
     } catch (error) {
       if (isApiError(error)) {
         setErro(error.message);
@@ -170,6 +166,56 @@ export default function CategoriasAdminPage() {
     }
   }
 
+  function iniciarEdicao(categoria: CategoriaCatalogo) {
+    setErro(null);
+    setSucesso(null);
+    setFieldErrors(undefined);
+    setCategoriaEditando(categoria);
+    setForm({
+      nome: categoria.nome,
+      descricao: categoria.descricao ?? "",
+      ativo: categoria.ativo !== false,
+    });
+  }
+
+  function cancelarEdicao() {
+    setCategoriaEditando(null);
+    setForm(FORM_INICIAL);
+    setFieldErrors(undefined);
+    setErro(null);
+  }
+
+  async function handleExcluir(categoria: CategoriaCatalogo) {
+    const confirmar = window.confirm(
+      `Excluir a categoria "${categoria.nome}"? Esta acao nao pode ser desfeita.`,
+    );
+
+    if (!confirmar) {
+      return;
+    }
+
+    setCategoriaExcluindoId(categoria.id);
+    setErro(null);
+    setSucesso(null);
+
+    try {
+      await excluirCategoria(categoria.id);
+      setCategorias((atuais) => atuais.filter((item) => item.id !== categoria.id));
+      if (categoriaEditando?.id === categoria.id) {
+        cancelarEdicao();
+      }
+      setSucesso("Categoria excluida com sucesso.");
+    } catch (error) {
+      setErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel excluir a categoria. Verifique se ela esta em uso.",
+      );
+    } finally {
+      setCategoriaExcluindoId(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
@@ -179,9 +225,6 @@ export default function CategoriasAdminPage() {
             Cadastre categorias reais para usar no formulario de brinquedos.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void carregarCategorias()} disabled={loading}>
-          Atualizar
-        </Button>
       </div>
 
       {erro ? (
@@ -197,43 +240,28 @@ export default function CategoriasAdminPage() {
       ) : null}
 
       <section className="rounded-lg border border-zinc-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-zinc-900">Nova categoria</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            {categoriaEditando ? "Editar categoria" : "Nova categoria"}
+          </h2>
+          {categoriaEditando ? (
+            <Button type="button" variant="ghost" size="sm" onClick={cancelarEdicao}>
+              Cancelar edicao
+            </Button>
+          ) : null}
+        </div>
         <form onSubmit={handleSubmit} className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Input
-            label="Nome *"
-            value={form.nome}
-            onChange={(event) => {
-              const nome = event.target.value;
-              setForm((atual) => ({
-                ...atual,
-                nome,
-                slug: slugEditado ? atual.slug : slugSugerido(nome),
-              }));
-            }}
-            error={erroCampo(fieldErrors, "nome")}
-            required
-          />
-
-          <Input
-            label="Slug *"
-            value={form.slug}
-            onChange={(event) => {
-              setSlugEditado(true);
-              setForm((atual) => ({ ...atual, slug: event.target.value }));
-            }}
-            error={erroCampo(fieldErrors, "slug")}
-            required
-          />
-
-          <Input
-            label="Ordem de exibicao"
-            type="number"
-            min="0"
-            step="1"
-            value={form.ordem}
-            onChange={(event) => setForm((atual) => ({ ...atual, ordem: event.target.value }))}
-            error={erroCampo(fieldErrors, "ordem")}
-          />
+          <div className="md:col-span-2">
+            <Input
+              label="Nome *"
+              value={form.nome}
+              onChange={(event) =>
+                setForm((atual) => ({ ...atual, nome: event.target.value }))
+              }
+              error={erroCampo(fieldErrors, "nome") || erroCampo(fieldErrors, "slug")}
+              required
+            />
+          </div>
 
           <div className="flex items-center pt-7">
             <Checkbox
@@ -256,7 +284,7 @@ export default function CategoriasAdminPage() {
 
           <div className="md:col-span-2 flex justify-end">
             <Button type="submit" loading={salvando}>
-              Salvar categoria
+              {categoriaEditando ? "Atualizar categoria" : "Salvar categoria"}
             </Button>
           </div>
         </form>
@@ -281,10 +309,8 @@ export default function CategoriasAdminPage() {
             <Thead>
               <Tr>
                 <Th>Nome</Th>
-                <Th>Slug</Th>
                 <Th>Status</Th>
-                <Th>Ordem</Th>
-                <Th className="text-right">Acao</Th>
+                <Th className="text-right">Acoes</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -298,7 +324,6 @@ export default function CategoriasAdminPage() {
                       </span>
                     </div>
                   </Td>
-                  <Td className="font-mono text-xs text-zinc-600">{categoria.slug}</Td>
                   <Td>
                     {categoria.ativo !== false ? (
                       <Badge variant="success">Ativa</Badge>
@@ -306,16 +331,35 @@ export default function CategoriasAdminPage() {
                       <Badge variant="default">Inativa</Badge>
                     )}
                   </Td>
-                  <Td>{categoria.ordem ?? 0}</Td>
                   <Td className="text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={categoria.ativo !== false ? "outline" : "secondary"}
-                      onClick={() => void alternarAtivo(categoria)}
-                    >
-                      {categoria.ativo !== false ? "Desativar" : "Ativar"}
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => iniciarEdicao(categoria)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={categoria.ativo !== false ? "outline" : "secondary"}
+                        onClick={() => void alternarAtivo(categoria)}
+                      >
+                        {categoria.ativo !== false ? "Desativar" : "Ativar"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="danger"
+                        loading={categoriaExcluindoId === categoria.id}
+                        disabled={categoriaExcluindoId === categoria.id}
+                        onClick={() => void handleExcluir(categoria)}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
                   </Td>
                 </Tr>
               ))}

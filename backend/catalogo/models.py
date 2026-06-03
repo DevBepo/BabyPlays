@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,9 +10,60 @@ from django.db.models import Q
 from .validators import validar_imagem_brinquedo
 
 
+PERIODOS_LOCACAO = {
+    "diaria": {"label": "Diaria", "dias": 1, "campo_preco": "preco_diaria"},
+    "15_dias": {"label": "15 dias", "dias": 15, "campo_preco": "preco_15_dias"},
+    "30_dias": {"label": "30 dias", "dias": 30, "campo_preco": "preco_30_dias"},
+}
+
+
+def preco_periodo_valido(valor):
+    return valor is not None and valor > Decimal("0.00")
+
+
+def periodos_locacao_disponiveis(instance):
+    periodos = []
+    for tipo, config in PERIODOS_LOCACAO.items():
+        preco = getattr(instance, config["campo_preco"], None)
+        if preco_periodo_valido(preco):
+            periodos.append(
+                {
+                    "tipo": tipo,
+                    "label": config["label"],
+                    "dias": config["dias"],
+                    "preco": f"{preco:.2f}",
+                }
+            )
+    return periodos
+
+
+def preco_por_periodo(instance, tipo):
+    config = PERIODOS_LOCACAO.get(tipo)
+    if not config:
+        return None
+    preco = getattr(instance, config["campo_preco"], None)
+    return preco if preco_periodo_valido(preco) else None
+
+
+def validar_precos_periodo(instance):
+    if not periodos_locacao_disponiveis(instance):
+        raise ValidationError(
+            {
+                "preco_15_dias": (
+                    "Informe ao menos um preco de periodo para locacao."
+                )
+            }
+        )
+
+
 def caminho_imagem_brinquedo(instance, filename):
     extensao = Path(filename).suffix.lower()
     return f"catalogo/brinquedos/{instance.brinquedo_id}/{uuid4()}{extensao}"
+
+
+def caminho_imagem_kit_festa(instance, filename):
+    extensao = Path(filename).suffix.lower()
+    return f"catalogo/kits-festa/{uuid4()}{extensao}"
 
 
 class Categoria(models.Model):
@@ -49,12 +101,51 @@ class Brinquedo(models.Model):
         verbose_name="Preço do Aluguel",
         help_text="Preço do aluguel por período (ex: diária).",
     )
+    preco_diaria = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco da diaria",
+    )
+    preco_15_dias = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco de 15 dias",
+    )
+    preco_30_dias = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco de 30 dias",
+    )
     ativo = models.BooleanField(
         default=True,
         verbose_name="Ativo no catálogo",
         help_text="Indica se o produto está habilitado para publicação no catálogo; não representa estoque físico disponível.",
     )
+    permite_diaria = models.BooleanField(
+        default=False,
+        verbose_name="Permite diaria",
+        help_text="Indica se o brinquedo pode ser alugado por diaria.",
+    )
     data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+
+    def clean(self):
+        super().clean()
+        validar_precos_periodo(self)
+
+    def periodos_locacao_disponiveis(self):
+        return periodos_locacao_disponiveis(self)
+
+    def preco_por_periodo(self, tipo):
+        return preco_por_periodo(self, tipo)
 
     def __str__(self):
         return self.nome
@@ -141,6 +232,42 @@ class KitFesta(models.Model):
         decimal_places=2,
         verbose_name="Preco do aluguel",
     )
+    preco_diaria = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco da diaria",
+    )
+    preco_15_dias = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco de 15 dias",
+    )
+    preco_30_dias = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco de 30 dias",
+    )
+    permite_diaria = models.BooleanField(
+        default=False,
+        verbose_name="Permite diaria",
+        help_text="Indica se o kit festa pode ser alugado por diaria.",
+    )
+    imagem = models.ImageField(
+        upload_to=caminho_imagem_kit_festa,
+        validators=[validar_imagem_brinquedo],
+        null=True,
+        blank=True,
+        verbose_name="Imagem",
+    )
     ativo = models.BooleanField(default=True, verbose_name="Ativo no catalogo")
     ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de exibicao")
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
@@ -150,6 +277,16 @@ class KitFesta(models.Model):
         ordering = ("ordem", "nome")
         verbose_name = "Kit festa"
         verbose_name_plural = "Kits festa"
+
+    def clean(self):
+        super().clean()
+        validar_precos_periodo(self)
+
+    def periodos_locacao_disponiveis(self):
+        return periodos_locacao_disponiveis(self)
+
+    def preco_por_periodo(self, tipo):
+        return preco_por_periodo(self, tipo)
 
     def __str__(self):
         return self.nome

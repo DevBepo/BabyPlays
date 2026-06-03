@@ -64,11 +64,26 @@ class ItemSelecaoKitPersonalizadoCarrinhoSerializer(serializers.Serializer):
 
 
 class AdicionarItemCarrinhoSerializer(serializers.Serializer):
+    class PeriodoLocacao:
+        QUINZE_DIAS = "15_dias"
+        TRINTA_DIAS = "30_dias"
+        DIARIA = "diaria"
+
+        choices = (
+            (QUINZE_DIAS, "15 dias"),
+            (TRINTA_DIAS, "30 dias"),
+            (DIARIA, "Diaria"),
+        )
+
     tipo_item = serializers.ChoiceField(choices=ItemCarrinho.TipoItem.choices)
     brinquedo_id = serializers.IntegerField(min_value=1, required=False)
     kit_festa_id = serializers.IntegerField(min_value=1, required=False)
     configuracao_id = serializers.IntegerField(min_value=1, required=False)
     quantidade = serializers.IntegerField(min_value=1, required=False, default=1)
+    periodo_locacao = serializers.ChoiceField(
+        choices=PeriodoLocacao.choices,
+        required=False,
+    )
     itens = ItemSelecaoKitPersonalizadoCarrinhoSerializer(
         many=True,
         required=False,
@@ -98,6 +113,7 @@ class AdicionarItemCarrinhoSerializer(serializers.Serializer):
             ItemCarrinho.TipoItem.KIT_PERSONALIZADO: (
                 "brinquedo_id",
                 "kit_festa_id",
+                "periodo_locacao",
             ),
         }
 
@@ -111,6 +127,15 @@ class AdicionarItemCarrinhoSerializer(serializers.Serializer):
 
         if erros:
             raise serializers.ValidationError(erros)
+
+        if tipo_item in (
+            ItemCarrinho.TipoItem.BRINQUEDO,
+            ItemCarrinho.TipoItem.KIT_FESTA,
+        ):
+            attrs["periodo_locacao"] = attrs.get(
+                "periodo_locacao",
+                self.PeriodoLocacao.QUINZE_DIAS,
+            )
         return attrs
 
 

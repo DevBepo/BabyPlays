@@ -158,17 +158,22 @@ class CarrinhoAPITests(APITestCase):
             descricao="Brinquedo para festas maiores.",
             categoria=self.categoria,
             preco_aluguel=Decimal("220.00"),
+            preco_15_dias=Decimal("220.00"),
+            preco_30_dias=Decimal("330.00"),
         )
         self.outro_brinquedo = Brinquedo.objects.create(
             nome="Piscina de bolinhas",
             descricao="Brinquedo para bebes.",
             categoria=self.categoria,
             preco_aluguel=Decimal("150.00"),
+            preco_15_dias=Decimal("150.00"),
         )
         self.kit_festa = KitFesta.objects.create(
             nome="Kit Diversao",
             descricao="Kit pronto para festa.",
             preco_aluguel=Decimal("350.00"),
+            preco_15_dias=Decimal("350.00"),
+            preco_30_dias=Decimal("520.00"),
         )
         ItemKitFesta.objects.create(
             kit=self.kit_festa,
@@ -448,7 +453,61 @@ class CarrinhoAPITests(APITestCase):
         item = ItemCarrinho.objects.get(id=response.data["id"])
         self.assertEqual(item.snapshot["tipo_item"], "brinquedo")
         self.assertEqual(item.snapshot["brinquedo"]["id"], self.brinquedo.id)
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "15_dias")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 15)
         self.assertEqual(item.snapshot["quantidade"], 2)
+
+    def test_snapshot_salva_periodo_de_30_dias_para_brinquedo(self):
+        response = self.adicionar_brinquedo(periodo_locacao="30_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemCarrinho.objects.get(id=response.data["id"])
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "30_dias")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 30)
+
+    def test_diaria_exige_brinquedo_com_suporte(self):
+        response = self.adicionar_brinquedo(periodo_locacao="diaria")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ItemCarrinho.objects.count(), 0)
+
+        self.brinquedo.preco_diaria = Decimal("120.00")
+        self.brinquedo.save(update_fields=["preco_diaria"])
+
+        response = self.adicionar_brinquedo(periodo_locacao="diaria")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemCarrinho.objects.get(id=response.data["id"])
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "diaria")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 1)
+        self.assertEqual(item.snapshot["periodo_locacao"]["preco"], "120.00")
+        self.assertEqual(item.preco_unitario_snapshot, Decimal("120.00"))
+
+    def test_snapshot_salva_periodo_para_kit_festa(self):
+        response = self.adicionar_kit_festa(periodo_locacao="30_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemCarrinho.objects.get(id=response.data["id"])
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "30_dias")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 30)
+
+    def test_diaria_exige_kit_festa_com_suporte(self):
+        response = self.adicionar_kit_festa(periodo_locacao="diaria")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ItemCarrinho.objects.count(), 0)
+
+        self.kit_festa.preco_diaria = Decimal("180.00")
+        self.kit_festa.save(update_fields=["preco_diaria"])
+
+        response = self.adicionar_kit_festa(periodo_locacao="diaria")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemCarrinho.objects.get(id=response.data["id"])
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "diaria")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 1)
+        self.assertEqual(item.snapshot["periodo_locacao"]["preco"], "180.00")
+        self.assertEqual(item.preco_unitario_snapshot, Decimal("180.00"))
 
     def test_snapshot_e_salvo_para_kit_festa(self):
         response = self.adicionar_kit_festa()
@@ -457,6 +516,7 @@ class CarrinhoAPITests(APITestCase):
         item = ItemCarrinho.objects.get(id=response.data["id"])
         self.assertEqual(item.snapshot["tipo_item"], "kit_festa")
         self.assertEqual(item.snapshot["kit_festa"]["id"], self.kit_festa.id)
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "15_dias")
         self.assertEqual(len(item.snapshot["kit_festa"]["itens"]), 2)
 
     def test_snapshot_e_salvo_para_kit_personalizado(self):
