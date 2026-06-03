@@ -16,6 +16,7 @@ import {
   excluirBrinquedo,
   listarBrinquedos,
   listarCategorias,
+  uploadImagemBrinquedo,
 } from "@/services/catalogo";
 import type { ApiError, ApiFieldErrors } from "@/types/api";
 import type { BrinquedoCatalogo, CategoriaCatalogo } from "@/types/catalogo";
@@ -100,6 +101,19 @@ export default function ListaBrinquedosAdmin() {
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
+  const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+  const imagemPreviewUrl = useMemo(
+    () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
+    [imagemArquivo],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (imagemPreviewUrl) {
+        URL.revokeObjectURL(imagemPreviewUrl);
+      }
+    };
+  }, [imagemPreviewUrl]);
 
   const brinquedosOrdenados = useMemo(
     () => [...brinquedos].sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -179,6 +193,7 @@ export default function ListaBrinquedosAdmin() {
       categoria: categorias[0] ? String(categorias[0].id) : "",
     });
     setBrinquedoEmEdicao(null);
+    setImagemArquivo(null);
     setFieldErrors(undefined);
     setErro(null);
     setSucesso(null);
@@ -188,6 +203,7 @@ export default function ListaBrinquedosAdmin() {
   function abrirEdicao(brinquedo: BrinquedoCatalogo) {
     setForm(formFromBrinquedo(brinquedo));
     setBrinquedoEmEdicao(brinquedo.id);
+    setImagemArquivo(null);
     setFieldErrors(undefined);
     setErro(null);
     setSucesso(null);
@@ -202,6 +218,7 @@ export default function ListaBrinquedosAdmin() {
       categoria: categorias[0] ? String(categorias[0].id) : "",
     });
     setFieldErrors(undefined);
+    setImagemArquivo(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -230,9 +247,15 @@ export default function ListaBrinquedosAdmin() {
     try {
       if (brinquedoEmEdicao) {
         await atualizarBrinquedo(brinquedoEmEdicao, payload);
+        if (imagemArquivo) {
+          await uploadImagemBrinquedo(brinquedoEmEdicao, imagemArquivo);
+        }
         setSucesso("Brinquedo atualizado com sucesso.");
       } else {
-        await criarBrinquedo(payload);
+        const criado = await criarBrinquedo(payload);
+        if (imagemArquivo && criado?.id) {
+          await uploadImagemBrinquedo(criado.id, imagemArquivo);
+        }
         setSucesso("Brinquedo criado com sucesso.");
       }
 
@@ -413,6 +436,39 @@ export default function ListaBrinquedosAdmin() {
               error={erroCampo(fieldErrors, "descricao")}
               required
             />
+
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
+              <div className="h-28 overflow-hidden rounded-md border border-zinc-200 bg-white">
+                {imagemPreviewUrl ? (
+                  <img
+                    src={imagemPreviewUrl}
+                    alt="Previa da imagem selecionada"
+                    className="h-full w-full object-cover"
+                  />
+                ) : brinquedoEmEdicao &&
+                  brinquedos.find((b) => b.id === brinquedoEmEdicao)?.imagem_principal?.url ? (
+                  <img
+                    src={brinquedos.find((b) => b.id === brinquedoEmEdicao)?.imagem_principal?.url ?? ""}
+                    alt="Imagem atual do brinquedo"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs font-medium text-zinc-400">
+                    Sem imagem
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-3">
+                <Input
+                  label="Imagem do brinquedo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => {
+                    setImagemArquivo(event.target.files?.[0] ?? null);
+                  }}
+                />
+              </div>
+            </div>
 
             <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
               <div className="flex flex-col gap-3">
