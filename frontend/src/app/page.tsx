@@ -1,5 +1,8 @@
+
+
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 
@@ -13,6 +16,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { useCart } from "@/hooks/useCart";
 import { listarBrinquedos, listarKitsFesta } from "@/services/catalogo";
 import { adicionarAoCarrinho } from "@/services/cart";
+import { resolveMediaUrl } from "@/lib/media-url";
 import type { ApiError } from "@/types/api";
 import type {
   BrinquedoCatalogo,
@@ -319,9 +323,10 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
     <article className="flex h-full min-h-[356px] w-[300px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[316px]">
       <div className="h-44 overflow-hidden bg-zinc-50">
         {imagem?.url ? (
-          <img
-            src={imagem.url}
+          <Image
+            src={resolveMediaUrl(imagem.url) || ""}
             alt={imagem.alt_text || kit.nome}
+            fill
             className="h-full w-full object-cover"
           />
         ) : (
@@ -774,7 +779,7 @@ export default function Home() {
                               periodosDisponiveis={brinquedo.periodos_disponiveis}
                               categoriaNome={brinquedo.categoria?.nome}
                               quantidadeDisponivel={brinquedo.quantidade_disponivel}
-                              imagemUrl={imagem?.url}
+                              imagemUrl={resolveMediaUrl(imagem?.url)}
                               imagemAlt={imagem?.alt_text}
                             />
                           </div>
