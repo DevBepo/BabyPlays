@@ -47,6 +47,12 @@ class ImagemBrinquedoInline(admin.TabularInline):
     readonly_fields = ("atualizado_em",)
 
 
+class UnidadeBrinquedoInline(admin.TabularInline):
+    model = UnidadeBrinquedo
+    extra = 1
+    fields = ("codigo", "status", "observacoes")
+
+
 @admin.register(Brinquedo)
 class BrinquedoAdmin(admin.ModelAdmin):
     list_display = (
@@ -67,7 +73,7 @@ class BrinquedoAdmin(admin.ModelAdmin):
     readonly_fields = ("data_cadastro", "quantidade_disponivel", "total_unidades")
     ordering = ("nome",)
     list_select_related = ("categoria",)
-    inlines = (ImagemBrinquedoInline,)
+    inlines = (ImagemBrinquedoInline, UnidadeBrinquedoInline)
 
     @admin.display(description="Quantidade disponivel")
     def quantidade_disponivel(self, obj):

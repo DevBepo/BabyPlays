@@ -32,6 +32,12 @@ class BrinquedoService:
         )
         return (
             Brinquedo.objects.select_related("categoria")
+            .annotate(
+                quantidade_disponivel_anotada=Count(
+                    "unidades",
+                    filter=Q(unidades__status=UnidadeBrinquedo.Status.DISPONIVEL),
+                )
+            )
             .prefetch_related(
                 Prefetch(
                     "imagens",

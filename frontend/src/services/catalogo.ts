@@ -73,6 +73,12 @@ export type RemoverCatalogoResponse = {
   status: "excluido" | "desativado";
 };
 
+export type UnidadeBrinquedoAdmin = {
+  id: number;
+  codigo: string;
+  status: string;
+};
+
 type CriarBrinquedoResponse = {
   id: number;
   nome: string;
@@ -86,6 +92,24 @@ type CriarBrinquedoResponse = {
   data_cadastro: string;
   quantidade_disponivel: number;
 };
+
+export function listarUnidadesBrinquedo(
+  brinquedoId: number,
+): Promise<UnidadeBrinquedoAdmin[]> {
+  return apiGet<UnidadeBrinquedoAdmin[]>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/unidades/`,
+  );
+}
+
+export function criarUnidadeBrinquedo(
+  brinquedoId: number,
+  dados: { codigo: string },
+): Promise<UnidadeBrinquedoAdmin> {
+  return apiPost<UnidadeBrinquedoAdmin>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/unidades/`,
+    dados,
+  );
+}
 
 export function criarBrinquedo(
   dados: CriarBrinquedoPayload,

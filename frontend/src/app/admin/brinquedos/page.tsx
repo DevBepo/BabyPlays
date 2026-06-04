@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
@@ -13,13 +14,20 @@ import { Textarea } from "@/components/ui/TextArea";
 import {
   atualizarBrinquedo,
   criarBrinquedo,
+  criarUnidadeBrinquedo,
   excluirBrinquedo,
   listarBrinquedos,
   listarCategorias,
+  listarUnidadesBrinquedo,
   uploadImagemBrinquedo,
 } from "@/services/catalogo";
+import { resolveMediaUrl } from "@/lib/media-url";
 import type { ApiError, ApiFieldErrors } from "@/types/api";
-import type { BrinquedoCatalogo, CategoriaCatalogo } from "@/types/catalogo";
+import type {
+  BrinquedoCatalogo,
+  CategoriaCatalogo,
+  UnidadeBrinquedoAdmin,
+} from "@/types/catalogo";
 
 type BrinquedoFormState = {
   nome: string;
@@ -102,6 +110,13 @@ export default function ListaBrinquedosAdmin() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+  const [unidades, setUnidades] = useState<UnidadeBrinquedoAdmin[]>([]);
+  const [unidadesLoading, setUnidadesLoading] = useState(false);
+  const [criandoUnidade, setCriandoUnidade] = useState(false);
+  const [unidadeCodigo, setUnidadeCodigo] = useState("");
+  const [unidadeErro, setUnidadeErro] = useState<string | null>(null);
+  const [unidadeSucesso, setUnidadeSucesso] = useState<string | null>(null);
+  const [unidadesFieldErrors, setUnidadesFieldErrors] = useState<ApiFieldErrors | undefined>();
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
@@ -119,6 +134,14 @@ export default function ListaBrinquedosAdmin() {
     () => [...brinquedos].sort((a, b) => a.nome.localeCompare(b.nome)),
     [brinquedos],
   );
+  const brinquedoAtual = useMemo(
+    () =>
+      brinquedoEmEdicao
+        ? brinquedos.find((brinquedo) => brinquedo.id === brinquedoEmEdicao)
+        : null,
+    [brinquedoEmEdicao, brinquedos],
+  );
+  const imagemAtualUrl = resolveMediaUrl(brinquedoAtual?.imagem_principal?.url);
 
   const categoriasOptions = categorias.map((categoria) => ({
     value: String(categoria.id),
@@ -187,6 +210,64 @@ export default function ListaBrinquedosAdmin() {
     };
   }, []);
 
+  useEffect(() => {
+    if (brinquedoEmEdicao) {
+      void carregarUnidades(brinquedoEmEdicao);
+    }
+  }, [brinquedoEmEdicao]);
+
+  async function carregarUnidades(brinquedoId: number) {
+    setUnidadesLoading(true);
+    setUnidadeErro(null);
+    setUnidadeSucesso(null);
+
+    try {
+      setUnidades(await listarUnidadesBrinquedo(brinquedoId));
+    } catch (error) {
+      setUnidadeErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel carregar as unidades do brinquedo.",
+      );
+    } finally {
+      setUnidadesLoading(false);
+    }
+  }
+
+  async function adicionarUnidade() {
+    if (!brinquedoEmEdicao) {
+      return;
+    }
+
+    const codigo = unidadeCodigo.trim();
+    if (!codigo) {
+      setUnidadeErro("Informe um codigo para a unidade.");
+      return;
+    }
+
+    setUnidadeErro(null);
+    setUnidadeSucesso(null);
+    setUnidadesFieldErrors(undefined);
+    setCriandoUnidade(true);
+
+    try {
+      await criarUnidadeBrinquedo(brinquedoEmEdicao, { codigo });
+      setUnidadeSucesso("Unidade adicionada com sucesso.");
+      setUnidadeCodigo("");
+      await carregarUnidades(brinquedoEmEdicao);
+      await carregarBrinquedos();
+    } catch (error) {
+      if (isApiError(error)) {
+        setUnidadeErro(error.message);
+        setUnidadesFieldErrors(error.fieldErrors);
+      } else {
+        setUnidadeErro("Nao foi possivel criar a unidade.");
+      }
+    } finally {
+      setCriandoUnidade(false);
+    }
+  }
+
   function abrirNovoBrinquedo() {
     setForm({
       ...initialForm,
@@ -197,6 +278,11 @@ export default function ListaBrinquedosAdmin() {
     setFieldErrors(undefined);
     setErro(null);
     setSucesso(null);
+    setUnidades([]);
+    setUnidadeCodigo("");
+    setUnidadeErro(null);
+    setUnidadeSucesso(null);
+    setUnidadesFieldErrors(undefined);
     setFormAberto(true);
   }
 
@@ -219,6 +305,11 @@ export default function ListaBrinquedosAdmin() {
     });
     setFieldErrors(undefined);
     setImagemArquivo(null);
+    setUnidades([]);
+    setUnidadeCodigo("");
+    setUnidadeErro(null);
+    setUnidadeSucesso(null);
+    setUnidadesFieldErrors(undefined);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -438,19 +529,20 @@ export default function ListaBrinquedosAdmin() {
             />
 
             <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
-              <div className="h-28 overflow-hidden rounded-md border border-zinc-200 bg-white">
+              <div className="relative h-28 overflow-hidden rounded-md border border-zinc-200 bg-white">
                 {imagemPreviewUrl ? (
-                  <img
+                  <Image
                     src={imagemPreviewUrl}
                     alt="Previa da imagem selecionada"
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
                   />
-                ) : brinquedoEmEdicao &&
-                  brinquedos.find((b) => b.id === brinquedoEmEdicao)?.imagem_principal?.url ? (
-                  <img
-                    src={brinquedos.find((b) => b.id === brinquedoEmEdicao)?.imagem_principal?.url ?? ""}
+                ) : imagemAtualUrl ? (
+                  <Image
+                    src={imagemAtualUrl}
                     alt="Imagem atual do brinquedo"
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs font-medium text-zinc-400">
@@ -469,6 +561,79 @@ export default function ListaBrinquedosAdmin() {
                 />
               </div>
             </div>
+
+            {brinquedoEmEdicao ? (
+              <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-900">Unidades fisicas</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Adicione unidades para controlar disponibilidade do brinquedo.
+                    </p>
+                  </div>
+                </div>
+
+                {unidadeSucesso ? (
+                  <div className="mb-3 rounded-md border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700">
+                    {unidadeSucesso}
+                  </div>
+                ) : null}
+
+                {unidadeErro ? (
+                  <div className="mb-3 rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                    {unidadeErro}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <Input
+                    label="Codigo da unidade"
+                    value={unidadeCodigo}
+                    onChange={(event) => setUnidadeCodigo(event.target.value)}
+                    error={erroCampo(unidadesFieldErrors, "codigo")}
+                    placeholder="Ex: UNI-001"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    loading={criandoUnidade}
+                    disabled={unidadesLoading}
+                    onClick={adicionarUnidade}
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+
+                <div className="mt-5 space-y-2">
+                  {unidadesLoading ? (
+                    <p className="text-sm text-zinc-500">Carregando unidades...</p>
+                  ) : unidades.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-sm text-zinc-700">
+                        <thead>
+                          <tr className="border-b border-zinc-200 bg-zinc-100 text-xs uppercase tracking-wide text-zinc-500">
+                            <th className="px-3 py-2">Codigo</th>
+                            <th className="px-3 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                          {unidades.map((unidade) => (
+                            <tr key={unidade.id}>
+                              <td className="px-3 py-2">{unidade.codigo}</td>
+                              <td className="px-3 py-2 text-zinc-600">{unidade.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      Nenhuma unidade cadastrada ainda.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
               <div className="flex flex-col gap-3">

@@ -20,6 +20,12 @@ export type ImagemBrinquedo = {
   ordem: number;
 };
 
+export type UnidadeBrinquedoAdmin = {
+  id: number;
+  codigo: string;
+  status: string;
+};
+
 export type PeriodoLocacao = "15_dias" | "30_dias" | "diaria";
 
 export type PeriodoLocacaoDisponivel = {

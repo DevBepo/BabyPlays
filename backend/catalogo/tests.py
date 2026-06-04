@@ -1143,6 +1143,54 @@ class BrinquedoAPITests(APITestCase):
 
         self.assertEqual(quantidade, 1)
 
+    def test_usuario_anonimo_nao_lista_unidades_do_brinquedo(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/unidades/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_anonimo_nao_cria_unidade_do_brinquedo(self):
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/unidades/",
+            {"codigo": "PISCINA-ADM-001"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(UnidadeBrinquedo.objects.count(), 0)
+
+    def test_usuario_admin_lista_unidades_do_brinquedo(self):
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ADM-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/unidades/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["id"], unidade.id)
+        self.assertEqual(response.data[0]["codigo"], "PISCINA-ADM-001")
+        self.assertEqual(response.data[0]["status"], UnidadeBrinquedo.Status.DISPONIVEL)
+
+    def test_usuario_admin_cria_unidade_disponivel_para_brinquedo(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/unidades/",
+            {"codigo": "PISCINA-ADM-001", "status": UnidadeBrinquedo.Status.BAIXADA},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        unidade = UnidadeBrinquedo.objects.get(codigo="PISCINA-ADM-001")
+        self.assertEqual(unidade.brinquedo, self.brinquedo)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(response.data["status"], UnidadeBrinquedo.Status.DISPONIVEL)
+
+        public_response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertEqual(public_response.data["quantidade_disponivel"], 1)
+
     def test_cria_imagem_valida_associada_a_brinquedo(self):
         imagem = self.criar_imagem_brinquedo(
             alt_text="Piscina de bolinhas azul",

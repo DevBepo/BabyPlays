@@ -9,17 +9,14 @@ export function resolveMediaUrl(url: string | null | undefined): string | null {
     return null;
   }
 
-  // Already absolute (http:// or https://)
-  if (url.startsWith("http://") || url.startsWith("https://")) {
+  if (URL.canParse(url)) {
     return url;
   }
 
-  // Relative URL (e.g., /media/...)
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (!apiBase) {
-    // Fallback if env not set (dev mode might lack it)
     return url;
   }
 
-  return `${apiBase}${url}`;
+  return new URL(url, apiBase).toString();
 }

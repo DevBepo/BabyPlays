@@ -19,6 +19,7 @@ from .serializers import (
     DisponibilidadePeriodoSerializer,
     KitFestaAdminSerializer,
     KitFestaPublicSerializer,
+    UnidadeBrinquedoAdminSerializer,
     UnidadeBrinquedoOperacaoSerializer,
     ValidarSelecaoKitPersonalizavelSerializer,
 )
@@ -77,7 +78,21 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
             serializer.validated_data["quantidade"],
         )
         return Response(resultado)
-    
+
+    @action(detail=True, methods=["get", "post"], url_path="unidades")
+    def unidades(self, request, pk=None):
+        brinquedo = self.get_object()
+
+        if request.method == "POST":
+            serializer = UnidadeBrinquedoAdminSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(brinquedo=brinquedo)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        unidades = UnidadeBrinquedo.objects.filter(brinquedo=brinquedo).order_by("codigo")
+        serializer = UnidadeBrinquedoAdminSerializer(unidades, many=True)
+        return Response(serializer.data)
+
     # Criação do endpoint para o upload de imagem na criação de um brinquedo
     
     @action(

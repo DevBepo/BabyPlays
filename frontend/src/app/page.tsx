@@ -281,6 +281,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
     useState<PeriodoLocacao>("15_dias");
   const adicionandoRef = useRef(false);
   const imagem = getKitImage(kit);
+  const imagemUrl = resolveMediaUrl(imagem?.url);
   const totalItens = kit.itens.reduce((total, item) => total + item.quantidade, 0);
   const periodosDisponiveis: PeriodoLocacaoDisponivel[] = kit.periodos_disponiveis;
   const periodoAtual = useMemo(
@@ -321,13 +322,13 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 
   return (
     <article className="flex h-full min-h-[356px] w-[300px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[316px]">
-      <div className="h-44 overflow-hidden bg-zinc-50">
-        {imagem?.url ? (
+      <div className="relative h-44 overflow-hidden bg-zinc-50">
+        {imagemUrl ? (
           <Image
-            src={resolveMediaUrl(imagem.url) || ""}
-            alt={imagem.alt_text || kit.nome}
+            src={imagemUrl}
+            alt={imagem?.alt_text || kit.nome}
             fill
-            className="h-full w-full object-cover"
+            className="object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center border-b border-dashed border-zinc-200 bg-white text-xs font-medium text-zinc-400">

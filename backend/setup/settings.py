@@ -28,11 +28,29 @@ def env_bool(name, default=False):
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def env_list(name, default=None):
+def env_list(name, default=None, normalize=False):
     value = os.environ.get(name)
     if value is None:
-        return default or []
-    return [item.strip() for item in value.split(",") if item.strip()]
+        items = default or []
+    else:
+        items = [item.strip() for item in value.split(",") if item.strip()]
+
+    if normalize:
+        normalized = []
+        for item in items:
+            if item.startswith(("http://", "https://")):
+                parsed = urlparse(item)
+                if parsed.scheme and parsed.netloc and not parsed.netloc.startswith("."):
+                    normalized.append(f"{parsed.scheme}://{parsed.netloc}")
+                continue
+
+            parsed = urlparse(f"https://{item}")
+            if parsed.scheme and parsed.netloc and not parsed.netloc.startswith("."):
+                normalized.append(f"{parsed.scheme}://{parsed.netloc}")
+
+        return normalized
+
+    return items
 
 
 def env_str(name, default=""):
@@ -43,6 +61,8 @@ def env_str(name, default=""):
 
 
 def database_from_url(url):
+    if isinstance(url, str) and url.startswith("${{") and url.endswith("}}"):
+        url = url[3:-2].strip()
     parsed = urlparse(url)
     if parsed.scheme not in {"postgres", "postgresql"}:
         raise ValueError("DATABASE_URL must use postgres:// or postgresql://")
@@ -100,6 +120,7 @@ LOCAL_FRONTEND_ORIGINS = ["http://127.0.0.1:3000", "http://localhost:3000"]
 CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",
     LOCAL_FRONTEND_ORIGINS if DEBUG else [],
+    normalize=True,
 )
 
 GOOGLE_ROUTES_API_KEY = os.environ.get("GOOGLE_ROUTES_API_KEY", "").strip()
@@ -214,6 +235,7 @@ STORAGES = {
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
     LOCAL_FRONTEND_ORIGINS if DEBUG else [],
+    normalize=True,
 )
 CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", True)
 

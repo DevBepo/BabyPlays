@@ -142,12 +142,18 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         return obj.imagens.filter(ativo=True).order_by("-principal", "ordem", "id")
 
     def get_imagem_principal(self, obj):
-        for imagem in self.get_imagens_ativas(obj):
+        imagens = self.get_imagens_ativas(obj)
+        for imagem in imagens:
             if imagem.principal:
                 return ImagemBrinquedoPublicSerializer(
                     imagem,
                     context=self.context,
                 ).data
+        if imagens:
+            return ImagemBrinquedoPublicSerializer(
+                imagens[0],
+                context=self.context,
+            ).data
         return None
 
     def get_imagens(self, obj):
@@ -210,6 +216,13 @@ class UnidadeBrinquedoOperacaoSerializer(serializers.ModelSerializer):
         model = UnidadeBrinquedo
         fields = ("id", "codigo", "status")
         read_only_fields = fields
+
+
+class UnidadeBrinquedoAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UnidadeBrinquedo
+        fields = ("id", "codigo", "status")
+        read_only_fields = ("id", "status")
 
 
 class BrinquedoKitResumoSerializer(serializers.ModelSerializer):

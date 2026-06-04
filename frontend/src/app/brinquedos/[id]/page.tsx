@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CartProvider } from "@/contexts/CartContext";
 import { useCart } from "@/hooks/useCart";
 import { adicionarAoCarrinho } from "@/services/cart";
 import { listarBrinquedos } from "@/services/catalogo";
@@ -33,7 +34,7 @@ function getCartErrorMessage(error: unknown) {
   return "Nao foi possivel adicionar ao carrinho. Tente novamente.";
 }
 
-export default function BrinquedoDetalhePage() {
+function BrinquedoDetalheContent() {
   const params = useParams();
   const router = useRouter();
   const { openCart, refreshCart } = useCart();
@@ -83,7 +84,11 @@ export default function BrinquedoDetalhePage() {
     (p) => p.tipo === periodoSelecionado,
   ) ?? brinquedo?.periodos_disponiveis[0];
 
-  const imagemUrl = resolveMediaUrl(brinquedo?.imagem_principal?.url ?? null);
+  const imagem =
+    brinquedo?.imagem_principal ??
+    brinquedo?.imagens.find((item) => item.url) ??
+    null;
+  const imagemUrl = resolveMediaUrl(imagem?.url);
   const hasPeriodOptions = (brinquedo?.periodos_disponiveis.length ?? 0) > 0;
   const hasStock = (brinquedo?.quantidade_disponivel ?? 0) > 0;
   const isAvailable = hasStock && hasPeriodOptions;
@@ -166,7 +171,7 @@ export default function BrinquedoDetalhePage() {
             {imagemUrl ? (
               <Image
                 src={imagemUrl}
-                alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
+                alt={imagem?.alt_text || brinquedo.nome}
                 width={400}
                 height={400}
                 className="max-h-96 w-full object-contain"
@@ -277,5 +282,13 @@ export default function BrinquedoDetalhePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function BrinquedoDetalhePage() {
+  return (
+    <CartProvider>
+      <BrinquedoDetalheContent />
+    </CartProvider>
   );
 }
