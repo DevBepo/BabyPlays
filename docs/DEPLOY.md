@@ -73,6 +73,7 @@ SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
 SESSION_COOKIE_SAMESITE=None
 CSRF_COOKIE_SAMESITE=None
+MEDIA_ROOT=/app/media
 ```
 
 Notas:
@@ -80,6 +81,19 @@ Notas:
 - `ALLOWED_HOSTS` recebe apenas hosts, sem `https://`.
 - `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS` recebem origens completas com `https://`.
 - Enquanto o dominio final nao estiver validado, mantenha as URLs Railway necessarias para homologacao.
+- `MEDIA_ROOT` deve apontar para o caminho onde o volume persistente do backend esta montado.
+
+### Media uploads no Railway
+
+Uploads de imagens de brinquedos e Kits Festa usam o storage de filesystem do Django. No Railway, o filesystem do container e efemero, entao o servico de backend precisa de um volume persistente montado em:
+
+```text
+/app/media
+```
+
+Configure tambem `MEDIA_ROOT=/app/media` no Railway Variables do backend. A aplicacao serve URLs `/media/...` pelo backend mesmo com `DEBUG=False`, lendo somente arquivos existentes dentro de `MEDIA_ROOT`, sem listar diretorios.
+
+Arquivos antigos que aparecem no banco mas nao existem mais no volume ou no container nao podem ser reconstruidos pela aplicacao. Essas imagens precisam ser reenviadas pelo admin depois que o volume estiver configurado.
 
 ### Frontend
 

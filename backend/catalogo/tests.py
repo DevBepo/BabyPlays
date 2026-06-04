@@ -2,6 +2,7 @@ import shutil
 import tempfile
 from datetime import date
 from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -29,6 +30,55 @@ from .models import (
     UnidadeBrinquedo,
 )
 from .services import BrinquedoService
+
+
+class MediaUploadServingTests(APITestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_serve_upload_media_com_debug_false(self):
+        media_root = Path(self.media_root)
+        image_path = media_root / "catalogo" / "brinquedos" / "1" / "foto.jpg"
+        image_path.parent.mkdir(parents=True)
+        image_path.write_bytes(b"fake image")
+
+        with override_settings(DEBUG=False, MEDIA_ROOT=media_root):
+            response = self.client.get("/media/catalogo/brinquedos/1/foto.jpg")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(b"".join(response.streaming_content), b"fake image")
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+
+    def test_serve_upload_media_retorna_404_para_arquivo_ausente(self):
+        with override_settings(DEBUG=False, MEDIA_ROOT=Path(self.media_root)):
+            response = self.client.get("/media/catalogo/brinquedos/1/ausente.jpg")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_serve_upload_media_nao_lista_diretorios(self):
+        media_root = Path(self.media_root)
+        (media_root / "catalogo").mkdir()
+
+        with override_settings(DEBUG=False, MEDIA_ROOT=media_root):
+            response = self.client.get("/media/catalogo/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_serve_upload_media_bloqueia_path_traversal(self):
+        media_root = Path(self.media_root)
+        outside_path = media_root.parent / "secret.txt"
+        outside_path.write_bytes(b"secret")
+
+        try:
+            with override_settings(DEBUG=False, MEDIA_ROOT=media_root):
+                response = self.client.get("/media/%2E%2E/secret.txt")
+        finally:
+            outside_path.unlink(missing_ok=True)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class DisponibilidadePeriodoAPITests(APITestCase):

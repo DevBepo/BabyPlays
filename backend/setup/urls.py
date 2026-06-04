@@ -14,11 +14,34 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import mimetypes
+from pathlib import Path
+
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.http import FileResponse, Http404
+from django.urls import path, include, re_path
 from clientes.views import AdminMeView
+
+
+def serve_media_upload(request, path):
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    requested_path = (media_root / path).resolve()
+
+    try:
+        requested_path.relative_to(media_root)
+    except ValueError as exc:
+        raise Http404("Arquivo nao encontrado.") from exc
+
+    if not requested_path.is_file():
+        raise Http404("Arquivo nao encontrado.")
+
+    content_type, _ = mimetypes.guess_type(str(requested_path))
+    return FileResponse(
+        requested_path.open("rb"),
+        content_type=content_type or "application/octet-stream",
+    )
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,7 +50,5 @@ urlpatterns = [
     path('api/', include('catalogo.urls')),
     path('api/', include('pedidos.urls')),
     path('api/', include('entregas.urls')),
+    re_path(r"^media/(?P<path>.+)$", serve_media_upload, name="media-upload"),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

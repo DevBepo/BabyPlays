@@ -1,21 +1,42 @@
 # Senhas e Banco de Dados
 **/.env
+**/.env.*
+!**/.env.example
 **/*.sqlite3
+backend/db.sqlite3
+
+# Uploads / arquivos gerados em runtime
 backend/media/
 backend/staticfiles/
+
+# Logs locais
+*.log
+frontend/next-dev.log
+frontend/next-dev.err.log
+frontend/next-dev*.log
+
 # Arquivos de Cache do Python
 **/__pycache__/
 **/.mypy_cache/
+**/.pytest_cache/
 **/*.pyc
+**/*.pyo
+**/*.pyd
 
 # Ambientes Virtuais
 **/venv/
 venv/
-**/.vscode
-# Frontend / Next.js (Para o Nicolas no futuro)
+.venv/
+**/.venv/
+
+# VSCode / IDE
+**/.vscode/
+
+# Frontend / Next.js
 **/node_modules/
 **/.next/
 **/out/
+frontend/.turbo/
 
 # Sistema Operacional
 .DS_Store
