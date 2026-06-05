@@ -49,10 +49,18 @@ export function limparCarrinho(): Promise<void> {
 }
 
 export function converterCarrinhoEmPedido(dados: {
+  nome: string;
+  telefone: string;
+  email: string;
+  data_evento_pretendida: string;
   data_inicio_locacao: string;
   data_fim_locacao: string;
-}): Promise<unknown> {
-  return apiPost<unknown>("/api/pedidos/converter-carrinho/", dados);
+  cep: string;
+  numero: string;
+  complemento?: string;
+  observacoes?: string;
+}): Promise<any> {
+  return apiPost("/api/pedidos/converter-carrinho/", dados);
 }
 
 export async function atualizarQuantidadeItem(itemId:number, quantidade: number): Promise<any> {
