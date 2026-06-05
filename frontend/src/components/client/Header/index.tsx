@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
-import { removerItemCarrinho } from "@/services/cart";
+import { removerItemCarrinho, atualizarQuantidadeItem } from "@/services/cart"; // <-- Adicione a importação aqui
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -47,6 +47,9 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [removendoId, setRemovendoId] = useState<number | null>(null);
+  
+  // NOVO: Estado para gerenciar o loading da atualização de quantidade
+  const [atualizandoId, setAtualizandoId] = useState<number | null>(null);
   
   const { cliente, user, isAuthenticated, logout } = useAuth();
   const {
@@ -104,6 +107,21 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
       alert("Erro ao remover item do carrinho.");
     } finally {
       setRemovendoId(null);
+    }
+  };
+
+  // NOVO: Função para lidar com o clique nos botões + e -
+  const handleAtualizarQuantidade = async (itemId: number, novaQuantidade: number) => {
+    if (novaQuantidade < 1) return; // Segurança
+    
+    setAtualizandoId(itemId);
+    try {
+      await atualizarQuantidadeItem(itemId, novaQuantidade);
+      await refreshCart(); // Usa a função do seu hook para atualizar os dados!
+    } catch (err) {
+      alert("Erro ao atualizar a quantidade.");
+    } finally {
+      setAtualizandoId(null);
     }
   };
 
@@ -245,31 +263,54 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
                     </div>
                   ) : (
                     carrinho?.itens.map((item) => (
-                      <div key={item.id} className="flex gap-3 group">
+                      <div key={item.id} className="flex gap-3 group items-center bg-white p-2 rounded-lg border border-transparent hover:border-zinc-100 transition-colors">
                         <div className="flex-1">
                           <h4 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h4>
-                          {item.snapshot.periodo_locacao ? (
-                            <p className="mt-0.5 text-xs font-medium text-zinc-500">
-                              Periodo: {item.snapshot.periodo_locacao.label}
-                            </p>
-                          ) : null}
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-bold text-teal-600">R$ {item.subtotal_snapshot}</span>
-                            <span className="text-xs text-zinc-400">Qtd: {item.quantidade}</span>
-                          </div>
+                          <span className="text-sm font-bold text-teal-600 block mt-0.5">R$ {item.subtotal_snapshot}</span>
                         </div>
-                        <button
-                          onClick={() => handleRemoverItem(item.id)}
-                          disabled={removendoId === item.id}
-                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-                          title="Remover item"
-                        >
-                          {removendoId === item.id ? (
-                            <span className="block w-4 h-4 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-                          ) : (
-                            <IconTrash />
-                          )}
-                        </button>
+                        
+                        {/* NOVO: Controles de Quantidade */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center border border-zinc-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => handleAtualizarQuantidade(item.id, item.quantidade - 1)}
+                              disabled={item.quantidade <= 1 || atualizandoId === item.id}
+                              className="w-7 h-7 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 transition-colors"
+                            >
+                              <span className="text-lg font-medium leading-none mb-0.5">-</span>
+                            </button>
+                            <span className="w-8 text-center text-xs font-bold text-zinc-800">
+                              {atualizandoId === item.id ? (
+                                <span className="block w-3 h-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin mx-auto" />
+                              ) : (
+                                item.quantidade
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAtualizarQuantidade(item.id, item.quantidade + 1)}
+                              disabled={atualizandoId === item.id}
+                              className="w-7 h-7 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 transition-colors"
+                            >
+                              <span className="text-lg font-medium leading-none mb-0.5">+</span>
+                            </button>
+                          </div>
+
+                          {/* Lixeira (Apagar tudo do item) */}
+                          <button
+                            onClick={() => handleRemoverItem(item.id)}
+                            disabled={removendoId === item.id}
+                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                            title="Remover item do carrinho"
+                          >
+                            {removendoId === item.id ? (
+                              <span className="block w-4 h-4 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+                            ) : (
+                              <IconTrash />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}

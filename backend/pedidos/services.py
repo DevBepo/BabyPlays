@@ -241,6 +241,17 @@ class CarrinhoService:
             raise serializers.ValidationError(
                 {"brinquedo_id": "Brinquedo inativo nao pode ser adicionado."}
             )
+        
+        # Ao invés de ficar adicionando item a item na lista do carrinho,
+        # É adicionado mais um na quantidade.
+        
+        for item in carrinho.itens.all():
+            if item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO and item.brinquedo_id == brinquedo_id:
+                periodo_existente = item.snapshot.get("periodo_locacao", {}).get("tipo")
+                if periodo_existente == periodo_locacao:
+                    nova_quantidade = item.quantidade + quantidade
+                    return CarrinhoService.alterar_quantidade(item, nova_quantidade)
+            
 
         dados = CarrinhoService._snapshot_brinquedo(
             brinquedo,
@@ -283,6 +294,16 @@ class CarrinhoService:
                 {"kit_festa_id": "Kit festa inativo nao pode ser adicionado."}
             )
 
+        # Literal a cópia da lógica para brinquedo.
+        # Só que para o Kit Festa.
+        
+        for item in carrinho.itens.all():
+            if item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA and item.kit_festa_id == kit_festa.id:
+                periodo_existente = item.snapshot.get("periodo_locacao", {}).get("tipo")
+                if periodo_existente == periodo_locacao:
+                    nova_quantidade = item.quantidade + quantidade
+                    return CarrinhoService.alterar_quantidade(item, nova_quantidade)
+        
         dados = CarrinhoService._snapshot_kit_festa(
             kit_festa,
             quantidade,

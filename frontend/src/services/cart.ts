@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { getCsrfToken } from "@/lib/csrf";
 
 export interface ItemCarrinho {
   id: number;
@@ -52,4 +53,21 @@ export function converterCarrinhoEmPedido(dados: {
   data_fim_locacao: string;
 }): Promise<unknown> {
   return apiPost<unknown>("/api/pedidos/converter-carrinho/", dados);
+}
+
+export async function atualizarQuantidadeItem(itemId:number, quantidade: number): Promise<any> {
+
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/carrinho/itens/${itemId}/`,{
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrfToken,
+    },
+    credentials: "include",
+    body: JSON.stringify({quantidade})
+  });
+  if (!response.ok) throw new Error("Falha ao atualizar a quantidade")
+    return response.json();
 }
