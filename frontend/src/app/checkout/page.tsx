@@ -13,9 +13,11 @@ import { Textarea } from "@/components/ui/TextArea";
 export default function CheckoutPage() {
   const router = useRouter();
   const { carrinho, refreshCart, cartLoading } = useCart();
-  const { user, cliente, isAuthenticated, userLoading } = useAuth();
+  
+  
+  const { user, cliente, isAuthenticated } = useAuth();
 
-  // Estados dos Dados Pessoais (Pré-preenchidos se disponíveis)
+  // Estados dos Dados Pessoais
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -36,20 +38,20 @@ export default function CheckoutPage() {
 
   // Redirecionamento e Pré-preenchimento
   useEffect(() => {
-    if (!userLoading && !isAuthenticated) {
+    // Se a página carregou e não está autenticado, manda pro login
+    if (!isAuthenticated) {
       router.push("/login?redirect=/checkout");
-    } else if (isAuthenticated) {
+    } else {
       setNome(cliente?.nome || "");
       setEmail(user?.email || "");
       setTelefone(cliente?.telefone || "");
     }
-  }, [isAuthenticated, userLoading, router, cliente, user]);
+  }, [isAuthenticated, router, cliente, user]);
 
   const handleFinalizarPedido = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
 
-    // Validação básica de datas
     if (new Date(dataInicio) >= new Date(dataFim)) {
       setErro("A data de devolução deve ser posterior à data de início.");
       return;
@@ -58,12 +60,11 @@ export default function CheckoutPage() {
     setLoadingPedido(true);
 
     try {
-      // O payload completo que o Jonas exige no backend!
       await converterCarrinhoEmPedido({
         nome,
         email,
         telefone,
-        cep: cep.replace(/\D/g, ""), // Limpa o CEP para enviar só os números
+        cep: cep.replace(/\D/g, ""), 
         numero,
         complemento,
         observacoes,
@@ -74,10 +75,9 @@ export default function CheckoutPage() {
 
       await refreshCart();
       alert("Pedido realizado com sucesso! 🎉 A taxa de entrega será calculada no seu resumo de pedido no painel.");
-      router.push("/"); // Por agora volta à home
+      router.push("/"); 
     } catch (err: any) {
       console.error("Erro ao converter pedido:", err);
-      // Se o backend devolver erros específicos de campo, mostramos o erro principal
       const mensagemErro = err?.message || "Ocorreu um erro ao processar seu pedido. Verifique os dados e tente novamente.";
       setErro(mensagemErro);
     } finally {
@@ -88,7 +88,8 @@ export default function CheckoutPage() {
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
   const valorTotal = carrinho?.itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0) || 0;
 
-  if (userLoading || cartLoading) {
+  // REMOVIDO o userLoading daqui também
+  if (cartLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-zinc-50">
         <Header />
@@ -127,7 +128,6 @@ export default function CheckoutPage() {
 
         <div className="flex flex-col lg:flex-row gap-8">
           
-          {/* COLUNA ESQUERDA: Formulário */}
           <div className="w-full lg:w-2/3 flex flex-col gap-6">
             
             {erro && (
@@ -138,7 +138,6 @@ export default function CheckoutPage() {
 
             <form id="checkout-form" onSubmit={handleFinalizarPedido} className="flex flex-col gap-6">
               
-              {/* Seção 1: Dados Pessoais */}
               <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 md:p-8">
                 <h2 className="text-xl font-bold text-zinc-900 mb-6 pb-4 border-b border-zinc-100">1. Os seus dados</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -150,7 +149,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Seção 2: Datas */}
               <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 md:p-8">
                 <h2 className="text-xl font-bold text-zinc-900 mb-6 pb-4 border-b border-zinc-100">2. Datas do Evento</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -162,7 +160,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Seção 3: Endereço de Entrega */}
               <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 md:p-8">
                 <h2 className="text-xl font-bold text-zinc-900 mb-6 pb-4 border-b border-zinc-100">3. Local de Entrega</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -184,7 +181,6 @@ export default function CheckoutPage() {
             </form>
           </div>
 
-          {/* COLUNA DIREITA: Resumo e Pagamento */}
           <div className="w-full lg:w-1/3">
             <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 sticky top-28">
               <h2 className="text-xl font-bold text-zinc-900 mb-6 pb-4 border-b border-zinc-100">Resumo do Pedido</h2>
