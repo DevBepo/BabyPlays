@@ -57,7 +57,7 @@ function getAdminAccessErrorState(error: unknown): AdminAccessState {
       status: "error",
       admin: null,
       message:
-        "Nao foi possivel conectar ao backend. Confirme se o servidor esta rodando em 127.0.0.1:8000 e tente novamente.",
+        "Nao foi possivel conectar ao backend. Tente novamente em instantes.",
     };
   }
 
