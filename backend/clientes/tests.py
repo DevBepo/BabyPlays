@@ -184,6 +184,7 @@ class ClienteAuthAPITests(APITestCase):
             descricao="Brinquedo para festas maiores.",
             categoria=categoria,
             preco_aluguel=Decimal("220.00"),
+            preco_15_dias=Decimal("220.00"),
         )
 
     def adicionar_brinquedo_ao_carrinho(self, brinquedo):

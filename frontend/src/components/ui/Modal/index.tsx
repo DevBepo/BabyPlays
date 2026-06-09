@@ -17,7 +17,7 @@
 
 "use client"; // Obrigatório no Next.js para componentes que usam hooks e manipulam o DOM
 
-import { useEffect, useRef, useId, useState, ReactNode } from "react";
+import { useEffect, useRef, useId, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 interface ModalProps {
@@ -44,15 +44,9 @@ export function Modal({
   size = "md",
   children,
 }: ModalProps) {
-  const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const descId = useId();
   const modalRef = useRef<HTMLDivElement>(null);
-
-  // Garante que o Portal só será criado após o componente estar montado no cliente
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -106,8 +100,8 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  // Se não estiver aberto ou não estiver montado no cliente, não renderiza nada
-  if (!isOpen || !mounted) return null;
+  // Se não estiver aberto ou o DOM ainda não existir, não renderiza nada
+  if (!isOpen || typeof document === "undefined") return null;
 
   // Tamanhos do modal
   const sizeClasses = {

@@ -51,8 +51,8 @@ export function SubNavbar() {
   return (
     <nav className="w-full bg-white border-b border-zinc-200">
       {/* Container com scroll horizontal em telas menores (overflow-x-auto) */}
-      <div className="max-w-[1600px] mx-auto px-6 h-12 flex items-center overflow-x-auto scrollbar-hide">
-        <ul className="flex items-center gap-8 whitespace-nowrap">
+      <div className="mx-auto flex h-12 max-w-[1600px] items-center overflow-x-auto px-4 sm:px-6 scrollbar-hide">
+        <ul className="flex min-w-max items-center gap-8 whitespace-nowrap">
           {navItems.map((item, index) => (
             <li key={index}>
               <Link
