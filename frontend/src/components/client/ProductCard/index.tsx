@@ -95,7 +95,7 @@ export function ProductCard({
   };
 
   return (
-    <article className="group relative flex h-full min-h-[356px] w-[260px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[272px]">
+    <article className="group relative flex h-full min-h-[356px] w-[280px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[288px]">
       <div className="absolute left-3 top-3 z-10">
         {isAvailable ? (
           <Badge variant="success" className="normal-case tracking-normal">

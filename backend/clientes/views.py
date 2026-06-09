@@ -13,6 +13,7 @@ from pedidos.models import Carrinho
 from .serializers import (
     AdminMeSerializer,
     AuthClienteSerializer,
+    AtualizarAuthClienteSerializer,
     CadastroClienteSerializer,
     LoginClienteSerializer,
 )
@@ -100,6 +101,16 @@ class MeClienteView(APIView):
 
     def get(self, request):
         return Response(AuthClienteSerializer(dados_auth_cliente(request.user)).data)
+
+    def patch(self, request):
+        serializer = AtualizarAuthClienteSerializer(
+            data=request.data,
+            context={"request": request},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(AuthClienteSerializer(dados_auth_cliente(user)).data)
 
 
 class AdminMeView(APIView):

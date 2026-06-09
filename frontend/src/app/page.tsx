@@ -161,7 +161,7 @@ function LoadingCarousel() {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="h-[356px] w-[260px] shrink-0 animate-pulse rounded-lg border border-zinc-200 bg-white sm:w-[272px]"
+          className="h-[356px] w-[280px] shrink-0 animate-pulse rounded-lg border border-zinc-200 bg-white sm:w-[288px]"
         >
           <div className="h-48 bg-zinc-100" />
           <div className="space-y-3 p-4">
@@ -321,7 +321,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
   };
 
   return (
-    <article className="flex h-full min-h-[356px] w-[300px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[316px]">
+    <article className="flex h-full min-h-[356px] w-[280px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[288px]">
       <div className="relative h-44 overflow-hidden bg-zinc-50">
         {imagemUrl ? (
           <Image
@@ -602,8 +602,8 @@ export default function Home() {
       <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
       <SubNavbar />
 
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[244px_minmax(0,1fr)]">
-        <aside className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm lg:sticky lg:top-36 lg:self-start">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[288px_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[296px_minmax(0,1fr)]">
+        <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-36 lg:self-start">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <h1 className="text-base font-black text-zinc-950">Catalogo</h1>
             <span className="text-xs font-semibold text-zinc-500">
@@ -611,16 +611,16 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="mt-4 space-y-5">
-            <section className="space-y-2.5">
+          <div className="mt-5 space-y-6">
+            <section className="space-y-3">
               <FilterSectionTitle>Idade da crianca</FilterSectionTitle>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {AGE_FILTERS.map((age) => (
                   <button
                     key={age}
                     type="button"
                     disabled
-                    className="flex min-h-8 w-full items-center rounded-md border border-zinc-200/70 bg-white px-3 py-1.5 text-left text-sm font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75"
+                    className="flex min-h-9 w-full items-center rounded-md border border-zinc-200/70 bg-white px-3 py-2 text-left text-sm font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75"
                   >
                     <span>{age}</span>
                   </button>
@@ -628,14 +628,14 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="space-y-2.5">
+            <section className="space-y-3">
               <FilterSectionTitle>Categorias</FilterSectionTitle>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <button
                   type="button"
                   onClick={() => setSelectedCategory("todos")}
                   aria-pressed={selectedCategory === "todos"}
-                  className={`flex min-h-8 w-full items-center gap-2 rounded-md border px-3 py-1.5 text-left text-sm font-normal leading-5 transition-colors ${
+                  className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
                     selectedCategory === "todos"
                       ? "border-teal-500 bg-teal-50/70 text-zinc-900"
                       : "border-transparent bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
@@ -651,7 +651,7 @@ export default function Home() {
                     type="button"
                     onClick={() => setSelectedCategory(slug)}
                     aria-pressed={selectedCategory === slug}
-                    className={`flex min-h-8 w-full items-center gap-2 rounded-md border px-3 py-1.5 text-left text-sm font-normal leading-5 transition-colors ${
+                    className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
                       selectedCategory === slug
                         ? "border-teal-500 bg-teal-50/70 text-zinc-900"
                         : "border-transparent bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
@@ -674,7 +674,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="space-y-2.5">
+            <section className="space-y-3">
               <FilterSectionTitle>Disponibilidade</FilterSectionTitle>
               <label className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md border border-zinc-200/80 bg-white px-3 py-2 text-sm font-normal leading-5 text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50">
                 <input

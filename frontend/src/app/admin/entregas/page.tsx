@@ -91,8 +91,6 @@ export default function EntregasConfigPage() {
     e.preventDefault();
     setLoading(true);
     
-    // Aqui faremos o POST/PATCH para atualizar a configuração no Django
-    console.log("A guardar novas configurações de entrega...", config);
     
     setTimeout(() => {
       setLoading(false);

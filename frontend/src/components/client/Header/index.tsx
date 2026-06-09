@@ -6,7 +6,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
-import { removerItemCarrinho, atualizarQuantidadeItem } from "@/services/cart"; // <-- Adicione a importação aqui
+import { getAdminMe } from "@/services/auth";
+import { atualizarQuantidadeItem, removerItemCarrinho } from "@/services/cart";
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -42,11 +43,15 @@ type HeaderProps = {
 export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const router = useRouter();
   const cartRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [removendoId, setRemovendoId] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [verificandoAdmin, setVerificandoAdmin] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   
   // NOVO: Estado para gerenciar o loading da atualização de quantidade
   const [atualizandoId, setAtualizandoId] = useState<number | null>(null);
@@ -69,10 +74,53 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
       if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
         closeCart();
       }
+
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(event.target as Node)
+      ) {
+        setIsAccountMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [closeCart]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function verificarAdmin() {
+      if (!isAuthenticated) {
+        setIsAdmin(false);
+        setVerificandoAdmin(false);
+        return;
+      }
+
+      setVerificandoAdmin(true);
+
+      try {
+        const data = await getAdminMe();
+
+        if (active) {
+          setIsAdmin(data.is_staff || data.is_superuser);
+        }
+      } catch {
+        if (active) {
+          setIsAdmin(false);
+        }
+      } finally {
+        if (active) {
+          setVerificandoAdmin(false);
+        }
+      }
+    }
+
+    void verificarAdmin();
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, user?.id]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +139,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     setLogoutError(null);
     try {
       await logout();
+      setIsAccountMenuOpen(false);
     } catch {
       setLogoutError("Nao foi possivel sair. Atualize a pagina e tente novamente.");
     } finally {
@@ -129,8 +178,8 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const valorTotal = carrinho?.itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0) || 0;
 
   return (
-    <header className="w-full bg-white border-b border-zinc-100 sticky top-0 z-40">
-      <div className="max-w-1600px mx-auto px-6 h-20 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
+      <div className="mx-auto flex min-h-20 max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:gap-4">
         <Link href="/" className="flex items-center gap-3 cursor-pointer select-none shrink-0">
           <span className="relative block h-14 w-16 shrink-0 overflow-hidden">
             <Image
@@ -146,14 +195,14 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
           </span>
           <div className="text-xl font-black tracking-tight flex items-center">
             <span className="text-teal-600">BABYPLAYS</span>
-            <span className="text-zinc-300 mx-0.5">.</span>
-            <span className="text-[#FF5A5F]">BRINQUEDOS</span>
+            <span className="mx-0.5 hidden text-zinc-300 sm:inline">.</span>
+            <span className="hidden text-[#FF5A5F] sm:inline">BRINQUEDOS</span>
           </div>
         </Link>
 
         <form
           onSubmit={handleSearch}
-          className="flex-1 max-w-xl relative flex items-center"
+          className="relative order-3 flex w-full flex-none items-center lg:order-none lg:max-w-xl lg:flex-1"
         >
           <input
             type="text"
@@ -171,30 +220,80 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
           </button>
         </form>
 
-        <div className="flex items-center gap-6 shrink-0">
+        <div className="flex shrink-0 items-center gap-3 sm:gap-6">
           {isAuthenticated ? (
-            <div className="flex items-center gap-3 select-none">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs text-zinc-500 font-medium leading-tight">
-                  Olá, {accountLabel}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  disabled={logoutLoading}
-                  className="text-xs text-zinc-800 font-bold leading-tight hover:text-teal-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {logoutLoading ? "Saindo..." : "Sair"}
-                </button>
-                {logoutError ? (
-                  <p className="mt-1 max-w-48 text-xs font-medium leading-tight text-red-600">
-                    {logoutError}
+            <div className="relative select-none" ref={accountRef}>
+              <button
+                type="button"
+                onClick={() => setIsAccountMenuOpen((open) => !open)}
+                aria-expanded={isAccountMenuOpen}
+                aria-haspopup="menu"
+                className="flex items-center gap-3 rounded-full transition-colors hover:text-teal-600"
+              >
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs text-zinc-500 font-medium leading-tight">
+                    Olá, {accountLabel}
                   </p>
-                ) : null}
-              </div>
-              <div className="p-2 text-zinc-700 bg-zinc-50 rounded-full transition-colors">
-                <IconUser />
-              </div>
+                  <p className="text-xs text-zinc-800 font-bold leading-tight">
+                    Minha conta
+                  </p>
+                </div>
+                <span className="p-2 text-zinc-700 bg-zinc-50 rounded-full transition-colors">
+                  <IconUser />
+                </span>
+              </button>
+
+              {isAccountMenuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-xl border border-zinc-100 bg-white shadow-xl z-50 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100"
+                >
+                  <div className="relative z-10 border-b border-zinc-100 bg-zinc-50/60 px-4 py-3">
+                    <p className="text-xs font-medium text-zinc-500">Conta</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-zinc-900">
+                      {accountLabel}
+                    </p>
+                  </div>
+
+                  <div className="relative z-10 flex flex-col bg-white py-2">
+                    <Link
+                      href="/minha-conta"
+                      role="menuitem"
+                      onClick={() => setIsAccountMenuOpen(false)}
+                      className="px-4 py-2.5 text-sm font-semibold text-zinc-800 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                    >
+                      Minha conta
+                    </Link>
+
+                    {isAdmin && !verificandoAdmin ? (
+                      <Link
+                        href="/admin/brinquedos"
+                        role="menuitem"
+                        onClick={() => setIsAccountMenuOpen(false)}
+                        className="px-4 py-2.5 text-sm font-semibold text-zinc-800 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                      >
+                        Painel administrativo
+                      </Link>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleLogout}
+                      disabled={logoutLoading}
+                      className="px-4 py-2.5 text-left text-sm font-semibold text-zinc-800 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {logoutLoading ? "Saindo..." : "Sair"}
+                    </button>
+
+                    {logoutError ? (
+                      <p className="px-4 pb-2 pt-1 text-xs font-medium leading-tight text-red-600">
+                        {logoutError}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="flex items-center gap-2 select-none">
@@ -245,7 +344,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
 
             {/* O Dropdown do Carrinho */}
             {isCartOpen && (
-              <div className="absolute right-0 top-full mt-4 w-80 md:w-96 bg-white border border-zinc-100 rounded-2xl shadow-xl flex flex-col z-50 overflow-hidden before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
+              <div className="absolute right-0 top-full z-50 mt-4 flex w-[calc(100vw-2rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
                 <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
                   <h3 className="font-bold text-zinc-900">O seu carrinho</h3>
                   <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>

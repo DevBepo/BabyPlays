@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { Table, Tbody, Td, Th, Thead, Tr } from "@/components/admin/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -95,6 +96,15 @@ function periodoResumo(brinquedo: BrinquedoCatalogo) {
   return brinquedo.periodos_disponiveis
     .map((periodo) => `${periodo.label}: ${formatarMoeda(periodo.preco)}`)
     .join(" | ");
+}
+
+function resumirComposicao(brinquedo: BrinquedoCatalogo): string {
+  const categoria = brinquedo.categoria?.nome ?? "Sem categoria";
+  const unidades = `${brinquedo.quantidade_disponivel} unid. disponivel${
+    brinquedo.quantidade_disponivel === 1 ? "" : "s"
+  }`;
+
+  return `${categoria} | ${unidades}`;
 }
 
 export default function ListaBrinquedosAdmin() {
@@ -667,58 +677,85 @@ export default function ListaBrinquedosAdmin() {
         </Card>
       ) : null}
 
-      <Card padding="none">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Nome</th>
-                <th className="px-6 py-4">Periodos e precos</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Acoes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 text-sm text-zinc-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-10 text-center text-zinc-400">
-                    Carregando catalogo de brinquedos...
-                  </td>
-                </tr>
-              ) : brinquedosOrdenados.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-10 text-center text-zinc-400">
-                    Nenhum brinquedo cadastrado ainda.
-                  </td>
-                </tr>
-              ) : (
-                brinquedosOrdenados.map((brinquedo) => (
-                  <tr key={brinquedo.id} className="transition-colors hover:bg-zinc-50/50">
-                    <td className="px-6 py-4 font-medium text-zinc-500">
-                      #{brinquedo.id}
-                    </td>
-                    <td className="px-6 py-4">
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            Brinquedos cadastrados
+          </h2>
+          <span className="text-sm text-zinc-500">
+            {brinquedosOrdenados.length} brinquedo(s)
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
+            Carregando catalogo de brinquedos...
+          </div>
+        ) : brinquedosOrdenados.length === 0 ? (
+          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
+            Nenhum brinquedo cadastrado ainda.
+          </div>
+        ) : (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Nome do brinquedo</Th>
+                <Th>Imagem</Th>
+                <Th>Composicao</Th>
+                <Th>Periodos e precos</Th>
+                <Th>Status</Th>
+                <Th className="text-right">Acoes</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {brinquedosOrdenados.map((brinquedo) => {
+                const imagemUrl = resolveMediaUrl(brinquedo.imagem_principal?.url);
+
+                return (
+                  <Tr key={brinquedo.id}>
+                    <Td>
                       <div className="flex flex-col">
                         <span className="font-semibold text-zinc-900">
                           {brinquedo.nome}
                         </span>
-                        <span className="mt-0.5 text-xs text-zinc-400">
-                          {brinquedo.categoria?.nome ?? "Sem categoria"}
+                        <span className="mt-0.5 max-w-md truncate text-xs text-zinc-400">
+                          {brinquedo.descricao}
                         </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-teal-600">
+                    </Td>
+                    <Td>
+                      <div className="relative h-14 w-20 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
+                        {imagemUrl ? (
+                          <Image
+                            src={imagemUrl}
+                            alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
+                            fill
+                            className="object-cover"
+                            sizes="80px"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[11px] font-medium text-zinc-400">
+                            Sem imagem
+                          </div>
+                        )}
+                      </div>
+                    </Td>
+                    <Td className="whitespace-normal">
+                      <span className="text-sm text-zinc-600">
+                        {resumirComposicao(brinquedo)}
+                      </span>
+                    </Td>
+                    <Td className="whitespace-normal font-medium text-zinc-900">
                       {periodoResumo(brinquedo)}
-                    </td>
-                    <td className="px-6 py-4">
+                    </Td>
+                    <Td>
                       {brinquedo.ativo !== false ? (
                         <Badge variant="success">Ativo</Badge>
                       ) : (
                         <Badge variant="default">Inativo</Badge>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                    </Td>
+                    <Td className="text-right">
                       <div className="flex justify-end gap-3">
                         <Button
                           type="button"
@@ -745,14 +782,14 @@ export default function ListaBrinquedosAdmin() {
                           Ver na loja
                         </Link>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        )}
+      </section>
     </div>
   );
 }

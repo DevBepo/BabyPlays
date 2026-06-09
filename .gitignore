@@ -4,6 +4,10 @@
 !**/.env.example
 **/*.sqlite3
 backend/db.sqlite3
+*.sql
+*.dump
+*.bak
+*.backup
 
 # Uploads / arquivos gerados em runtime
 backend/media/
@@ -11,6 +15,7 @@ backend/staticfiles/
 
 # Logs locais
 *.log
+*.err.log
 frontend/next-dev.log
 frontend/next-dev.err.log
 frontend/next-dev*.log
@@ -22,6 +27,8 @@ frontend/next-dev*.log
 **/*.pyc
 **/*.pyo
 **/*.pyd
+__pycache__/
+*.py[cod]
 
 # Ambientes Virtuais
 **/venv/
@@ -41,3 +48,9 @@ frontend/.turbo/
 # Sistema Operacional
 .DS_Store
 Thumbs.db
+
+# Chaves e certificados privados
+*.pem
+*.key
+*.p12
+*.pfx
