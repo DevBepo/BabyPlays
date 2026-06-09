@@ -39,6 +39,12 @@ export type LoginPayload = {
 
 export type LoginResponse = AuthenticatedAuthResponse;
 
+export type UpdateMePayload = {
+  nome?: string;
+  telefone?: string;
+  email?: string;
+};
+
 export type LogoutResponse = {
   message: string;
 };

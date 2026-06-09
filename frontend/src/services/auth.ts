@@ -1,10 +1,11 @@
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   AdminMeResponse,
   AuthMeResponse,
   LoginPayload,
   LoginResponse,
   LogoutResponse,
+  UpdateMePayload,
 } from "@/types/auth";
 
 const AUTH_ENDPOINTS = {
@@ -16,6 +17,10 @@ const AUTH_ENDPOINTS = {
 
 export function getMe(): Promise<AuthMeResponse> {
   return apiGet<AuthMeResponse>(AUTH_ENDPOINTS.me);
+}
+
+export function updateMe(payload: UpdateMePayload): Promise<AuthMeResponse> {
+  return apiPatch<AuthMeResponse>(AUTH_ENDPOINTS.me, payload);
 }
 
 export function getAdminMe(): Promise<AdminMeResponse> {

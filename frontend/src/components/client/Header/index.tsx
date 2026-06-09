@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
+import { getAdminMe } from "@/services/auth";
 import { removerItemCarrinho } from "@/services/cart";
 
 const IconSearch = () => (
@@ -42,11 +43,15 @@ type HeaderProps = {
 export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const router = useRouter();
   const cartRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [removendoId, setRemovendoId] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [verificandoAdmin, setVerificandoAdmin] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   
   const { cliente, user, isAuthenticated, logout } = useAuth();
   const {
@@ -66,10 +71,53 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
       if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
         closeCart();
       }
+
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(event.target as Node)
+      ) {
+        setIsAccountMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [closeCart]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function verificarAdmin() {
+      if (!isAuthenticated) {
+        setIsAdmin(false);
+        setVerificandoAdmin(false);
+        return;
+      }
+
+      setVerificandoAdmin(true);
+
+      try {
+        const data = await getAdminMe();
+
+        if (active) {
+          setIsAdmin(data.is_staff || data.is_superuser);
+        }
+      } catch {
+        if (active) {
+          setIsAdmin(false);
+        }
+      } finally {
+        if (active) {
+          setVerificandoAdmin(false);
+        }
+      }
+    }
+
+    void verificarAdmin();
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, user?.id]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +136,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     setLogoutError(null);
     try {
       await logout();
+      setIsAccountMenuOpen(false);
     } catch {
       setLogoutError("Nao foi possivel sair. Atualize a pagina e tente novamente.");
     } finally {
@@ -155,28 +204,78 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
 
         <div className="flex items-center gap-6 shrink-0">
           {isAuthenticated ? (
-            <div className="flex items-center gap-3 select-none">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs text-zinc-500 font-medium leading-tight">
-                  Olá, {accountLabel}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  disabled={logoutLoading}
-                  className="text-xs text-zinc-800 font-bold leading-tight hover:text-teal-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {logoutLoading ? "Saindo..." : "Sair"}
-                </button>
-                {logoutError ? (
-                  <p className="mt-1 max-w-48 text-xs font-medium leading-tight text-red-600">
-                    {logoutError}
+            <div className="relative select-none" ref={accountRef}>
+              <button
+                type="button"
+                onClick={() => setIsAccountMenuOpen((open) => !open)}
+                aria-expanded={isAccountMenuOpen}
+                aria-haspopup="menu"
+                className="flex items-center gap-3 rounded-full transition-colors hover:text-teal-600"
+              >
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs text-zinc-500 font-medium leading-tight">
+                    Olá, {accountLabel}
                   </p>
-                ) : null}
-              </div>
-              <div className="p-2 text-zinc-700 bg-zinc-50 rounded-full transition-colors">
-                <IconUser />
-              </div>
+                  <p className="text-xs text-zinc-800 font-bold leading-tight">
+                    Minha conta
+                  </p>
+                </div>
+                <span className="p-2 text-zinc-700 bg-zinc-50 rounded-full transition-colors">
+                  <IconUser />
+                </span>
+              </button>
+
+              {isAccountMenuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-xl border border-zinc-100 bg-white shadow-xl z-50 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100"
+                >
+                  <div className="relative z-10 border-b border-zinc-100 bg-zinc-50/60 px-4 py-3">
+                    <p className="text-xs font-medium text-zinc-500">Conta</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-zinc-900">
+                      {accountLabel}
+                    </p>
+                  </div>
+
+                  <div className="relative z-10 flex flex-col bg-white py-2">
+                    <Link
+                      href="/minha-conta"
+                      role="menuitem"
+                      onClick={() => setIsAccountMenuOpen(false)}
+                      className="px-4 py-2.5 text-sm font-semibold text-zinc-800 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                    >
+                      Minha conta
+                    </Link>
+
+                    {isAdmin && !verificandoAdmin ? (
+                      <Link
+                        href="/admin/brinquedos"
+                        role="menuitem"
+                        onClick={() => setIsAccountMenuOpen(false)}
+                        className="px-4 py-2.5 text-sm font-semibold text-zinc-800 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                      >
+                        Painel administrativo
+                      </Link>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleLogout}
+                      disabled={logoutLoading}
+                      className="px-4 py-2.5 text-left text-sm font-semibold text-zinc-800 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {logoutLoading ? "Saindo..." : "Sair"}
+                    </button>
+
+                    {logoutError ? (
+                      <p className="px-4 pb-2 pt-1 text-xs font-medium leading-tight text-red-600">
+                        {logoutError}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="flex items-center gap-2 select-none">
