@@ -430,6 +430,48 @@ class ClienteAuthAPITests(APITestCase):
             },
         )
 
+    def test_me_patch_atualiza_dados_do_proprio_cliente(self):
+        user, cliente = self.criar_usuario_cliente()
+        self.login_cliente()
+
+        response = self.client.patch(
+            self.me_url,
+            {
+                "nome": "Cliente Atualizado",
+                "telefone": "11888887777",
+                "email": "cliente-atualizado@email.com",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        cliente.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(user.email, "cliente-atualizado@email.com")
+        self.assertEqual(user.username, "cliente-atualizado@email.com")
+        self.assertEqual(cliente.nome, "Cliente Atualizado")
+        self.assertEqual(cliente.telefone, "11888887777")
+        self.assertEqual(response.data["user"]["email"], "cliente-atualizado@email.com")
+        self.assertEqual(response.data["cliente"]["nome"], "Cliente Atualizado")
+
+    def test_me_patch_bloqueia_email_ja_usado(self):
+        self.criar_usuario_cliente()
+        get_user_model().objects.create_user(
+            username="outro@email.com",
+            email="outro@email.com",
+            password="SenhaForte123!",
+        )
+        self.login_cliente()
+
+        response = self.client.patch(
+            self.me_url,
+            {"email": "outro@email.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+
     def test_admin_me_anonimo_negado_com_401(self):
         response = self.client.get(self.admin_me_url)
 

@@ -35,6 +35,71 @@ class AuthClienteSerializer(serializers.Serializer):
     cliente = ClienteResumoSerializer(read_only=True, allow_null=True)
 
 
+class AtualizarAuthClienteSerializer(serializers.Serializer):
+    nome = serializers.CharField(max_length=200, trim_whitespace=True, required=False)
+    telefone = serializers.CharField(max_length=30, trim_whitespace=True, required=False)
+    email = serializers.EmailField(max_length=150, required=False)
+
+    def validate_email(self, value):
+        email = normalizar_email(value)
+        user = self.context["request"].user
+        User = get_user_model()
+
+        email_em_uso = User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists()
+        username_em_uso = (
+            User.objects.filter(username__iexact=email).exclude(pk=user.pk).exists()
+        )
+
+        if email_em_uso or username_em_uso:
+            raise serializers.ValidationError("E-mail ja cadastrado.")
+
+        return email
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        user = self.context["request"].user
+
+        if not hasattr(user, "cliente") and {"nome", "telefone"}.intersection(attrs):
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Somente contas de cliente podem alterar nome e telefone."
+                    )
+                }
+            )
+
+        return attrs
+
+    @transaction.atomic
+    def save(self):
+        user = self.context["request"].user
+        validated_data = self.validated_data
+
+        email = validated_data.get("email")
+        if email:
+            user.email = email
+            user.username = email
+            user.save(update_fields=["email", "username"])
+
+        cliente = getattr(user, "cliente", None)
+        if cliente:
+            update_fields = []
+
+            if "nome" in validated_data:
+                cliente.nome = validated_data["nome"]
+                update_fields.append("nome")
+
+            if "telefone" in validated_data:
+                cliente.telefone = validated_data["telefone"]
+                update_fields.append("telefone")
+
+            if update_fields:
+                update_fields.append("atualizado_em")
+                cliente.save(update_fields=update_fields)
+
+        return user
+
+
 class AdminMeSerializer(serializers.ModelSerializer):
     nome = serializers.SerializerMethodField()
 

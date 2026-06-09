@@ -15,6 +15,7 @@ backend/staticfiles/
 
 # Logs locais
 *.log
+*.err.log
 frontend/next-dev.log
 frontend/next-dev.err.log
 frontend/next-dev*.log
@@ -26,6 +27,8 @@ frontend/next-dev*.log
 **/*.pyc
 **/*.pyo
 **/*.pyd
+__pycache__/
+*.py[cod]
 
 # Ambientes Virtuais
 **/venv/
