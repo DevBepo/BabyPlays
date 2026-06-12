@@ -100,6 +100,22 @@ function matchesSearch(brinquedo: BrinquedoCatalogo, search: string) {
   return searchable.includes(search);
 }
 
+function matchesKitSearch(kit: KitFestaCatalogo, search: string) {
+  if (!search) {
+    return true;
+  }
+
+  const itensSearchable = kit.itens.flatMap((item) => [
+    item.brinquedo.nome,
+    item.brinquedo.categoria?.nome ?? "",
+  ]);
+  const searchable = [kit.nome, kit.descricao, ...itensSearchable]
+    .map(normalizeText)
+    .join(" ");
+
+  return searchable.includes(search);
+}
+
 function getBrinquedoImage(brinquedo: BrinquedoCatalogo) {
   if (brinquedo.imagem_principal?.url) {
     return brinquedo.imagem_principal;
@@ -548,6 +564,13 @@ export default function Home() {
       .sort((a, b) => b.id - a.id);
   }, [brinquedos, normalizedSearch, onlyAvailable, selectedCategory]);
 
+  const kitsFestaFiltrados = useMemo(() => {
+    return kitsFesta
+      .filter((kit) => matchesKitSearch(kit, normalizedSearch))
+      .sort((a, b) => b.id - a.id);
+  }, [kitsFesta, normalizedSearch]);
+
+  const totalItensFiltrados = brinquedosFiltrados.length + kitsFestaFiltrados.length;
   const hasCatalogError = Boolean(errors.brinquedos || errors.kits);
   const hasNoCatalogData = brinquedos.length === 0 && kitsFesta.length === 0;
 
@@ -593,7 +616,7 @@ export default function Home() {
       carousel.removeEventListener("scroll", updateScrollState);
       window.removeEventListener("resize", updateScrollState);
     };
-  }, [kitsFesta.length, loading]);
+  }, [kitsFestaFiltrados.length, loading]);
 
   return (
     <main className="min-h-screen bg-[#F8F9FA] text-zinc-950">
@@ -605,7 +628,7 @@ export default function Home() {
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <h1 className="text-base font-black text-zinc-950">Catalogo</h1>
             <span className="text-xs font-semibold text-zinc-500">
-              {brinquedosFiltrados.length} itens
+              {totalItensFiltrados} itens
             </span>
           </div>
 
@@ -801,7 +824,9 @@ export default function Home() {
                       Kits Festa
                     </h2>
                     <p className="mt-1 text-sm text-zinc-500">
-                      Solucoes completas para festas com brinquedos do catalogo.
+                      {kitsFestaFiltrados.length} kit
+                      {kitsFestaFiltrados.length === 1 ? "" : "s"} festa encontrado
+                      {kitsFestaFiltrados.length === 1 ? "" : "s"}
                     </p>
                   </div>
 
@@ -829,6 +854,11 @@ export default function Home() {
                     title="Nenhum kit festa cadastrado."
                     message="Quando houver kits ativos no backend, eles aparecem nesta secao."
                   />
+                ) : kitsFestaFiltrados.length === 0 ? (
+                  <EmptyState
+                    title="Nenhum kit festa encontrado."
+                    message="Ajuste a busca para ver mais kits festa do catalogo."
+                  />
                 ) : (
                   <div className="relative">
                     <CarouselButton
@@ -840,7 +870,7 @@ export default function Home() {
                       ref={kitsCarouselRef}
                       className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     >
-                      {kitsFesta.map((kit) => (
+                      {kitsFestaFiltrados.map((kit) => (
                         <div key={kit.id} className="snap-start">
                           <KitFestaCard kit={kit} />
                         </div>

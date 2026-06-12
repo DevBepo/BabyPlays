@@ -188,7 +188,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
         >
           <input
             type="text"
-            placeholder="Buscar brinquedos"
+            placeholder="Buscar brinquedos e kits"
             value={currentSearchQuery}
             onChange={(e) => handleSearchQueryChange(e.target.value)}
             className="w-full h-11 pl-5 pr-12 bg-[#F8F9FA] border border-zinc-200 rounded-full text-sm text-zinc-900 outline-none transition-all focus:bg-white focus:border-teal-600 focus:ring-1 focus:ring-teal-600 placeholder:text-zinc-400"
