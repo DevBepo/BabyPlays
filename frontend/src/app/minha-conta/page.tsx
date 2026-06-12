@@ -14,12 +14,11 @@ import { listarMeusPedidos } from "@/services/pedidos";
 import type { ApiError } from "@/types/api";
 import type { PedidoCliente } from "@/types/pedidos";
 
-type AccountTab = "dados" | "pedidos" | "salvos";
+type AccountTab = "dados" | "pedidos";
 
 const tabs: { id: AccountTab; label: string }[] = [
   { id: "dados", label: "Dados" },
   { id: "pedidos", label: "Pedidos" },
-  { id: "salvos", label: "Itens salvos" },
 ];
 
 const statusLabels: Record<string, string> = {
@@ -245,11 +244,11 @@ export default function MinhaContaPage() {
                   {cliente?.nome ?? user?.email}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                  Acompanhe suas reservas, confira seus dados e volte rapidamente aos itens que quiser separar depois.
+                  Acompanhe suas reservas e confira seus dados cadastrais.
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -370,20 +369,6 @@ export default function MinhaContaPage() {
             </section>
           ) : null}
 
-          {activeTab === "salvos" ? (
-            <section className="space-y-4">
-              <div>
-                <h2 className="text-lg font-black text-zinc-900">Itens salvos</h2>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Seus brinquedos favoritos ficarao organizados aqui.
-                </p>
-              </div>
-              <EmptyPanel
-                title="Nenhum item salvo"
-                message="A estrutura da aba ja esta pronta para receber favoritos quando o recurso de salvar itens for conectado."
-              />
-            </section>
-          ) : null}
         </div>
     </main>
   );
