@@ -995,6 +995,65 @@ class BrinquedoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_usuario_admin_lista_brinquedos_ativos_e_inativos(self):
+        brinquedo_inativo = Brinquedo.objects.create(
+            nome="Escorregador inativo",
+            descricao="Brinquedo fora do catalogo publico.",
+            preco_aluguel="120.00",
+            preco_15_dias="120.00",
+            ativo=False,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [brinquedo["id"] for brinquedo in response.data]
+        self.assertIn(self.brinquedo.id, ids)
+        self.assertIn(brinquedo_inativo.id, ids)
+        self.assertIn("ativo", response.data[0])
+        self.assertIn("imagem_principal", response.data[0])
+
+    def test_usuario_admin_consegue_detalhar_brinquedo_inativo(self):
+        self.brinquedo.ativo = False
+        self.brinquedo.save(update_fields=["ativo"])
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.brinquedo.id)
+        self.assertFalse(response.data["ativo"])
+
+    def test_usuario_admin_consegue_alterar_status_ativo_do_brinquedo(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.patch(
+            f"{self.brinquedos_url}{self.brinquedo.id}/",
+            {"ativo": False},
+            format="json",
+        )
+
+        self.brinquedo.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(self.brinquedo.ativo)
+        self.assertFalse(response.data["ativo"])
+
+    def test_usuario_comum_nao_consegue_alterar_status_do_brinquedo(self):
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        response = self.client.patch(
+            f"{self.brinquedos_url}{self.brinquedo.id}/",
+            {"ativo": False},
+            format="json",
+        )
+
+        self.brinquedo.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(self.brinquedo.ativo)
+
     def test_usuario_anonimo_nao_consegue_criar_brinquedo(self):
         response = self.client.post(
             self.brinquedos_url,
@@ -1652,6 +1711,33 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.kit.id)
         self.assertFalse(response.data["ativo"])
+
+    def test_usuario_admin_consegue_alterar_status_ativo_do_kit(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.patch(
+            f"{self.kits_url}{self.kit.id}/",
+            {"ativo": False},
+            format="json",
+        )
+
+        self.kit.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(self.kit.ativo)
+        self.assertFalse(response.data["ativo"])
+
+    def test_usuario_comum_nao_consegue_alterar_status_do_kit(self):
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        response = self.client.patch(
+            f"{self.kits_url}{self.kit.id}/",
+            {"ativo": False},
+            format="json",
+        )
+
+        self.kit.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(self.kit.ativo)
 
     def test_criacao_de_kit_valida_campos_obrigatorios(self):
         self.client.force_authenticate(user=self.usuario_admin)

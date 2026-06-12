@@ -7,15 +7,16 @@ import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/client/Header";
 import { converterCarrinhoEmPedido } from "@/services/cart";
+import { obterContratoVigente } from "@/services/contrato";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/TextArea";
+import type { ContratoLocacao } from "@/types/contrato";
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { carrinho, refreshCart, cartLoading } = useCart();
-  
-  
-  const { user, cliente, isAuthenticated } = useAuth();
+  const { carrinho, refreshCart, cartLoading, cartLoaded, cartError } = useCart();
+
+  const { user, cliente, isAuthenticated, loading: authLoading } = useAuth();
 
   // Estados dos Dados Pessoais
   const [nome, setNome] = useState("");
@@ -35,10 +36,17 @@ export default function CheckoutPage() {
 
   const [loadingPedido, setLoadingPedido] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [contrato, setContrato] = useState<ContratoLocacao | null>(null);
+  const [contratoLoading, setContratoLoading] = useState(true);
+  const [contratoAceito, setContratoAceito] = useState(false);
 
   // Redirecionamento e Pré-preenchimento
   useEffect(() => {
     // Se a página carregou e não está autenticado, manda pro login
+    if (authLoading) {
+      return;
+    }
+
     if (!isAuthenticated) {
       router.push("/login?redirect=/checkout");
     } else {
@@ -46,14 +54,67 @@ export default function CheckoutPage() {
       setEmail(user?.email || "");
       setTelefone(cliente?.telefone || "");
     }
-  }, [isAuthenticated, router, cliente, user]);
+  }, [authLoading, isAuthenticated, router, cliente, user]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function carregarContrato() {
+      setContratoLoading(true);
+
+      try {
+        const data = await obterContratoVigente();
+
+        if (!active) {
+          return;
+        }
+
+        setContrato(data);
+      } catch (err: any) {
+        if (!active) {
+          return;
+        }
+
+        setContrato(null);
+        setErro(
+          err?.message ||
+            "Contrato de locacao indisponivel. Tente novamente em alguns instantes.",
+        );
+      } finally {
+        if (active) {
+          setContratoLoading(false);
+        }
+      }
+    }
+
+    void carregarContrato();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleFinalizarPedido = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
 
+    if (!carrinho || quantidadeCarrinho === 0) {
+      setErro("Nao ha itens para finalizar. Confira o carrinho e tente novamente.");
+      return;
+    }
+
     if (new Date(dataInicio) >= new Date(dataFim)) {
       setErro("A data de devolução deve ser posterior à data de início.");
+      return;
+    }
+
+    if (!contrato) {
+      setErro("Contrato de locacao indisponivel. Nao e possivel finalizar agora.");
+      return;
+    }
+
+    if (!contratoAceito) {
+      setErro("Voce precisa ler e aceitar o contrato de locacao para finalizar.");
       return;
     }
 
@@ -64,18 +125,21 @@ export default function CheckoutPage() {
         nome,
         email,
         telefone,
-        cep: cep.replace(/\D/g, ""), 
+        cep: cep.replace(/\D/g, ""),
         numero,
         complemento,
         observacoes,
         data_evento_pretendida: dataEvento,
         data_inicio_locacao: dataInicio,
         data_fim_locacao: dataFim,
+        contrato_aceito: contratoAceito,
+        contrato_id: contrato.id,
+        contrato_versao: contrato.versao,
       });
 
       await refreshCart();
       alert("Pedido realizado com sucesso! 🎉 A taxa de entrega será calculada no seu resumo de pedido no painel.");
-      router.push("/"); 
+      router.push("/");
     } catch (err: any) {
       console.error("Erro ao converter pedido:", err);
       const mensagemErro = err?.message || "Ocorreu um erro ao processar seu pedido. Verifique os dados e tente novamente.";
@@ -85,16 +149,38 @@ export default function CheckoutPage() {
     }
   };
 
-  const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
-  const valorTotal = carrinho?.itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0) || 0;
+  const itensCarrinho = carrinho?.itens ?? [];
+  const quantidadeCarrinho = itensCarrinho.reduce((acc, item) => acc + item.quantidade, 0);
+  const valorTotal = itensCarrinho.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0);
 
   // REMOVIDO o userLoading daqui também
-  if (cartLoading) {
+  if (authLoading || cartLoading || !cartLoaded) {
     return (
       <div className="min-h-screen flex flex-col bg-zinc-50">
         <Header />
         <main className="flex-1 flex items-center justify-center">
           <p className="text-zinc-500 animate-pulse font-medium">A preparar o seu checkout...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (cartError && !carrinho) {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-50">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-10 text-center flex flex-col items-center max-w-md w-full">
+            <h2 className="text-2xl font-bold text-zinc-800 mb-2">Carrinho indisponivel</h2>
+            <p className="text-zinc-500 mb-6">{cartError}</p>
+            <button
+              type="button"
+              onClick={() => void refreshCart()}
+              className="px-6 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition-colors w-full"
+            >
+              Tentar novamente
+            </button>
+          </div>
         </main>
       </div>
     );
@@ -127,9 +213,9 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-black text-zinc-900 mb-8">Finalizar Pedido</h1>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          
+
           <div className="w-full lg:w-2/3 flex flex-col gap-6">
-            
+
             {erro && (
               <div className="p-4 bg-red-50 text-red-600 font-medium rounded-xl border border-red-100">
                 {erro}
@@ -137,7 +223,7 @@ export default function CheckoutPage() {
             )}
 
             <form id="checkout-form" onSubmit={handleFinalizarPedido} className="flex flex-col gap-6">
-              
+
               <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 md:p-8">
                 <h2 className="text-xl font-bold text-zinc-900 mb-6 pb-4 border-b border-zinc-100">1. Os seus dados</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -178,15 +264,61 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 md:p-8">
+                <h2 className="text-xl font-bold text-zinc-900 mb-2">4. Contrato de locacao</h2>
+                <p className="mb-5 text-sm text-zinc-500">
+                  Leia e aceite os termos antes de finalizar o pedido.
+                </p>
+
+                {contratoLoading ? (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                    Carregando contrato...
+                  </div>
+                ) : contrato ? (
+                  <>
+                    <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50">
+                      <div className="border-b border-zinc-200 px-4 py-3">
+                        <h3 className="text-sm font-bold text-zinc-900">
+                          {contrato.titulo}
+                        </h3>
+                        <p className="text-xs text-zinc-500">
+                          Versao {contrato.versao}
+                        </p>
+                      </div>
+                      <div className="max-h-72 overflow-y-auto whitespace-pre-wrap px-4 py-4 text-sm leading-6 text-zinc-700">
+                        {contrato.texto}
+                      </div>
+                    </div>
+
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-zinc-300 text-teal-600 focus:ring-teal-600"
+                        checked={contratoAceito}
+                        onChange={(event) => setContratoAceito(event.target.checked)}
+                        required
+                      />
+                      <span className="font-medium">
+                        Li e aceito os termos do contrato de locacao.
+                      </span>
+                    </label>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                    Contrato de locacao indisponivel. Tente novamente em instantes.
+                  </div>
+                )}
+              </div>
+
             </form>
           </div>
 
           <div className="w-full lg:w-1/3">
             <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 sticky top-28">
               <h2 className="text-xl font-bold text-zinc-900 mb-6 pb-4 border-b border-zinc-100">Resumo do Pedido</h2>
-              
+
               <div className="flex flex-col gap-4 mb-6">
-                {carrinho?.itens.map((item) => (
+                {itensCarrinho.map((item) => (
                   <div key={item.id} className="flex justify-between items-start text-sm">
                     <span className="text-zinc-600 flex-1 pr-4">
                       {item.quantidade}x {item.nome_snapshot}
@@ -218,7 +350,7 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 form="checkout-form"
-                disabled={loadingPedido}
+                disabled={loadingPedido || contratoLoading || !contrato || !contratoAceito}
                 className="w-full py-4 bg-[#FF5A5F] hover:bg-[#ff444a] text-white text-lg font-bold rounded-xl transition-colors shadow-md shadow-red-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loadingPedido ? (

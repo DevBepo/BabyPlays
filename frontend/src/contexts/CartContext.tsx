@@ -15,6 +15,8 @@ import type { Carrinho } from "@/services/cart";
 type CartContextValue = {
   carrinho: Carrinho | null;
   cartLoading: boolean;
+  cartLoaded: boolean;
+  cartError: string | null;
   isCartOpen: boolean;
   refreshCart: () => Promise<Carrinho>;
   openCart: () => void;
@@ -31,15 +33,23 @@ type CartProviderProps = {
 export function CartProvider({ children }: CartProviderProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [carrinho, setCarrinho] = useState<Carrinho | null>(null);
-  const [cartLoading, setCartLoading] = useState(false);
+  const [cartLoading, setCartLoading] = useState(true);
+  const [cartLoaded, setCartLoaded] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   const refreshCart = useCallback(async () => {
     setCartLoading(true);
+    setCartError(null);
 
     try {
       const dados = await obterCarrinhoAtual();
       setCarrinho(dados);
+      setCartLoaded(true);
       return dados;
+    } catch (error) {
+      setCartLoaded(true);
+      setCartError("Nao foi possivel carregar o carrinho agora.");
+      throw error;
     } finally {
       setCartLoading(false);
     }
@@ -75,6 +85,8 @@ export function CartProvider({ children }: CartProviderProps) {
     () => ({
       carrinho,
       cartLoading,
+      cartLoaded,
+      cartError,
       isCartOpen,
       refreshCart,
       openCart,
@@ -83,6 +95,8 @@ export function CartProvider({ children }: CartProviderProps) {
     }),
     [
       carrinho,
+      cartError,
+      cartLoaded,
       cartLoading,
       closeCart,
       isCartOpen,

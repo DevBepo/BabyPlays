@@ -115,6 +115,7 @@ export default function ListaBrinquedosAdmin() {
   const [formAberto, setFormAberto] = useState(false);
   const [brinquedoEmEdicao, setBrinquedoEmEdicao] = useState<number | null>(null);
   const [brinquedoRemovendo, setBrinquedoRemovendo] = useState<number | null>(null);
+  const [brinquedoAlterandoStatus, setBrinquedoAlterandoStatus] = useState<number | null>(null);
   const [form, setForm] = useState<BrinquedoFormState>(initialForm);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
@@ -399,6 +400,32 @@ export default function ListaBrinquedosAdmin() {
       );
     } finally {
       setBrinquedoRemovendo(null);
+    }
+  }
+
+  async function handleAlternarStatusBrinquedo(brinquedo: BrinquedoCatalogo) {
+    const novoStatusAtivo = brinquedo.ativo === false;
+
+    setBrinquedoAlterandoStatus(brinquedo.id);
+    setErro(null);
+    setSucesso(null);
+
+    try {
+      await atualizarBrinquedo(brinquedo.id, { ativo: novoStatusAtivo });
+      setSucesso(
+        novoStatusAtivo
+          ? "Brinquedo ativado com sucesso."
+          : "Brinquedo desativado com sucesso.",
+      );
+      await carregarBrinquedos();
+    } catch (error) {
+      setErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel atualizar o status do brinquedo.",
+      );
+    } finally {
+      setBrinquedoAlterandoStatus(null);
     }
   }
 
@@ -756,7 +783,7 @@ export default function ListaBrinquedosAdmin() {
                       )}
                     </Td>
                     <Td className="text-right">
-                      <div className="flex justify-end gap-3">
+                      <div className="flex justify-end gap-2">
                         <Button
                           type="button"
                           size="sm"
@@ -768,19 +795,36 @@ export default function ListaBrinquedosAdmin() {
                         <Button
                           type="button"
                           size="sm"
+                          variant={brinquedo.ativo !== false ? "outline" : "secondary"}
+                          loading={brinquedoAlterandoStatus === brinquedo.id}
+                          disabled={brinquedoRemovendo === brinquedo.id}
+                          onClick={() => void handleAlternarStatusBrinquedo(brinquedo)}
+                        >
+                          {brinquedo.ativo !== false ? "Desativar" : "Ativar"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
                           variant="ghost"
                           loading={brinquedoRemovendo === brinquedo.id}
+                          disabled={brinquedoAlterandoStatus === brinquedo.id}
                           onClick={() => void handleRemoverBrinquedo(brinquedo)}
                         >
                           Remover
                         </Button>
-                        <Link
-                          href={`/brinquedos/${brinquedo.id}`}
-                          target="_blank"
-                          className="inline-flex items-center text-xs font-medium text-zinc-400 underline transition-colors hover:text-teal-600"
-                        >
-                          Ver na loja
-                        </Link>
+                        {brinquedo.ativo !== false ? (
+                          <Link
+                            href={`/brinquedos/${brinquedo.id}`}
+                            target="_blank"
+                            className="inline-flex items-center text-xs font-medium text-zinc-400 underline transition-colors hover:text-teal-600"
+                          >
+                            Ver na loja
+                          </Link>
+                        ) : (
+                          <span className="inline-flex items-center text-xs font-medium text-zinc-400">
+                            Oculto na loja
+                          </span>
+                        )}
                       </div>
                     </Td>
                   </Tr>

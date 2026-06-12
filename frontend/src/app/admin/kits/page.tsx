@@ -106,6 +106,7 @@ export default function GestaoKitsPage() {
   const [formAberto, setFormAberto] = useState(false);
   const [kitEmEdicao, setKitEmEdicao] = useState<number | null>(null);
   const [kitRemovendo, setKitRemovendo] = useState<number | null>(null);
+  const [kitAlterandoStatus, setKitAlterandoStatus] = useState<number | null>(null);
   const [form, setForm] = useState<KitFormState>(initialForm);
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
   const [removerImagemAtual, setRemoverImagemAtual] = useState(false);
@@ -285,6 +286,32 @@ export default function GestaoKitsPage() {
       );
     } finally {
       setKitRemovendo(null);
+    }
+  }
+
+  async function handleAlternarStatusKit(kit: AdminKitFesta) {
+    const novoStatusAtivo = !kit.ativo;
+
+    setKitAlterandoStatus(kit.id);
+    setErro(null);
+    setSucesso(null);
+
+    try {
+      await atualizarAdminKitFesta(kit.id, { ativo: novoStatusAtivo });
+      setSucesso(
+        novoStatusAtivo
+          ? "Kit festa ativado com sucesso."
+          : "Kit festa desativado com sucesso.",
+      );
+      await carregarKitsFesta();
+    } catch (error) {
+      setErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel atualizar o status do kit festa.",
+      );
+    } finally {
+      setKitAlterandoStatus(null);
     }
   }
 
@@ -557,7 +584,7 @@ export default function GestaoKitsPage() {
                     )}
                   </Td>
                   <Td className="text-right">
-                    <div className="flex justify-end gap-3">
+                    <div className="flex justify-end gap-2">
                       <Button
                         type="button"
                         size="sm"
@@ -569,19 +596,36 @@ export default function GestaoKitsPage() {
                       <Button
                         type="button"
                         size="sm"
+                        variant={kit.ativo ? "outline" : "secondary"}
+                        loading={kitAlterandoStatus === kit.id}
+                        disabled={kitRemovendo === kit.id}
+                        onClick={() => void handleAlternarStatusKit(kit)}
+                      >
+                        {kit.ativo ? "Desativar" : "Ativar"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
                         variant="ghost"
                         loading={kitRemovendo === kit.id}
+                        disabled={kitAlterandoStatus === kit.id}
                         onClick={() => void handleRemoverKit(kit)}
                       >
                         Remover
                       </Button>
-                      <Link
-                        href="/#kits-festa"
-                        target="_blank"
-                        className="inline-flex items-center text-xs font-medium text-zinc-400 underline transition-colors hover:text-teal-600"
-                      >
-                        Ver na loja
-                      </Link>
+                      {kit.ativo ? (
+                        <Link
+                          href="/#kits-festa"
+                          target="_blank"
+                          className="inline-flex items-center text-xs font-medium text-zinc-400 underline transition-colors hover:text-teal-600"
+                        >
+                          Ver na loja
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center text-xs font-medium text-zinc-400">
+                          Oculto na loja
+                        </span>
+                      )}
                     </div>
                   </Td>
                 </Tr>

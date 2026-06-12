@@ -81,6 +81,8 @@ export type AdminPedidoAceiteContrato = {
   id: number;
   contrato: number;
   versao_aceita: string;
+  titulo_aceito: string;
+  texto_aceito: string;
   aceito_em: string;
   nome_cliente_snapshot: string;
   email_cliente_snapshot: string;

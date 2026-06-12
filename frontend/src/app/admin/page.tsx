@@ -160,6 +160,22 @@ export default function DashboardPage() {
                 <span className="block text-xs text-zinc-500">2 brinquedos em manutenção</span>
               </div>
             </button>
+            <button
+              onClick={() => router.push("/admin/contrato")}
+              className="w-full text-left px-4 py-3 rounded-lg border border-zinc-200 hover:border-teal-600 hover:bg-teal-50 transition-colors flex items-center gap-3 group"
+            >
+              <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                C
+              </div>
+              <div>
+                <span className="block text-sm font-semibold text-zinc-900">
+                  Contrato de locacao
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  Editar contrato
+                </span>
+              </div>
+            </button>
           </Card>
         </div>
 

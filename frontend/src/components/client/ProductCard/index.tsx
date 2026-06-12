@@ -108,26 +108,6 @@ export function ProductCard({
         )}
       </div>
 
-      <button
-        type="button"
-        aria-label={`Favoritar ${nome}`}
-        className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-zinc-500 shadow-sm transition-colors hover:border-[#FF5A5F] hover:text-[#FF5A5F]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M19.5 12.6 12 20l-7.5-7.4a5 5 0 0 1 7.1-7.1l.4.4.4-.4a5 5 0 0 1 7.1 7.1Z" />
-        </svg>
-      </button>
-
       <div className="h-48 w-full overflow-hidden bg-zinc-50">
         {imagemUrl ? (
           <img

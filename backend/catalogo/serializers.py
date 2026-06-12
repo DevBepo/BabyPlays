@@ -166,6 +166,8 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
 class BrinquedoAdminSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
+    imagem_principal = serializers.SerializerMethodField()
+    imagens = serializers.SerializerMethodField()
     periodos_disponiveis = serializers.SerializerMethodField()
     categoria = CategoriaField(
         queryset=Categoria.objects.all(),
@@ -189,8 +191,16 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "ativo",
             "data_cadastro",
             "quantidade_disponivel",
+            "imagem_principal",
+            "imagens",
         )
-        read_only_fields = ("id", "data_cadastro", "quantidade_disponivel")
+        read_only_fields = (
+            "id",
+            "data_cadastro",
+            "quantidade_disponivel",
+            "imagem_principal",
+            "imagens",
+        )
         extra_kwargs = {"preco_aluguel": {"required": False}}
 
     def validate(self, attrs):
@@ -206,6 +216,34 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
+
+    def get_imagens_ativas(self, obj):
+        imagens = getattr(obj, "imagens_publicas", None)
+        if imagens is not None:
+            return imagens
+        return obj.imagens.filter(ativo=True).order_by("-principal", "ordem", "id")
+
+    def get_imagem_principal(self, obj):
+        imagens = self.get_imagens_ativas(obj)
+        for imagem in imagens:
+            if imagem.principal:
+                return ImagemBrinquedoPublicSerializer(
+                    imagem,
+                    context=self.context,
+                ).data
+        if imagens:
+            return ImagemBrinquedoPublicSerializer(
+                imagens[0],
+                context=self.context,
+            ).data
+        return None
+
+    def get_imagens(self, obj):
+        return ImagemBrinquedoPublicSerializer(
+            self.get_imagens_ativas(obj),
+            many=True,
+            context=self.context,
+        ).data
 
 
 BrinquedoSerializer = BrinquedoAdminSerializer

@@ -41,8 +41,14 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
     # Usa o tradutor que acabamos de criar
     serializer_class = BrinquedoAdminSerializer
 
+    def is_admin_request(self):
+        user = self.request.user
+        return bool(user and user.is_authenticated and user.is_staff)
+
     def get_serializer_class(self):
-        if self.action in ["list", "retrieve", "disponibilidade"]:
+        if self.action in ["list", "retrieve"] and not self.is_admin_request():
+            return BrinquedoPublicSerializer
+        if self.action == "disponibilidade":
             return BrinquedoPublicSerializer
         return BrinquedoAdminSerializer
 
@@ -51,6 +57,8 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
         Retorna o queryset de brinquedos consumindo a camada de serviço.
         Isso centraliza a lógica de consulta no BrinquedoService.
         """
+        if self.action in ["list", "retrieve"] and self.is_admin_request():
+            return BrinquedoService.list_all()
         if self.action in ["list", "retrieve", "disponibilidade"]:
             return BrinquedoService.list_public_catalog()
         return BrinquedoService.list_all()

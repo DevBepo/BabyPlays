@@ -398,6 +398,14 @@ class AceiteContratoAdminSerializer(serializers.ModelSerializer):
         source="contrato_versao_snapshot",
         read_only=True,
     )
+    titulo_aceito = serializers.CharField(
+        source="contrato_titulo_snapshot",
+        read_only=True,
+    )
+    texto_aceito = serializers.CharField(
+        source="contrato_texto_snapshot",
+        read_only=True,
+    )
 
     class Meta:
         model = AceiteContrato
@@ -405,6 +413,8 @@ class AceiteContratoAdminSerializer(serializers.ModelSerializer):
             "id",
             "contrato",
             "versao_aceita",
+            "titulo_aceito",
+            "texto_aceito",
             "aceito_em",
             "nome_cliente_snapshot",
             "email_cliente_snapshot",
@@ -613,8 +623,47 @@ class ContratoSerializer(serializers.ModelSerializer):
             "versao",
             "titulo",
             "texto",
+            "ativo",
+            "criado_em",
+            "atualizado_em",
         )
         read_only_fields = fields
+
+
+class AdminContratoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contrato
+        fields = (
+            "id",
+            "titulo",
+            "versao",
+            "texto",
+            "ativo",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = ("id", "ativo", "criado_em", "atualizado_em")
+        extra_kwargs = {
+            "versao": {"required": False},
+        }
+
+    def validate_titulo(self, value):
+        value = str(value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Titulo do contrato e obrigatorio.")
+        return value
+
+    def validate_versao(self, value):
+        value = str(value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Versao do contrato e obrigatoria.")
+        return value
+
+    def validate_texto(self, value):
+        value = str(value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Texto do contrato e obrigatorio.")
+        return value
 
 
 class AceitarContratoSerializer(serializers.Serializer):
@@ -696,6 +745,9 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
         allow_blank=True,
         trim_whitespace=True,
     )
+    contrato_aceito = serializers.BooleanField()
+    contrato_id = serializers.IntegerField(min_value=1)
+    contrato_versao = serializers.CharField(max_length=50, trim_whitespace=True)
 
     campos_proibidos = {
         "distancia_km",
@@ -711,6 +763,12 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
         "total",
         "total_estimado",
         "total_estimado_snapshot",
+        "contrato_texto_snapshot",
+        "contrato_titulo_snapshot",
+        "contrato_versao_snapshot",
+        "aceito_em",
+        "ip",
+        "user_agent",
     }
 
     def validate(self, attrs):
@@ -736,6 +794,10 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
                         "inicial da locacao."
                     )
                 }
+            )
+        if attrs.get("contrato_aceito") is not True:
+            raise serializers.ValidationError(
+                {"contrato_aceito": "O contrato precisa ser aceito para finalizar o pedido."}
             )
         return attrs
 
@@ -772,4 +834,7 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
             "cep": self.validated_data["cep"],
             "numero": self.validated_data["numero"],
             "complemento": self.validated_data.get("complemento", ""),
+            "contrato_aceito": self.validated_data["contrato_aceito"],
+            "contrato_id": self.validated_data["contrato_id"],
+            "contrato_versao": self.validated_data["contrato_versao"],
         }

@@ -20,7 +20,18 @@ class BrinquedoService:
     @staticmethod
     def list_all():
         """Retorna um queryset com todos os brinquedos."""
-        return Brinquedo.objects.select_related("categoria")
+        imagens_publicas = ImagemBrinquedo.objects.filter(ativo=True).order_by(
+            "-principal",
+            "ordem",
+            "id",
+        )
+        return Brinquedo.objects.select_related("categoria").prefetch_related(
+            Prefetch(
+                "imagens",
+                queryset=imagens_publicas,
+                to_attr="imagens_publicas",
+            )
+        )
 
     @staticmethod
     def list_public_catalog():

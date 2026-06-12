@@ -232,6 +232,14 @@ export function apiPatch<T>(
   return apiRequest<T>(path, { ...options, method: "PATCH", body });
 }
 
+export function apiPut<T>(
+  path: string,
+  body?: unknown,
+  options: Omit<ApiRequestOptions, "body" | "method"> = {},
+): Promise<T> {
+  return apiRequest<T>(path, { ...options, method: "PUT", body });
+}
+
 export function apiDelete<T>(
   path: string,
   options: Omit<ApiRequestOptions, "body" | "method"> = {},

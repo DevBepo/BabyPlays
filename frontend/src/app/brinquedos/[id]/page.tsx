@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CartProvider } from "@/contexts/CartContext";
 import { useCart } from "@/hooks/useCart";
 import { adicionarAoCarrinho } from "@/services/cart";
 import { listarBrinquedos } from "@/services/catalogo";
@@ -286,9 +285,5 @@ function BrinquedoDetalheContent() {
 }
 
 export default function BrinquedoDetalhePage() {
-  return (
-    <CartProvider>
-      <BrinquedoDetalheContent />
-    </CartProvider>
-  );
+  return <BrinquedoDetalheContent />;
 }

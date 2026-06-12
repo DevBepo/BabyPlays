@@ -1,5 +1,4 @@
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
-import { getCsrfToken } from "@/lib/csrf";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 
 export interface ItemCarrinho {
   id: number;
@@ -45,7 +44,7 @@ export function removerItemCarrinho(itemId: number): Promise<void> {
 }
 
 export function limparCarrinho(): Promise<void> {
-  return apiPost("/api/carrinho/limpar/", {});
+  return apiDelete("/api/carrinho/limpar/");
 }
 
 export function converterCarrinhoEmPedido(dados: {
@@ -59,23 +58,16 @@ export function converterCarrinhoEmPedido(dados: {
   numero: string;
   complemento?: string;
   observacoes?: string;
-}): Promise<any> {
-  return apiPost("/api/pedidos/converter-carrinho/", dados);
+  contrato_aceito: boolean;
+  contrato_id: number;
+  contrato_versao: string;
+}): Promise<unknown> {
+  return apiPost<unknown>("/api/pedidos/converter-carrinho/", dados);
 }
 
-export async function atualizarQuantidadeItem(itemId:number, quantidade: number): Promise<any> {
-
-  const csrfToken = await getCsrfToken();
-
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/carrinho/itens/${itemId}/`,{
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": csrfToken,
-    },
-    credentials: "include",
-    body: JSON.stringify({quantidade})
-  });
-  if (!response.ok) throw new Error("Falha ao atualizar a quantidade")
-    return response.json();
+export function atualizarQuantidadeItem(
+  itemId: number,
+  quantidade: number,
+): Promise<ItemCarrinho> {
+  return apiPatch<ItemCarrinho>(`/api/carrinho/itens/${itemId}/`, { quantidade });
 }

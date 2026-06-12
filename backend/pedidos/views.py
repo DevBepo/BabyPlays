@@ -1,19 +1,21 @@
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import AceiteContrato, ItemCarrinho, Pedido, ReservaUnidade
+from .models import AceiteContrato, Contrato, ItemCarrinho, Pedido, ReservaUnidade
 from .serializers import (
     AceitarContratoSerializer,
     AceiteContratoSerializer,
     AdicionarItemCarrinhoSerializer,
     AdminAgendaQuerySerializer,
     AdminAgendaResponseSerializer,
+    AdminContratoSerializer,
     AlterarItemCarrinhoSerializer,
     CarrinhoSerializer,
     ConfirmacaoPedidoSerializer,
@@ -102,6 +104,7 @@ class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
             carrinho,
             serializer.dados_para_pedido(),
             request.user,
+            request=request,
         )
         return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
 
@@ -324,6 +327,96 @@ class AdminAgendaView(APIView):
             status=dados.get("status"),
         )
         return Response(AdminAgendaResponseSerializer(agenda).data)
+
+
+class AdminContratoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get_contrato(self):
+        return Contrato.objects.filter(ativo=True).first()
+
+    def gerar_versao(self):
+        base = timezone.localtime().strftime("%Y%m%d%H%M%S")
+        versao = f"admin-{base}"
+        contador = 2
+
+        while Contrato.objects.filter(versao=versao).exists():
+            versao = f"admin-{base}-{contador}"
+            contador += 1
+
+        return versao
+
+    def get(self, request):
+        contrato = self.get_contrato()
+        if not contrato:
+            return Response(
+                {"detail": "Nenhum contrato ativo cadastrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(AdminContratoSerializer(contrato).data)
+
+    def put(self, request):
+        return self.salvar(request, partial=False)
+
+    def patch(self, request):
+        return self.salvar(request, partial=True)
+
+    def salvar(self, request, partial):
+        contrato = self.get_contrato()
+        serializer = AdminContratoSerializer(
+            contrato,
+            data=request.data,
+            partial=partial,
+        )
+        serializer.is_valid(raise_exception=True)
+        dados = serializer.validated_data
+
+        if contrato and contrato.aceites.exists():
+            titulo = dados.get("titulo", contrato.titulo)
+            versao = dados.get("versao", contrato.versao)
+            texto = dados.get("texto", contrato.texto)
+            houve_mudanca = (
+                titulo != contrato.titulo
+                or versao != contrato.versao
+                or texto != contrato.texto
+            )
+            if not houve_mudanca:
+                return Response(AdminContratoSerializer(contrato).data)
+
+            versao = dados.get("versao") or self.gerar_versao()
+            if Contrato.objects.filter(versao=versao).exclude(pk=contrato.pk).exists():
+                return Response(
+                    {"versao": "Ja existe um contrato com esta versao."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            contrato.ativo = False
+            contrato.full_clean()
+            contrato.save(update_fields=["ativo", "atualizado_em"])
+            novo_contrato = Contrato(
+                titulo=titulo,
+                versao=versao,
+                texto=texto,
+                ativo=True,
+            )
+            novo_contrato.full_clean()
+            novo_contrato.save()
+            return Response(
+                AdminContratoSerializer(novo_contrato).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        if contrato:
+            serializer.save(ativo=True)
+            return Response(AdminContratoSerializer(contrato).data)
+
+        if not dados.get("versao"):
+            serializer.validated_data["versao"] = self.gerar_versao()
+        novo_contrato = serializer.save(ativo=True)
+        return Response(
+            AdminContratoSerializer(novo_contrato).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AdminReservarUnidadesPedidoView(APIView):
