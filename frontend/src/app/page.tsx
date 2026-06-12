@@ -12,7 +12,6 @@ import { SubNavbar } from "@/components/client/SubNavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CartProvider } from "@/contexts/CartContext";
 import { useCart } from "@/hooks/useCart";
 import { listarBrinquedos, listarKitsFesta } from "@/services/catalogo";
 import { adicionarAoCarrinho } from "@/services/cart";
@@ -597,7 +596,6 @@ export default function Home() {
   }, [kitsFesta.length, loading]);
 
   return (
-    <CartProvider>
     <main className="min-h-screen bg-[#F8F9FA] text-zinc-950">
       <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
       <SubNavbar />
@@ -861,6 +859,5 @@ export default function Home() {
         </div>
       </div>
     </main>
-    </CartProvider>
   );
 }

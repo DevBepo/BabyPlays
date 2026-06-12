@@ -38,6 +38,7 @@ const menuItems = [
   { label: "Categorias", icon: <IconCategory />, href: "/admin/categorias" },
   { label: "Kits Festa", icon: <IconKits />, href: "/admin/kits" },
   { label: "Pedidos", icon: <IconOrders />, href: "/admin/pedidos" },
+  { label: "Contrato", icon: <IconOrders />, href: "/admin/contrato" },
   { label: "Entregas", icon: <IconDelivery />, href: "/admin/entregas" },
 ];
 

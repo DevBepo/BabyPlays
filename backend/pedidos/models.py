@@ -365,6 +365,11 @@ class AceiteContrato(models.Model):
         max_length=50,
         verbose_name="Versao do contrato snapshot",
     )
+    contrato_titulo_snapshot = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Titulo do contrato snapshot",
+    )
     contrato_texto_snapshot = models.TextField(
         verbose_name="Texto do contrato snapshot",
     )

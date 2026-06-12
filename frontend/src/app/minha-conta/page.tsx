@@ -8,7 +8,6 @@ import { Header } from "@/components/client/Header";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { CartProvider } from "@/contexts/CartContext";
 import { useAuth } from "@/hooks/useAuth";
 import { updateMe } from "@/services/auth";
 import { listarMeusPedidos } from "@/services/pedidos";
@@ -232,8 +231,7 @@ export default function MinhaContaPage() {
   }
 
   return (
-    <CartProvider>
-      <main className="min-h-screen bg-[#F8F9FA] text-zinc-950">
+    <main className="min-h-screen bg-[#F8F9FA] text-zinc-950">
         <Header />
 
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
@@ -387,7 +385,6 @@ export default function MinhaContaPage() {
             </section>
           ) : null}
         </div>
-      </main>
-    </CartProvider>
+    </main>
   );
 }

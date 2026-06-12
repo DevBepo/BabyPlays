@@ -494,10 +494,19 @@ export default function DetalhePedidoPage() {
               {pedido.aceite_contrato ? (
                 <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                   <Field label="Contrato" value={`#${pedido.aceite_contrato.contrato}`} />
+                  <Field label="Titulo aceito" value={pedido.aceite_contrato.titulo_aceito} />
                   <Field label="Versao aceita" value={pedido.aceite_contrato.versao_aceita} />
                   <Field label="Aceito em" value={formatDateTime(pedido.aceite_contrato.aceito_em)} />
                   <Field label="Nome no aceite" value={pedido.aceite_contrato.nome_cliente_snapshot} />
                   <Field label="E-mail no aceite" value={pedido.aceite_contrato.email_cliente_snapshot} />
+                  <details className="sm:col-span-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-zinc-800">
+                      Ver texto aceito
+                    </summary>
+                    <div className="mt-3 max-h-72 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-zinc-700">
+                      {pedido.aceite_contrato.texto_aceito}
+                    </div>
+                  </details>
                 </div>
               ) : (
                 <p className="text-sm text-zinc-500">Nenhum aceite de contrato registrado.</p>

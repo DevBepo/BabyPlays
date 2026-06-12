@@ -519,13 +519,29 @@ class PedidoService:
 
     @staticmethod
     @transaction.atomic
-    def converter_carrinho(carrinho, dados_cliente, usuario, taxa_service=None):
+    def converter_carrinho(
+        carrinho,
+        dados_cliente,
+        usuario,
+        taxa_service=None,
+        request=None,
+    ):
         PedidoService._validar_dados_cliente(dados_cliente)
 
         if not usuario or not usuario.is_authenticated:
             raise serializers.ValidationError(
                 {"usuario": "Autenticacao obrigatoria para fechar pedido."}
             )
+
+        contrato = ContratoService.obter_contrato_vigente()
+        ContratoService.validar_dados_aceite(
+            contrato,
+            {
+                "aceito": dados_cliente.get("contrato_aceito"),
+                "contrato_id": dados_cliente.get("contrato_id"),
+                "contrato_versao": dados_cliente.get("contrato_versao"),
+            },
+        )
 
         carrinho = (
             Carrinho.objects.select_for_update()
@@ -612,6 +628,8 @@ class PedidoService:
         carrinho.status = Carrinho.Status.CONVERTIDO
         carrinho.save(update_fields=["status", "atualizado_em"])
 
+        ContratoService.registrar_aceite_do_pedido(pedido, contrato, request)
+
         return pedido
 
 
@@ -626,6 +644,21 @@ class ContratoService:
         if not contrato:
             raise ContratoVigenteAusenteError("Contrato vigente indisponivel.")
         return contrato
+
+    @staticmethod
+    def validar_dados_aceite(contrato, dados):
+        if dados.get("aceito") is not True:
+            raise serializers.ValidationError(
+                {"contrato_aceito": "O contrato precisa ser aceito explicitamente."}
+            )
+        if dados.get("contrato_id") != contrato.id:
+            raise serializers.ValidationError(
+                {"contrato_id": "Contrato divergente do contrato vigente."}
+            )
+        if dados.get("contrato_versao") != contrato.versao:
+            raise serializers.ValidationError(
+                {"contrato_versao": "Versao divergente do contrato vigente."}
+            )
 
     @staticmethod
     def obter_pedido_do_request(request, pedido_id):
@@ -654,7 +687,27 @@ class ContratoService:
 
     @staticmethod
     def _obter_user_agent(request):
+        if request is None:
+            return ""
         return request.META.get("HTTP_USER_AGENT", "")
+
+    @staticmethod
+    def registrar_aceite_do_pedido(pedido, contrato, request=None):
+        aceite = AceiteContrato(
+            pedido=pedido,
+            contrato=contrato,
+            contrato_versao_snapshot=contrato.versao,
+            contrato_titulo_snapshot=contrato.titulo,
+            contrato_texto_snapshot=contrato.texto,
+            nome_cliente_snapshot=pedido.nome_cliente_snapshot,
+            email_cliente_snapshot=pedido.email_cliente_snapshot,
+            aceito_em=timezone.now(),
+            ip=ContratoService._obter_ip(request) if request is not None else None,
+            user_agent=ContratoService._obter_user_agent(request),
+        )
+        aceite.full_clean()
+        aceite.save()
+        return aceite
 
     @staticmethod
     @transaction.atomic
@@ -671,29 +724,15 @@ class ContratoService:
                 {"detail": "Contrato ja aceito para este pedido."}
             )
 
-        if dados.get("contrato_id") != contrato.id:
-            raise serializers.ValidationError(
-                {"contrato_id": "Contrato divergente do contrato vigente."}
-            )
-        if dados.get("contrato_versao") != contrato.versao:
-            raise serializers.ValidationError(
-                {"contrato_versao": "Versao divergente do contrato vigente."}
-            )
-
-        aceite = AceiteContrato(
-            pedido=pedido,
-            contrato=contrato,
-            contrato_versao_snapshot=contrato.versao,
-            contrato_texto_snapshot=contrato.texto,
-            nome_cliente_snapshot=pedido.nome_cliente_snapshot,
-            email_cliente_snapshot=pedido.email_cliente_snapshot,
-            aceito_em=timezone.now(),
-            ip=ContratoService._obter_ip(request),
-            user_agent=ContratoService._obter_user_agent(request),
+        ContratoService.validar_dados_aceite(
+            contrato,
+            {
+                "aceito": dados.get("aceito"),
+                "contrato_id": dados.get("contrato_id"),
+                "contrato_versao": dados.get("contrato_versao"),
+            },
         )
-        aceite.full_clean()
-        aceite.save()
-        return aceite
+        return ContratoService.registrar_aceite_do_pedido(pedido, contrato, request)
 
 
 class ReservaPedidoService:
