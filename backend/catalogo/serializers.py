@@ -356,9 +356,13 @@ class KitFestaPublicSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url)
         return url
 
+class ItemKitFestaWriteSerializer(serializers.Serializer):
+    brinquedo_id = serializers.IntegerField(min_value=1)
+    quantidade = serializers.IntegerField(min_value=1)
 
 class KitFestaAdminSerializer(serializers.ModelSerializer):
     itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
+    itens_enviados = ItemKitFestaWriteSerializer(many=True, write_only=True, required=False)
     periodos_disponiveis = serializers.SerializerMethodField()
     imagem_url = serializers.SerializerMethodField()
 
@@ -378,6 +382,7 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
             "ativo",
             "ordem",
             "itens",
+            "itens_enviados", 
             "criado_em",
             "atualizado_em",
         )
@@ -390,7 +395,6 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
     def get_imagem_url(self, obj):
         if not obj.imagem:
             return None
-
         url = obj.imagem.url
         request = self.context.get("request")
         if request:
@@ -401,6 +405,34 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         validar_precos_por_periodo(attrs, self.instance)
         return sincronizar_preco_legado(attrs, self.instance)
+
+    def create(self, validated_data):
+        itens_data = validated_data.pop('itens_enviados', [])
+        kit_festa = super().create(validated_data)
+        self._salvar_itens(kit_festa, itens_data)
+        return kit_festa
+
+    def update(self, instance, validated_data):
+        itens_data = validated_data.pop('itens_enviados', None)
+        kit_festa = super().update(instance, validated_data)
+        if itens_data is not None:
+            self._salvar_itens(kit_festa, itens_data)
+        return kit_festa
+
+    def _salvar_itens(self, kit_festa, itens_data):
+        from .models import ItemKitFesta
+        kit_festa.itens.all().delete() # Limpa os antigos
+        novos_itens = [
+            ItemKitFesta(
+                kit=kit_festa,
+                brinquedo_id=item['brinquedo_id'],
+                quantidade=item['quantidade'],
+                ordem=index
+            )
+            for index, item in enumerate(itens_data)
+        ]
+        ItemKitFesta.objects.bulk_create(novos_itens) 
+
 
 
 class RegraCategoriaKitPersonalizavelPublicSerializer(serializers.ModelSerializer):
@@ -416,7 +448,6 @@ class RegraCategoriaKitPersonalizavelPublicSerializer(serializers.ModelSerialize
             "ordem",
         )
         read_only_fields = fields
-
 
 class ConfiguracaoKitPersonalizavelPublicSerializer(serializers.ModelSerializer):
     categorias_permitidas = CategoriaResumoSerializer(many=True, read_only=True)

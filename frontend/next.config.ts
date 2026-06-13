@@ -16,7 +16,13 @@ const nextConfig: NextConfig = {
         hostname: "127.0.0.1",
         port: "8000",
       },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "8000",
+      },
     ],
+    unoptimized: process.env.NODE_ENV === "development",
   },
   reactCompiler: true,
 };

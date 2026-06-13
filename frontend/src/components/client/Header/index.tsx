@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { getAdminMe } from "@/services/auth";
-import { atualizarQuantidadeItem, removerItemCarrinho } from "@/services/cart";
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -29,12 +28,6 @@ const IconCart = () => (
   </svg>
 );
 
-const IconTrash = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-  </svg>
-);
-
 type HeaderProps = {
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
@@ -42,49 +35,31 @@ type HeaderProps = {
 
 export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   const router = useRouter();
-  const cartRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
-  const [removendoId, setRemovendoId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [verificandoAdmin, setVerificandoAdmin] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   
-  // NOVO: Estado para gerenciar o loading da atualização de quantidade
-  const [atualizandoId, setAtualizandoId] = useState<number | null>(null);
-  
   const { cliente, user, isAuthenticated, logout } = useAuth();
-  const {
-    carrinho,
-    cartLoading,
-    closeCart,
-    isCartOpen,
-    refreshCart,
-    toggleCart,
-  } = useCart();
+  const { carrinho } = useCart(); // Só precisamos do carrinho para ver a quantidade
+  
   const currentSearchQuery = searchQuery ?? localSearchQuery;
   const accountLabel = cliente?.nome ?? user?.email ?? "cliente";
 
-  // Fechar o carrinho ao clicar fora dele
+  // Fechar o menu da conta ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
-        closeCart();
-      }
-
-      if (
-        accountRef.current &&
-        !accountRef.current.contains(event.target as Node)
-      ) {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
         setIsAccountMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [closeCart]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -100,18 +75,11 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
 
       try {
         const data = await getAdminMe();
-
-        if (active) {
-          setIsAdmin(data.is_staff || data.is_superuser);
-        }
+        if (active) setIsAdmin(data.is_staff || data.is_superuser);
       } catch {
-        if (active) {
-          setIsAdmin(false);
-        }
+        if (active) setIsAdmin(false);
       } finally {
-        if (active) {
-          setVerificandoAdmin(false);
-        }
+        if (active) setVerificandoAdmin(false);
       }
     }
 
@@ -147,35 +115,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     }
   };
 
-  const handleRemoverItem = async (itemId: number) => {
-    setRemovendoId(itemId);
-    try {
-      await removerItemCarrinho(itemId);
-      await refreshCart();
-    } catch {
-      alert("Erro ao remover item do carrinho.");
-    } finally {
-      setRemovendoId(null);
-    }
-  };
-
-  // NOVO: Função para lidar com o clique nos botões + e -
-  const handleAtualizarQuantidade = async (itemId: number, novaQuantidade: number) => {
-    if (novaQuantidade < 1) return; // Segurança
-    
-    setAtualizandoId(itemId);
-    try {
-      await atualizarQuantidadeItem(itemId, novaQuantidade);
-      await refreshCart(); // Usa a função do seu hook para atualizar os dados!
-    } catch (err) {
-      alert("Erro ao atualizar a quantidade.");
-    } finally {
-      setAtualizandoId(null);
-    }
-  };
-
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
-  const valorTotal = carrinho?.itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0) || 0;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
@@ -326,13 +266,12 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
 
           <div className="h-6 w-px bg-zinc-200 hidden sm:block"></div>
 
-          {/* ÁREA DO CARRINHO COM DROPDOWN */}
-          <div className="relative" ref={cartRef}>
-            <button
-              type="button"
-              onClick={() => void toggleCart()}
-              aria-label="Ver carrinho de compras"
-              className="relative p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 rounded-full transition-colors cursor-pointer group"
+          {/* ÁREA DO CARRINHO - AGORA É SÓ UM ATALHO */}
+          <div className="relative">
+            <Link
+              href="#carrinho"
+              aria-label="Ir para o carrinho"
+              className="relative p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 rounded-full transition-colors cursor-pointer group flex items-center justify-center"
             >
               <IconCart />
               {quantidadeCarrinho > 0 && (
@@ -340,101 +279,9 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
                   {quantidadeCarrinho}
                 </span>
               )}
-            </button>
-
-            {/* O Dropdown do Carrinho */}
-            {isCartOpen && (
-              <div className="absolute right-0 top-full z-50 mt-4 flex w-[calc(100vw-2rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
-                <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
-                  <h3 className="font-bold text-zinc-900">O seu carrinho</h3>
-                  <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>
-                </div>
-
-                <div className="p-4 max-h-[300px] overflow-y-auto flex flex-col gap-4 z-10 relative bg-white">
-                  {cartLoading ? (
-                    <p className="text-center text-sm text-zinc-400 py-4 animate-pulse">A carregar...</p>
-                  ) : quantidadeCarrinho === 0 ? (
-                    <div className="text-center py-6 flex flex-col items-center">
-                      <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3 text-zinc-300">
-                        <IconCart />
-                      </div>
-                      <p className="text-sm text-zinc-500">O carrinho está vazio.</p>
-                    </div>
-                  ) : (
-                    carrinho?.itens.map((item) => (
-                      <div key={item.id} className="flex gap-3 group items-center bg-white p-2 rounded-lg border border-transparent hover:border-zinc-100 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h4>
-                          <span className="text-sm font-bold text-teal-600 block mt-0.5">R$ {item.subtotal_snapshot}</span>
-                        </div>
-                        
-                        {/* NOVO: Controles de Quantidade */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center border border-zinc-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                            <button
-                              type="button"
-                              onClick={() => handleAtualizarQuantidade(item.id, item.quantidade - 1)}
-                              disabled={item.quantidade <= 1 || atualizandoId === item.id}
-                              className="w-7 h-7 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 transition-colors"
-                            >
-                              <span className="text-lg font-medium leading-none mb-0.5">-</span>
-                            </button>
-                            <span className="w-8 text-center text-xs font-bold text-zinc-800">
-                              {atualizandoId === item.id ? (
-                                <span className="block w-3 h-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin mx-auto" />
-                              ) : (
-                                item.quantidade
-                              )}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleAtualizarQuantidade(item.id, item.quantidade + 1)}
-                              disabled={atualizandoId === item.id}
-                              className="w-7 h-7 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 transition-colors"
-                            >
-                              <span className="text-lg font-medium leading-none mb-0.5">+</span>
-                            </button>
-                          </div>
-
-                          {/* Lixeira (Apagar tudo do item) */}
-                          <button
-                            onClick={() => handleRemoverItem(item.id)}
-                            disabled={removendoId === item.id}
-                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-                            title="Remover item do carrinho"
-                          >
-                            {removendoId === item.id ? (
-                              <span className="block w-4 h-4 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-                            ) : (
-                              <IconTrash />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {quantidadeCarrinho > 0 && (
-                  <div className="p-4 border-t border-zinc-100 bg-zinc-50 z-10 relative">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-sm text-zinc-600 font-medium">Total:</span>
-                      <span className="text-lg font-black text-teal-600">R$ {valorTotal.toFixed(2)}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        closeCart();
-                        router.push("/checkout");
-                      }}
-                      className="w-full py-3 bg-[#FF5A5F] hover:bg-[#ff444a] text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-red-500/20"
-                    >
-                      Finalizar Pedido
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            </Link>
           </div>
+
         </div>
       </div>
     </header>

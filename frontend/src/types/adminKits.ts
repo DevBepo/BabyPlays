@@ -26,4 +26,5 @@ export type CriarKitFestaPayload = {
   preco_30_dias?: string | null;
   ativo: boolean;
   ordem: number;
+  itens_enviados?: Array<{ brinquedo_id: number; quantidade: number }>; // Novo campo!
 };
