@@ -14,6 +14,8 @@ from .services import AdminPedidoAcoesService, AgendaAdminService, CarrinhoServi
 
 
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
+    imagem_url = serializers.SerializerMethodField()
+
     class Meta:
         model = ItemCarrinho
         fields = (
@@ -24,6 +26,7 @@ class ItemCarrinhoSerializer(serializers.ModelSerializer):
             "configuracao_kit_personalizavel",
             "quantidade",
             "nome_snapshot",
+            "imagem_url",
             "preco_unitario_snapshot",
             "subtotal_snapshot",
             "snapshot",
@@ -31,6 +34,29 @@ class ItemCarrinhoSerializer(serializers.ModelSerializer):
             "atualizado_em",
         )
         read_only_fields = fields
+
+    def get_imagem_url(self, obj):
+        imagem = None
+
+        if obj.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO and obj.brinquedo_id:
+            imagem_principal = (
+                obj.brinquedo.imagens.filter(ativo=True)
+                .order_by("-principal", "ordem", "id")
+                .first()
+            )
+            if imagem_principal:
+                imagem = imagem_principal.imagem
+        elif obj.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA and obj.kit_festa_id:
+            imagem = obj.kit_festa.imagem
+
+        if not imagem:
+            return None
+
+        url = imagem.url
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class CarrinhoSerializer(serializers.ModelSerializer):

@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { getAdminMe } from "@/services/auth";
 import { removerItemCarrinho } from "@/services/cart";
+import { resolveMediaUrl } from "@/lib/media-url";
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -345,6 +346,19 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
                   ) : (
                     carrinho?.itens.map((item) => (
                       <div key={item.id} className="flex gap-3 group">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+                          {resolveMediaUrl(item.imagem_url) ? (
+                            <img
+                              src={resolveMediaUrl(item.imagem_url) ?? undefined}
+                              alt={item.nome_snapshot}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="px-1 text-center text-[10px] text-zinc-400">
+                              Sem imagem
+                            </span>
+                          )}
+                        </div>
                         <div className="flex-1">
                           <h4 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h4>
                           {item.snapshot.periodo_locacao ? (

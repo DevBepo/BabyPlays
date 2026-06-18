@@ -5,6 +5,7 @@ export interface ItemCarrinho {
   tipo_item: "BRINQUEDO" | "KIT_FESTA" | "KIT_PERSONALIZADO";
   quantidade: number;
   nome_snapshot: string;
+  imagem_url: string | null;
   preco_unitario_snapshot: string;
   subtotal_snapshot: string;
   snapshot: {

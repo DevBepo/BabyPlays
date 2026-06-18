@@ -15,6 +15,7 @@ from catalogo.models import (
     Brinquedo,
     Categoria,
     ConfiguracaoKitPersonalizavel,
+    ImagemBrinquedo,
     ItemKitFesta,
     KitFesta,
     RegraCategoriaKitPersonalizavel,
@@ -447,6 +448,44 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["subtotal"], "790.00")
         self.assertEqual(response.data["total_parcial"], "790.00")
+
+    def test_item_brinquedo_expoe_imagem_principal_no_carrinho(self):
+        ImagemBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            imagem="catalogo/brinquedos/cama-elastica.jpg",
+            principal=True,
+        )
+
+        response = self.adicionar_brinquedo()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["imagem_url"],
+            "http://testserver/media/catalogo/brinquedos/cama-elastica.jpg",
+        )
+        carrinho_response = self.client.get(self.carrinho_url)
+        self.assertEqual(
+            carrinho_response.data["itens"][0]["imagem_url"],
+            "http://testserver/media/catalogo/brinquedos/cama-elastica.jpg",
+        )
+
+    def test_item_kit_festa_expoe_imagem_propria_no_carrinho(self):
+        self.kit_festa.imagem = "catalogo/kits-festa/kit-diversao.jpg"
+        self.kit_festa.save(update_fields=["imagem"])
+
+        response = self.adicionar_kit_festa()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["imagem_url"],
+            "http://testserver/media/catalogo/kits-festa/kit-diversao.jpg",
+        )
+
+    def test_item_sem_imagem_expoe_imagem_url_nula(self):
+        response = self.adicionar_brinquedo()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data["imagem_url"])
 
     def test_alterar_quantidade_recalcula_subtotal(self):
         response = self.adicionar_brinquedo(quantidade=1)
