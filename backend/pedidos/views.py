@@ -54,7 +54,9 @@ class CarrinhoMixin:
 class CarrinhoAtualView(CarrinhoMixin, APIView):
     def get(self, request):
         carrinho = self.get_carrinho()
-        return Response(CarrinhoSerializer(carrinho).data)
+        return Response(
+            CarrinhoSerializer(carrinho, context={"request": request}).data
+        )
 
 
 class ItemCarrinhoView(CarrinhoMixin, APIView):
@@ -64,7 +66,7 @@ class ItemCarrinhoView(CarrinhoMixin, APIView):
         serializer.is_valid(raise_exception=True)
         item = CarrinhoService.adicionar_item(carrinho, serializer.validated_data)
         return Response(
-            ItemCarrinhoSerializer(item).data,
+            ItemCarrinhoSerializer(item, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -78,7 +80,9 @@ class ItemCarrinhoDetalheView(CarrinhoMixin, APIView):
             item,
             serializer.validated_data["quantidade"],
         )
-        return Response(ItemCarrinhoSerializer(item).data)
+        return Response(
+            ItemCarrinhoSerializer(item, context={"request": request}).data
+        )
 
     def delete(self, request, item_id):
         item = self.get_item_do_carrinho(item_id)
