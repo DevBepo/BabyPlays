@@ -101,12 +101,16 @@ Configure no Railway Variables do servico de frontend:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app
+NEXT_PUBLIC_BABYPLAYS_WHATSAPP=<numero-internacional-somente-digitos>
+NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL=<url-completa-do-instagram>
 ```
 
 Quando migrar para o dominio final:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br
+NEXT_PUBLIC_BABYPLAYS_WHATSAPP=<numero-internacional-somente-digitos>
+NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL=<url-completa-do-instagram>
 ```
 
 Alterar `NEXT_PUBLIC_API_BASE_URL` exige novo build/redeploy do frontend, porque a variavel e embutida no build Next.js.

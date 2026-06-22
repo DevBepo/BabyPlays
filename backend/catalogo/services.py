@@ -5,7 +5,9 @@ from rest_framework import serializers
 from .models import (
     Brinquedo,
     ConfiguracaoKitPersonalizavel,
+    DedicacaoUnidadeKit,
     ImagemBrinquedo,
+    InteresseDisponibilidade,
     ItemKitFesta,
     KitFesta,
     UnidadeBrinquedo,
@@ -46,7 +48,10 @@ class BrinquedoService:
             .annotate(
                 quantidade_disponivel_anotada=Count(
                     "unidades",
-                    filter=Q(unidades__status=UnidadeBrinquedo.Status.DISPONIVEL),
+                    filter=(
+                        Q(unidades__status=UnidadeBrinquedo.Status.DISPONIVEL)
+                        & Q(unidades__dedicacao_kit__isnull=True)
+                    ),
                 )
             )
             .prefetch_related(
@@ -65,6 +70,7 @@ class BrinquedoService:
         return UnidadeBrinquedo.objects.filter(
             brinquedo=brinquedo,
             status=UnidadeBrinquedo.Status.DISPONIVEL,
+            dedicacao_kit__isnull=True,
         )
 
     @staticmethod
@@ -120,8 +126,19 @@ class UnidadeBrinquedoOperacaoService:
                 }
             )
 
+        tinha_disponibilidade_avulsa = BrinquedoService.quantidade_disponivel(
+            unidade.brinquedo
+        ) > 0
         unidade.status = UnidadeBrinquedo.Status.DISPONIVEL
         unidade.save(update_fields=["status", "atualizado_em"])
+        if (
+            not tinha_disponibilidade_avulsa
+            and not DedicacaoUnidadeKit.objects.filter(unidade=unidade).exists()
+        ):
+            InteresseDisponibilidade.objects.filter(
+                brinquedo=unidade.brinquedo,
+                status=InteresseDisponibilidade.Status.PENDENTE,
+            ).update(disponibilidade_destacada=True)
         return unidade
 
 
@@ -172,6 +189,7 @@ class KitFestaService:
             if kit_festa.ativo:
                 kit_festa.ativo = False
                 kit_festa.save(update_fields=["ativo", "atualizado_em"])
+                DedicacaoUnidadeKit.objects.filter(item_kit__kit=kit_festa).delete()
             return "desativado"
 
         kit_festa.delete()
@@ -222,7 +240,10 @@ class KitPersonalizavelService:
             .annotate(
                 quantidade_disponivel_anotada=Count(
                     "unidades",
-                    filter=Q(unidades__status=UnidadeBrinquedo.Status.DISPONIVEL),
+                    filter=(
+                        Q(unidades__status=UnidadeBrinquedo.Status.DISPONIVEL)
+                        & Q(unidades__dedicacao_kit__isnull=True)
+                    ),
                 )
             )
             .prefetch_related(
@@ -355,6 +376,7 @@ class DisponibilidadeService:
             UnidadeBrinquedo.objects.filter(
                 brinquedo=brinquedo,
                 status=UnidadeBrinquedo.Status.DISPONIVEL,
+                dedicacao_kit__isnull=True,
             )
             .exclude(
                 reservas__status=ReservaUnidade.Status.ATIVA,
@@ -420,18 +442,33 @@ class DisponibilidadeService:
 
     @staticmethod
     def verificar_kit_festa(kit_festa, data_inicio, data_fim, quantidade):
-        itens = [
-            {
-                "brinquedo": item.brinquedo,
-                "quantidade_necessaria": item.quantidade * quantidade,
-            }
-            for item in kit_festa.itens.select_related("brinquedo").all()
-        ]
-        disponivel, resultado_itens = DisponibilidadeService._verificar_itens(
-            itens,
-            data_inicio,
-            data_fim,
-        )
+        resultado_itens = []
+        disponivel = quantidade == 1
+        for item in kit_festa.itens.select_related("brinquedo").prefetch_related(
+            "unidades_dedicadas__unidade"
+        ):
+            unidades = [dedicacao.unidade for dedicacao in item.unidades_dedicadas.all()]
+            livres = [
+                unidade
+                for unidade in unidades
+                if unidade.status == UnidadeBrinquedo.Status.DISPONIVEL
+                and not unidade.reservas.filter(
+                    status=ReservaUnidade.Status.ATIVA,
+                    data_inicio__lt=data_fim,
+                    data_fim__gt=data_inicio,
+                ).exists()
+            ]
+            item_disponivel = quantidade == 1 and len(livres) >= item.quantidade
+            disponivel = disponivel and item_disponivel
+            resultado_itens.append(
+                {
+                    "brinquedo_id": item.brinquedo_id,
+                    "nome": item.brinquedo.nome,
+                    "quantidade_necessaria": item.quantidade * quantidade,
+                    "quantidade_disponivel": len(livres),
+                    "disponivel": item_disponivel,
+                }
+            )
         return {
             "disponivel": disponivel,
             "data_inicio": data_inicio,

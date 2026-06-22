@@ -50,6 +50,34 @@ export function listarKitsFesta(): Promise<KitFestaCatalogo[]> {
   return apiGet<KitFestaCatalogo[]>(CATALOGO_ENDPOINTS.kitsFesta);
 }
 
+export type InteresseDisponibilidade = {
+  id: number;
+  brinquedo: number;
+  brinquedo_nome: string;
+  status: "pendente" | "contatado" | "cancelado";
+  cliente_nome?: string;
+  cliente_telefone?: string;
+  disponibilidade_destacada?: boolean;
+  criado_em?: string;
+};
+
+export function criarInteresseDisponibilidade(
+  brinquedo: number,
+): Promise<InteresseDisponibilidade> {
+  return apiPost<InteresseDisponibilidade>("/api/interesses-disponibilidade/", { brinquedo });
+}
+
+export function listarInteressesAdmin(): Promise<InteresseDisponibilidade[]> {
+  return apiGet<InteresseDisponibilidade[]>("/api/admin/interesses-disponibilidade/");
+}
+
+export function atualizarInteresseAdmin(
+  id: number,
+  status: "contatado" | "cancelado",
+): Promise<InteresseDisponibilidade> {
+  return apiPatch<InteresseDisponibilidade>(`/api/admin/interesses-disponibilidade/${id}/`, { status });
+}
+
 export type CriarBrinquedoPayload = {
   nome: string;
   descricao: string;

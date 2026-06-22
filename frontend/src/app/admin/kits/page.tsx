@@ -18,11 +18,11 @@ import {
   removerImagemAdminKitFesta,
   uploadImagemAdminKitFesta,
 } from "@/services/adminKits";
-import { listarBrinquedos } from "@/services/catalogo";
+import { listarBrinquedos, listarUnidadesBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ApiError, ApiFieldErrors } from "@/types/api";
 import type { AdminKitFesta } from "@/types/adminKits";
-import type { BrinquedoCatalogo } from "@/types/catalogo";
+import type { BrinquedoCatalogo, UnidadeBrinquedoAdmin } from "@/types/catalogo";
 
 type KitFormState = {
   nome: string;
@@ -104,6 +104,8 @@ export default function GestaoKitsPage() {
   const [brinquedosDisponiveis, setBrinquedosDisponiveis] = useState<BrinquedoCatalogo[]>([]);
   const [carregandoBrinquedos, setCarregandoBrinquedos] = useState(false);
   const [quantidadesSelecionadas, setQuantidadesSelecionadas] = useState<Record<number, number>>({});
+  const [unidadesPorBrinquedo, setUnidadesPorBrinquedo] = useState<Record<number, UnidadeBrinquedoAdmin[]>>({});
+  const [unidadesSelecionadas, setUnidadesSelecionadas] = useState<Record<number, number[]>>({});
 
   const kitsOrdenados = useMemo(
     () => [...kits].sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -162,17 +164,24 @@ export default function GestaoKitsPage() {
     setCarregandoBrinquedos(true);
     try {
       const todos = await listarBrinquedos();
-      const lista = Array.isArray(todos) ? todos : (todos as any).results || [];
+      const lista = todos;
       setBrinquedosDisponiveis(lista);
+      const pares = await Promise.all(
+        lista.map(async (brinquedo: BrinquedoCatalogo) => [brinquedo.id, await listarUnidadesBrinquedo(brinquedo.id)] as const),
+      );
+      setUnidadesPorBrinquedo(Object.fromEntries(pares));
       
       // Carrega os brinquedos que já estão salvos neste kit para a "Caixinha"
       const mapQtd: Record<number, number> = {};
+      const mapUnidades: Record<number, number[]> = {};
       kit.itens.forEach(item => {
         if (item.brinquedo && item.brinquedo.id) {
           mapQtd[item.brinquedo.id] = item.quantidade;
+          mapUnidades[item.brinquedo.id] = item.unidades_dedicadas?.map((unidade) => unidade.id) || [];
         }
       });
       setQuantidadesSelecionadas(mapQtd);
+      setUnidadesSelecionadas(mapUnidades);
     } catch (err) {
       console.error("Erro ao carregar brinquedos na edição", err);
     } finally {
@@ -190,15 +199,35 @@ export default function GestaoKitsPage() {
   }
 
   const handleIncrementar = (id: number) => {
-    setQuantidadesSelecionadas(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+    const atuais = unidadesSelecionadas[id] || [];
+    const proxima = (unidadesPorBrinquedo[id] || []).find(
+      (unidade) => unidade.status === "disponivel" && !atuais.includes(unidade.id),
+    );
+    if (!proxima) return;
+    const novas = [...atuais, proxima.id];
+    setUnidadesSelecionadas((prev) => ({ ...prev, [id]: novas }));
+    setQuantidadesSelecionadas((prev) => ({ ...prev, [id]: novas.length }));
   };
 
   const handleDecrementar = (id: number) => {
+    const novas = (unidadesSelecionadas[id] || []).slice(0, -1);
+    setUnidadesSelecionadas((prev) => ({ ...prev, [id]: novas }));
     setQuantidadesSelecionadas(prev => {
-      const atual = prev[id] || 0;
-      if (atual <= 0) return prev;
-      const novo = { ...prev, [id]: atual - 1 };
-      if (novo[id] === 0) delete novo[id];
+      const novo = { ...prev };
+      if (novas.length) novo[id] = novas.length;
+      else delete novo[id];
+      return novo;
+    });
+  };
+
+  const alternarUnidade = (brinquedoId: number, unidadeId: number) => {
+    const atuais = unidadesSelecionadas[brinquedoId] || [];
+    const novas = atuais.includes(unidadeId) ? atuais.filter((id) => id !== unidadeId) : [...atuais, unidadeId];
+    setUnidadesSelecionadas((prev) => ({ ...prev, [brinquedoId]: novas }));
+    setQuantidadesSelecionadas((prev) => {
+      const novo = { ...prev };
+      if (novas.length) novo[brinquedoId] = novas.length;
+      else delete novo[brinquedoId];
       return novo;
     });
   };
@@ -208,8 +237,8 @@ export default function GestaoKitsPage() {
     setSalvando(true); setErro(null); setSucesso(null); setFieldErrors(undefined);
 
     const itensParaEnviar = Object.entries(quantidadesSelecionadas)
-      .filter(([_, qtd]) => qtd > 0)
-      .map(([id, qtd]) => ({ brinquedo_id: parseInt(id), quantidade: qtd }));
+      .filter(([, qtd]) => qtd > 0)
+      .map(([id, qtd]) => ({ brinquedo_id: parseInt(id), quantidade: qtd, unidade_ids: unidadesSelecionadas[parseInt(id)] || [] }));
 
     const payload = {
       nome: form.nome,
@@ -362,6 +391,22 @@ export default function GestaoKitsPage() {
                             <span className="w-4 text-center text-sm font-black text-zinc-800">{qtd}</span>
                             <button type="button" onClick={() => handleIncrementar(brinquedo.id)} className="w-6 h-6 flex items-center justify-center rounded-md bg-white shadow-sm text-teal-600 hover:bg-teal-50 font-bold transition-colors">+</button>
                           </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {(unidadesPorBrinquedo[brinquedo.id] || []).map((unidade) => {
+                            const selecionada = (unidadesSelecionadas[brinquedo.id] || []).includes(unidade.id);
+                            return (
+                              <label key={unidade.id} className="flex items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-[10px] text-zinc-600">
+                                <input
+                                  type="checkbox"
+                                  checked={selecionada}
+                                  disabled={unidade.status !== "disponivel" && !selecionada}
+                                  onChange={() => alternarUnidade(brinquedo.id, unidade.id)}
+                                />
+                                {unidade.codigo}
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
                     );

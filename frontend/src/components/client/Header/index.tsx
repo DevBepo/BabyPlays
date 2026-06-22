@@ -177,9 +177,9 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
             />
           </span>
           <div className="text-xl font-black tracking-tight flex items-center">
-            <span className="text-teal-600">BABYPLAYS</span>
-            <span className="mx-0.5 hidden text-zinc-300 sm:inline">.</span>
-            <span className="hidden text-[#FF5A5F] sm:inline">BRINQUEDOS</span>
+            <span className="text-[#7C3AED]">BABYPLAYS</span>
+            <span className="mx-0.5 hidden text-[#7C3AED] sm:inline">.</span>
+            <span className="hidden text-[#7C3AED] sm:inline">BRINQUEDOS</span>
           </div>
         </Link>
 

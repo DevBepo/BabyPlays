@@ -16,6 +16,8 @@ from .serializers import (
     AdminAgendaQuerySerializer,
     AdminAgendaResponseSerializer,
     AdminContratoSerializer,
+    AlterarStatusPedidoAdminSerializer,
+    AtualizarDatasPedidoAdminSerializer,
     AlterarItemCarrinhoSerializer,
     CarrinhoSerializer,
     ConfirmacaoPedidoSerializer,
@@ -26,6 +28,7 @@ from .serializers import (
     PedidoAdminDetailSerializer,
     PedidoAdminListSerializer,
     PedidoSerializer,
+    RenovarPedidoAdminSerializer,
     ReservaPedidoResultadoSerializer,
 )
 from .services import (
@@ -37,6 +40,7 @@ from .services import (
     OperacaoLocacaoService,
     PedidoService,
     ReservaPedidoService,
+    GestaoAdminPedidoService,
 )
 
 
@@ -242,6 +246,7 @@ class AdminPedidoQuerysetMixin:
                 "reservas_unidades__item_pedido",
                 "reservas_unidades__unidade_brinquedo",
                 "reservas_unidades__unidade_brinquedo__brinquedo",
+                "historico__usuario_admin",
             )
         )
 
@@ -315,6 +320,46 @@ class AdminPedidoDetailView(AdminPedidoQuerysetMixin, APIView):
     def get(self, request, pedido_id):
         pedido = get_object_or_404(self.queryset_detalhe(), id=pedido_id)
         return Response(PedidoAdminDetailSerializer(pedido).data)
+
+    def patch(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        serializer = AtualizarDatasPedidoAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pedido = GestaoAdminPedidoService.atualizar_datas(
+            pedido,
+            request.user,
+            serializer.validated_data.get("data_evento_pretendida"),
+            serializer.validated_data["data_inicio_locacao"],
+            serializer.validated_data["data_fim_locacao"],
+        )
+        pedido = get_object_or_404(self.queryset_detalhe(), id=pedido.id)
+        return Response(PedidoAdminDetailSerializer(pedido).data)
+
+
+class AdminRenovarPedidoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        serializer = RenovarPedidoAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pedido = GestaoAdminPedidoService.renovar(
+            pedido, request.user, serializer.validated_data["nova_data_fim"]
+        )
+        return Response(PedidoSerializer(pedido).data)
+
+
+class AdminAlterarStatusPedidoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        serializer = AlterarStatusPedidoAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pedido = GestaoAdminPedidoService.alterar_status(
+            pedido, request.user, serializer.validated_data["status"]
+        )
+        return Response(PedidoSerializer(pedido).data)
 
 
 class AdminAgendaView(APIView):

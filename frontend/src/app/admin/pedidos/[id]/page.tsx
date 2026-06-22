@@ -12,6 +12,9 @@ import {
   obterAdminPedido,
   registrarRetiradaAdminPedido,
   reservarUnidadesAdminPedido,
+  atualizarDatasAdminPedido,
+  renovarAdminPedido,
+  alterarStatusAdminPedido,
 } from "@/services/adminPedidos";
 import type { ApiError, ApiErrorData } from "@/types/api";
 import type {
@@ -100,7 +103,7 @@ function getAdminActionErrorMessage(error: unknown) {
   return "Nao foi possivel executar a acao administrativa agora.";
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
   if (!value) {
     return "-";
   }
@@ -332,6 +335,47 @@ export default function DetalhePedidoPage() {
     }
   }
 
+  async function recarregarApos(operacao: () => Promise<unknown>, mensagem: string) {
+    if (!pedidoId) return;
+    setError(null);
+    try {
+      await operacao();
+      setPedido(await obterAdminPedido(pedidoId));
+      setSuccessMessage(mensagem);
+    } catch (err) {
+      setError(getAdminActionErrorMessage(err));
+    }
+  }
+
+  async function handleDefinirDatas() {
+    if (!pedidoId || !pedido) return;
+    const inicio = window.prompt("Data de inicio (AAAA-MM-DD)", pedido.data_inicio_locacao ?? "");
+    if (!inicio) return;
+    const fim = window.prompt("Data final (AAAA-MM-DD)", pedido.data_fim_locacao ?? "");
+    if (!fim) return;
+    const evento = window.prompt("Data do evento (AAAA-MM-DD, opcional)", pedido.data_evento_pretendida ?? "");
+    await recarregarApos(
+      () => atualizarDatasAdminPedido(pedidoId, {
+        data_inicio_locacao: inicio,
+        data_fim_locacao: fim,
+        data_evento_pretendida: evento || null,
+      }),
+      "Datas atualizadas com sucesso.",
+    );
+  }
+
+  async function handleRenovar() {
+    if (!pedidoId || !pedido) return;
+    const fim = window.prompt("Nova data final (AAAA-MM-DD)", pedido.data_fim_locacao ?? "");
+    if (!fim) return;
+    await recarregarApos(() => renovarAdminPedido(pedidoId, fim), "Pedido renovado com sucesso.");
+  }
+
+  async function handleAlterarStatus(status: string) {
+    if (!pedidoId || !status || !window.confirm(`Alterar o pedido para ${status}?`)) return;
+    await recarregarApos(() => alterarStatusAdminPedido(pedidoId, status), "Status atualizado com sucesso.");
+  }
+
   return (
     <div className="flex max-w-6xl flex-col gap-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -357,6 +401,21 @@ export default function DetalhePedidoPage() {
 
         {pedido && (
           <div className="flex flex-wrap items-center gap-3 self-start rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:self-auto">
+            <Button variant="outline" onClick={() => void handleDefinirDatas()}>Definir datas</Button>
+            <Button variant="outline" onClick={() => void handleRenovar()}>Renovar</Button>
+            <select
+              aria-label="Alterar status do pedido"
+              value={pedido.status}
+              onChange={(event) => void handleAlterarStatus(event.target.value)}
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700"
+            >
+              <option value="aguardando_analise">Aguardando analise</option>
+              <option value="reservado">Reservado</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="em_locacao">Em locacao</option>
+              <option value="retirado">Retirado</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
             {acoesDisponiveis.length > 0 ? (
               acoesDisponiveis.map((acao) => (
                 <Button
