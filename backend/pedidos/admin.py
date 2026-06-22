@@ -7,6 +7,7 @@ from .models import (
     Contrato,
     ItemCarrinho,
     ItemPedido,
+    HistoricoPedido,
     Pedido,
     ReservaUnidade,
 )
@@ -15,6 +16,21 @@ from .services import (
     OperacaoLocacaoService,
     ReservaPedidoService,
 )
+
+
+@admin.register(HistoricoPedido)
+class HistoricoPedidoAdmin(admin.ModelAdmin):
+    list_display = ("pedido", "acao", "usuario_admin", "criado_em")
+    list_filter = ("acao", "criado_em")
+    search_fields = ("=pedido__id", "pedido__nome_cliente_snapshot", "usuario_admin__email")
+    readonly_fields = ("pedido", "acao", "usuario_admin", "dados", "criado_em")
+    list_select_related = ("pedido", "usuario_admin")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 def _mensagem_erro_admin(exc):

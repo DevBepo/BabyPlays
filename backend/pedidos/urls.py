@@ -9,6 +9,8 @@ from .views import (
     AdminPedidoListView,
     AdminIniciarLocacaoPedidoView,
     AdminRegistrarRetiradaPedidoView,
+    AdminRenovarPedidoView,
+    AdminAlterarStatusPedidoView,
     AdminReservarUnidadesPedidoView,
     CarrinhoAtualView,
     ContratoVigenteView,
@@ -73,6 +75,16 @@ urlpatterns = [
         "admin/pedidos/<int:pedido_id>/reservar-unidades/",
         AdminReservarUnidadesPedidoView.as_view(),
         name="admin-pedido-reservar-unidades",
+    ),
+    path(
+        "admin/pedidos/<int:pedido_id>/renovar/",
+        AdminRenovarPedidoView.as_view(),
+        name="admin-pedido-renovar",
+    ),
+    path(
+        "admin/pedidos/<int:pedido_id>/alterar-status/",
+        AdminAlterarStatusPedidoView.as_view(),
+        name="admin-pedido-alterar-status",
     ),
     path(
         "admin/pedidos/<int:pedido_id>/confirmar/",

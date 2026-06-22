@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useCart } from "@/hooks/useCart";
 import { listarBrinquedos, listarKitsFesta } from "@/services/catalogo";
+import { Footer } from "@/components/client/Footer";
 import { adicionarAoCarrinho } from "@/services/cart";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ApiError } from "@/types/api";
@@ -436,6 +437,7 @@ export default function Home() {
         <SidebarCart />
 
       </div>
+      <Footer />
     </main>
   );
 }

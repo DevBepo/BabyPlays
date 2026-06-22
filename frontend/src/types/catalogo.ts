@@ -65,6 +65,7 @@ export type ItemKitFesta = {
   quantidade: number;
   ordem: number;
   brinquedo: BrinquedoKitResumo;
+  unidades_dedicadas?: Array<{ id: number; codigo: string }>;
 };
 
 export type KitFestaCatalogo = {

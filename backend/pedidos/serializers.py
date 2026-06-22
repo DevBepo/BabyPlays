@@ -7,10 +7,11 @@ from .models import (
     Contrato,
     ItemCarrinho,
     ItemPedido,
+    HistoricoPedido,
     Pedido,
     ReservaUnidade,
 )
-from .services import AdminPedidoAcoesService, AgendaAdminService, CarrinhoService
+from .services import AdminPedidoAcoesService, AgendaAdminService, CarrinhoService, PedidoService
 
 
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
@@ -164,6 +165,7 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
 class PedidoSerializer(serializers.ModelSerializer):
     itens = ItemPedidoSerializer(many=True, read_only=True)
     cliente = serializers.IntegerField(source="cliente_id", read_only=True)
+    whatsapp_resumo = serializers.SerializerMethodField()
 
     class Meta:
         model = Pedido
@@ -186,10 +188,14 @@ class PedidoSerializer(serializers.ModelSerializer):
             "taxa_entrega_retirada_snapshot",
             "total_estimado_snapshot",
             "itens",
+            "whatsapp_resumo",
             "criado_em",
             "atualizado_em",
         )
         read_only_fields = fields
+
+    def get_whatsapp_resumo(self, obj):
+        return PedidoService.gerar_resumo_whatsapp(obj)
 
 
 class ClientePedidoAdminResumoSerializer(serializers.Serializer):
@@ -490,6 +496,7 @@ class PedidoAdminDetailSerializer(serializers.ModelSerializer):
     tem_aceite_contrato = serializers.SerializerMethodField()
     possui_reservas_ativas = serializers.SerializerMethodField()
     acoes_disponiveis = serializers.SerializerMethodField()
+    historico = serializers.SerializerMethodField()
 
     class Meta:
         model = Pedido
@@ -514,6 +521,7 @@ class PedidoAdminDetailSerializer(serializers.ModelSerializer):
             "confirmado_em",
             "confirmado_por",
             "acoes_disponiveis",
+            "historico",
             "criado_em",
             "atualizado_em",
         )
@@ -544,6 +552,39 @@ class PedidoAdminDetailSerializer(serializers.ModelSerializer):
 
     def get_acoes_disponiveis(self, obj):
         return AdminPedidoAcoesService.acoes_disponiveis(obj)
+
+    def get_historico(self, obj):
+        return [
+            {
+                "id": registro.id,
+                "acao": registro.acao,
+                "dados": registro.dados,
+                "usuario_admin": registro.usuario_admin_id,
+                "criado_em": registro.criado_em,
+            }
+            for registro in obj.historico.select_related("usuario_admin").all()
+        ]
+
+
+class AtualizarDatasPedidoAdminSerializer(serializers.Serializer):
+    data_evento_pretendida = serializers.DateField(required=False, allow_null=True)
+    data_inicio_locacao = serializers.DateField()
+    data_fim_locacao = serializers.DateField()
+
+    def validate(self, attrs):
+        if attrs["data_fim_locacao"] <= attrs["data_inicio_locacao"]:
+            raise serializers.ValidationError(
+                {"data_fim_locacao": "A data final deve ser posterior a inicial."}
+            )
+        return attrs
+
+
+class RenovarPedidoAdminSerializer(serializers.Serializer):
+    nova_data_fim = serializers.DateField()
+
+
+class AlterarStatusPedidoAdminSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=Pedido.Status.choices)
 
 
 class ReservaUnidadePedidoSerializer(serializers.ModelSerializer):
@@ -729,9 +770,6 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
     nome = serializers.CharField(max_length=200, trim_whitespace=True)
     telefone = serializers.CharField(max_length=30, trim_whitespace=True)
     email = serializers.EmailField(max_length=254)
-    data_evento_pretendida = serializers.DateField()
-    data_inicio_locacao = serializers.DateField()
-    data_fim_locacao = serializers.DateField()
     cep = serializers.CharField(max_length=9)
     numero = serializers.CharField(max_length=20, trim_whitespace=True)
     complemento = serializers.CharField(
@@ -784,17 +822,6 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
                     )
                 }
             )
-        data_inicio = attrs.get("data_inicio_locacao")
-        data_fim = attrs.get("data_fim_locacao")
-        if data_inicio and data_fim and data_fim <= data_inicio:
-            raise serializers.ValidationError(
-                {
-                    "data_fim_locacao": (
-                        "A data final da locacao deve ser posterior a data "
-                        "inicial da locacao."
-                    )
-                }
-            )
         if attrs.get("contrato_aceito") is not True:
             raise serializers.ValidationError(
                 {"contrato_aceito": "O contrato precisa ser aceito para finalizar o pedido."}
@@ -826,11 +853,6 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
             "telefone_cliente_snapshot": self.validated_data["telefone"],
             "email_cliente_snapshot": self.validated_data["email"],
             "observacoes_cliente": self.validated_data.get("observacoes", ""),
-            "data_evento_pretendida": self.validated_data[
-                "data_evento_pretendida"
-            ],
-            "data_inicio_locacao": self.validated_data["data_inicio_locacao"],
-            "data_fim_locacao": self.validated_data["data_fim_locacao"],
             "cep": self.validated_data["cep"],
             "numero": self.validated_data["numero"],
             "complemento": self.validated_data.get("complemento", ""),

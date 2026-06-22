@@ -14,8 +14,6 @@ export function SidebarCart() {
   const { user, cliente, isAuthenticated } = useAuth();
   
   // Estados de Datas e Contrato
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
   const [contratoAceito, setContratoAceito] = useState(false);
   const [contratoVigente, setContratoVigente] = useState<{id: number, versao: string} | null>(null);
 
@@ -32,9 +30,11 @@ export function SidebarCart() {
   // Carregar os dados do usuário logado E o contrato vigente
   useEffect(() => {
     if (isAuthenticated) {
-      setNome(cliente?.nome || "");
-      setEmail(user?.email || "");
-      setTelefone(cliente?.telefone || "");
+      queueMicrotask(() => {
+        setNome(cliente?.nome || "");
+        setEmail(user?.email || "");
+        setTelefone(cliente?.telefone || "");
+      });
     }
 
     // Buscar o contrato ativo para sabermos qual ID e Versão mandar no Checkout
@@ -67,14 +67,9 @@ export function SidebarCart() {
       return;
     }
 
-    if (!dataInicio || !dataFim || !cep || !numero || !nome || !telefone) {
+    if (!cep || !numero || !nome || !telefone) {
       setExpandirDados(true);
       alert("Por favor, preencha todos os campos obrigatórios na secção de Entrega e Contato.");
-      return;
-    }
-
-    if (new Date(dataInicio) >= new Date(dataFim)) {
-      alert("A data de devolução deve ser posterior à data de início.");
       return;
     }
 
@@ -90,13 +85,10 @@ export function SidebarCart() {
 
     setLoadingPedido(true);
     try {
-      await converterCarrinhoEmPedido({
+      const pedido = await converterCarrinhoEmPedido({
         nome,
         email,
         telefone,
-        data_evento_pretendida: dataInicio, 
-        data_inicio_locacao: dataInicio,
-        data_fim_locacao: dataFim,
         cep: cep.replace(/\D/g, ""),
         numero,
         complemento,
@@ -108,13 +100,20 @@ export function SidebarCart() {
       });
 
       await refreshCart();
-      alert("🎉 Reserva finalizada com sucesso! Acompanhe o pedido no seu painel.");
-      
-      // Limpar os campos após o sucesso
-      setDataInicio(""); setDataFim(""); setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false); setExpandirDados(false);
-    } catch (err: any) {
+      setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false); setExpandirDados(false);
+      const whatsapp = process.env.NEXT_PUBLIC_BABYPLAYS_WHATSAPP?.replace(/\D/g, "");
+      if (!whatsapp) {
+        alert(`Pedido #${pedido.id} salvo com sucesso, mas o WhatsApp da BabyPlays nao esta configurado.`);
+        return;
+      }
+      window.location.href = `https://wa.me/${whatsapp}?text=${encodeURIComponent(pedido.whatsapp_resumo)}`;
+    } catch (err: unknown) {
       console.error("Erro ao converter pedido:", err);
-      alert(err?.message || "Ocorreu um erro ao processar a sua reserva.");
+      const mensagem =
+        typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Ocorreu um erro ao processar a sua reserva.";
+      alert(mensagem);
     } finally {
       setLoadingPedido(false);
     }
@@ -128,8 +127,6 @@ export function SidebarCart() {
       </aside>
     );
   }
-
-  const hoje = new Date().toISOString().split("T")[0];
 
   return (
     <aside className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:self-start flex flex-col gap-6 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
@@ -170,13 +167,8 @@ export function SidebarCart() {
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-bold text-zinc-800">Período da locação</h3>
-        <div className="flex items-center gap-2">
-          <Input type="date" value={dataInicio} min={hoje} onChange={(e) => setDataInicio(e.target.value)} className="text-xs py-2" />
-          <span className="text-xs text-zinc-500">até</span>
-          <Input type="date" value={dataFim} min={dataInicio || hoje} onChange={(e) => setDataFim(e.target.value)} className="text-xs py-2" />
-        </div>
+      <div className="rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs leading-5 text-violet-900">
+        As datas exatas da locacao serao confirmadas pelo WhatsApp apos o envio do pedido.
       </div>
 
       <div className="flex flex-col border-t border-zinc-100 pt-4">

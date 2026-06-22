@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   AdminPedidoActionResponse,
   AdminPedidoDetail,
@@ -71,4 +71,29 @@ export function registrarRetiradaAdminPedido(
     `/api/admin/pedidos/${id}/registrar-retirada/`,
     {},
   );
+}
+
+export function atualizarDatasAdminPedido(
+  id: number | string,
+  dados: {
+    data_evento_pretendida?: string | null;
+    data_inicio_locacao: string;
+    data_fim_locacao: string;
+  },
+): Promise<AdminPedidoDetail> {
+  return apiPatch<AdminPedidoDetail>(`/api/admin/pedidos/${id}/`, dados);
+}
+
+export function renovarAdminPedido(
+  id: number | string,
+  nova_data_fim: string,
+): Promise<AdminPedidoActionResponse> {
+  return apiPost<AdminPedidoActionResponse>(`/api/admin/pedidos/${id}/renovar/`, { nova_data_fim });
+}
+
+export function alterarStatusAdminPedido(
+  id: number | string,
+  status: string,
+): Promise<AdminPedidoActionResponse> {
+  return apiPost<AdminPedidoActionResponse>(`/api/admin/pedidos/${id}/alterar-status/`, { status });
 }

@@ -51,9 +51,6 @@ export function converterCarrinhoEmPedido(dados: {
   nome: string;
   telefone: string;
   email: string;
-  data_evento_pretendida: string;
-  data_inicio_locacao: string;
-  data_fim_locacao: string;
   cep: string;
   numero: string;
   complemento?: string;
@@ -61,8 +58,8 @@ export function converterCarrinhoEmPedido(dados: {
   contrato_aceito: boolean;
   contrato_id: number;
   contrato_versao: string;
-}): Promise<unknown> {
-  return apiPost<unknown>("/api/pedidos/converter-carrinho/", dados);
+}): Promise<{ id: number; whatsapp_resumo: string }> {
+  return apiPost<{ id: number; whatsapp_resumo: string }>("/api/pedidos/converter-carrinho/", dados);
 }
 
 export function atualizarQuantidadeItem(

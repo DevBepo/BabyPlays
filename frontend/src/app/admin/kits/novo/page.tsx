@@ -9,10 +9,10 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/TextArea";
 import { criarAdminKitFesta, uploadImagemAdminKitFesta } from "@/services/adminKits";
-import { listarBrinquedos } from "@/services/catalogo";
+import { listarBrinquedos, listarUnidadesBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ApiError, ApiFieldErrors } from "@/types/api";
-import type { BrinquedoCatalogo } from "@/types/catalogo";
+import type { BrinquedoCatalogo, UnidadeBrinquedoAdmin } from "@/types/catalogo";
 
 function isApiError(error: unknown): error is ApiError {
   return (
@@ -47,6 +47,8 @@ export default function NovoKitFestaPage() {
   const [brinquedosDisponiveis, setBrinquedosDisponiveis] = useState<BrinquedoCatalogo[]>([]);
   const [carregandoBrinquedos, setCarregandoBrinquedos] = useState(true);
   const [quantidadesSelecionadas, setQuantidadesSelecionadas] = useState<Record<number, number>>({});
+  const [unidadesPorBrinquedo, setUnidadesPorBrinquedo] = useState<Record<number, UnidadeBrinquedoAdmin[]>>({});
+  const [unidadesSelecionadas, setUnidadesSelecionadas] = useState<Record<number, number[]>>({});
 
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
@@ -65,8 +67,12 @@ export default function NovoKitFestaPage() {
       try {
         const dados = await listarBrinquedos();
         // Se a API retornar objeto com results (paginação), pega o array, senão pega direto
-        const lista = Array.isArray(dados) ? dados : (dados as any).results || [];
+        const lista = dados;
         setBrinquedosDisponiveis(lista);
+        const pares = await Promise.all(
+          lista.map(async (brinquedo: BrinquedoCatalogo) => [brinquedo.id, await listarUnidadesBrinquedo(brinquedo.id)] as const),
+        );
+        setUnidadesPorBrinquedo(Object.fromEntries(pares));
       } catch (err) {
         console.error("Erro ao carregar brinquedos:", err);
       } finally {
@@ -77,15 +83,33 @@ export default function NovoKitFestaPage() {
   }, []);
 
   const alterarQuantidade = (id: number, delta: number) => {
+    const atuais = unidadesSelecionadas[id] || [];
+    const disponiveis = (unidadesPorBrinquedo[id] || []).filter(
+      (unidade) => unidade.status === "disponivel" && !atuais.includes(unidade.id),
+    );
+    const novas = delta > 0
+      ? (disponiveis[0] ? [...atuais, disponiveis[0].id] : atuais)
+      : atuais.slice(0, -1);
+    setUnidadesSelecionadas((prev) => ({ ...prev, [id]: novas }));
     setQuantidadesSelecionadas((prev) => {
-      const atual = prev[id] || 0;
-      const novaQtd = atual + delta;
-      if (novaQtd <= 0) {
-        const newState = { ...prev };
-        delete newState[id];
-        return newState;
-      }
-      return { ...prev, [id]: novaQtd };
+      const proximo = { ...prev };
+      if (novas.length) proximo[id] = novas.length;
+      else delete proximo[id];
+      return proximo;
+    });
+  };
+
+  const alternarUnidade = (brinquedoId: number, unidadeId: number) => {
+    const atuais = unidadesSelecionadas[brinquedoId] || [];
+    const novas = atuais.includes(unidadeId)
+      ? atuais.filter((id) => id !== unidadeId)
+      : [...atuais, unidadeId];
+    setUnidadesSelecionadas((prev) => ({ ...prev, [brinquedoId]: novas }));
+    setQuantidadesSelecionadas((prev) => {
+      const proximo = { ...prev };
+      if (novas.length) proximo[brinquedoId] = novas.length;
+      else delete proximo[brinquedoId];
+      return proximo;
     });
   };
 
@@ -99,6 +123,7 @@ export default function NovoKitFestaPage() {
     const itensParaEnviar = Object.entries(quantidadesSelecionadas).map(([id, qtd]) => ({
       brinquedo_id: Number(id),
       quantidade: qtd,
+      unidade_ids: unidadesSelecionadas[Number(id)] || [],
     }));
 
     if (itensParaEnviar.length === 0) {
@@ -118,7 +143,7 @@ export default function NovoKitFestaPage() {
         ativo,
         ordem: Number(ordem || 0),
         itens_enviados: itensParaEnviar, 
-      } as any);
+      });
 
       if (imagemArquivo) {
         await uploadImagemAdminKitFesta(kitCriado.id, imagemArquivo);
@@ -214,6 +239,19 @@ export default function NovoKitFestaPage() {
                           <button type="button" onClick={() => alterarQuantidade(brinquedo.id, -1)} className="w-7 h-7 bg-zinc-100 rounded flex items-center justify-center font-bold text-zinc-600 hover:bg-zinc-200">-</button>
                           <span className="text-sm font-bold text-zinc-900 w-4 text-center">{qtd}</span>
                           <button type="button" onClick={() => alterarQuantidade(brinquedo.id, 1)} className="w-7 h-7 bg-teal-50 rounded flex items-center justify-center font-bold text-teal-700 hover:bg-teal-100">+</button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {(unidadesPorBrinquedo[brinquedo.id] || []).map((unidade) => (
+                            <label key={unidade.id} className="flex items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-[10px] text-zinc-600">
+                              <input
+                                type="checkbox"
+                                checked={(unidadesSelecionadas[brinquedo.id] || []).includes(unidade.id)}
+                                disabled={unidade.status !== "disponivel"}
+                                onChange={() => alternarUnidade(brinquedo.id, unidade.id)}
+                              />
+                              {unidade.codigo}
+                            </label>
+                          ))}
                         </div>
                       </div>
                     </div>

@@ -49,7 +49,7 @@ function getAdminPedidosErrorMessage(error: unknown) {
   return "Nao foi possivel carregar os pedidos administrativos agora.";
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
   if (!value) {
     return "-";
   }

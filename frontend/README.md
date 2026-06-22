@@ -35,6 +35,8 @@ Nao alterne entre `localhost` e `127.0.0.1` no mesmo fluxo local, pois isso pode
 - Frontend: https://babyplays.up.railway.app
 - Backend/API: https://api-babyplays.up.railway.app
 - `NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app`
+- `NEXT_PUBLIC_BABYPLAYS_WHATSAPP=<numero-internacional-somente-digitos>`
+- `NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL=<url-completa-do-instagram>`
 - `DEBUG=False` no backend.
 - O backend deve liberar `https://babyplays.up.railway.app` em CSRF/CORS.
 - Configure `NEXT_PUBLIC_API_BASE_URL` no Railway Variables do frontend.
@@ -46,6 +48,8 @@ Nao alterne entre `localhost` e `127.0.0.1` no mesmo fluxo local, pois isso pode
 - Frontend: https://www.babyplays.com.br
 - API: https://api.babyplays.com.br
 - `NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br`
+- `NEXT_PUBLIC_BABYPLAYS_WHATSAPP=<numero-internacional-somente-digitos>`
+- `NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL=<url-completa-do-instagram>`
 - O backend deve liberar `https://www.babyplays.com.br` e `https://babyplays.com.br` em CSRF/CORS.
 
 ## Observacoes

@@ -1485,6 +1485,10 @@ class KitFestaAPITests(APITestCase):
             preco_aluguel="220.00",
             preco_15_dias="220.00",
         )
+        self.unidade_para_kit = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISC-KIT-001",
+        )
         self.kit = KitFesta.objects.create(
             nome="Kit Diversao",
             descricao="Kit pronto para festa infantil.",
@@ -1511,6 +1515,13 @@ class KitFestaAPITests(APITestCase):
             "preco_30_dias": "750.00",
             "ativo": True,
             "ordem": 2,
+            "itens_enviados": [
+                {
+                    "brinquedo_id": self.brinquedo.id,
+                    "quantidade": 1,
+                    "unidade_ids": [self.unidade_para_kit.id],
+                }
+            ],
         }
 
     def imagem_upload(self, nome="kit.jpg", formato="JPEG", tamanho=(80, 80)):

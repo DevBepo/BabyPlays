@@ -5,7 +5,9 @@ from .models import (
     Brinquedo,
     Categoria,
     ConfiguracaoKitPersonalizavel,
+    DedicacaoUnidadeKit,
     ImagemBrinquedo,
+    InteresseDisponibilidade,
     ItemKitFesta,
     KitFesta,
     RegraCategoriaKitPersonalizavel,
@@ -166,6 +168,24 @@ class ItemKitFestaInline(admin.TabularInline):
     fields = ("brinquedo", "quantidade", "ordem")
     autocomplete_fields = ("brinquedo",)
     ordering = ("ordem", "id")
+
+
+@admin.register(DedicacaoUnidadeKit)
+class DedicacaoUnidadeKitAdmin(admin.ModelAdmin):
+    list_display = ("unidade", "item_kit", "criado_em")
+    search_fields = ("unidade__codigo", "item_kit__kit__nome", "item_kit__brinquedo__nome")
+    list_select_related = ("unidade", "item_kit", "item_kit__kit", "item_kit__brinquedo")
+
+
+@admin.register(InteresseDisponibilidade)
+class InteresseDisponibilidadeAdmin(admin.ModelAdmin):
+    list_display = (
+        "cliente", "brinquedo", "status", "disponibilidade_destacada",
+        "criado_em", "contatado_em",
+    )
+    list_filter = ("status", "disponibilidade_destacada", "criado_em")
+    search_fields = ("cliente__nome", "cliente__telefone", "brinquedo__nome")
+    list_select_related = ("cliente", "brinquedo")
 
 
 @admin.register(KitFesta)
