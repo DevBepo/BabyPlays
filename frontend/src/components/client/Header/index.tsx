@@ -195,24 +195,30 @@ export function Header({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
       <div className="mx-auto flex min-h-20 max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:gap-4">
-        <Link href="/" className="flex items-center gap-3 cursor-pointer select-none shrink-0">
-          <span className="relative block h-14 w-16 shrink-0 overflow-hidden">
+        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center gap-1 sm:gap-2">
+          <span className="relative block h-12 w-12 shrink-0 overflow-hidden sm:h-14 sm:w-16">
             <Image
               src="/assets/SomenteLogo.jpg"
-              alt="Logo BabyPlays"
+              alt=""
               width={128}
               height={102}
               priority
               unoptimized
-              sizes="64px"
-              className="absolute left-1/2 top-1/2 h-[92px] w-[115px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+              sizes="(max-width: 639px) 48px, 64px"
+              className="absolute left-1/2 top-1/2 h-[78px] w-[98px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[115px]"
             />
           </span>
-          <div className="text-xl font-black tracking-tight flex items-center">
-            <span className="text-[#7C3AED]">BABYPLAYS</span>
-            <span className="mx-0.5 hidden text-[#7C3AED] sm:inline">.</span>
-            <span className="hidden text-[#7C3AED] sm:inline">BRINQUEDOS</span>
-          </div>
+          <span className="relative block h-12 w-44 shrink-0 overflow-hidden sm:h-[72px] sm:w-76">
+            <Image
+              src="/logo-babyplays-header.png"
+              alt="BabyPlays - Locação de brinquedos"
+              width={2048}
+              height={683}
+              priority
+              sizes="(max-width: 639px) 176px, 304px"
+              className="absolute left-1/2 top-1/2 h-auto w-full -translate-x-1/2 -translate-y-1/2 object-contain"
+            />
+          </span>
         </Link>
 
         <form
