@@ -39,9 +39,14 @@ const IconTrash = () => (
 type HeaderProps = {
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
+  cartDropdownEnabled?: boolean;
 };
 
-export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
+export function Header({
+  searchQuery,
+  onSearchQueryChange,
+  cartDropdownEnabled = true,
+}: HeaderProps) {
   const router = useRouter();
   const cartRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -155,6 +160,19 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     } finally {
       setRemovendoId(null);
     }
+  };
+
+  const handleCartClick = async () => {
+    if (cartDropdownEnabled) {
+      await toggleCart();
+      return;
+    }
+
+    closeCart();
+    document.getElementById("reserva")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
@@ -313,7 +331,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
           <div className="relative" ref={cartRef}>
             <button
               type="button"
-              onClick={() => void toggleCart()}
+              onClick={() => void handleCartClick()}
               aria-label="Ver carrinho de compras"
               className="relative p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 rounded-full transition-colors cursor-pointer group"
             >
@@ -326,7 +344,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
             </button>
 
             {/* O Dropdown do Carrinho */}
-            {isCartOpen && (
+            {cartDropdownEnabled && isCartOpen && (
               <div className="absolute right-0 top-full z-50 mt-4 flex w-[calc(100vw-2rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
                 <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
                   <h3 className="font-bold text-zinc-900">O seu carrinho</h3>

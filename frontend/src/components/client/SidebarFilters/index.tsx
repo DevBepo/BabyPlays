@@ -150,15 +150,19 @@ export function SidebarFilters({
 
         <section className="space-y-3">
           <FilterSectionTitle>Disponibilidade</FilterSectionTitle>
-          <label className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md border border-zinc-200/80 bg-white px-3 py-2 text-sm font-normal leading-5 text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50">
-            <input
-              type="checkbox"
-              checked={onlyAvailable}
-              onChange={(event) => setOnlyAvailable(event.target.checked)}
-              className="h-4 w-4 shrink-0 accent-teal-600"
-            />
-            Disponível
-          </label>
+          <button
+            type="button"
+            onClick={() => setOnlyAvailable(!onlyAvailable)}
+            aria-pressed={onlyAvailable}
+            className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
+              onlyAvailable
+                ? "border-teal-500 bg-teal-50/70 text-zinc-900"
+                : "border-transparent bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
+            }`}
+          >
+            <FilterIcon colorClass="text-emerald-600" />
+            <span className="min-w-0 flex-1">Disponível</span>
+          </button>
         </section>
       </div>
     </aside>

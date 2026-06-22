@@ -129,7 +129,7 @@ export function SidebarCart() {
   }
 
   return (
-    <aside className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:self-start flex flex-col gap-6 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
+    <aside id="reserva" className="scroll-mt-28 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:self-start flex flex-col gap-6 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
       
       <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
         <h2 className="text-lg font-bold text-zinc-900">Seu carrinho ({quantidadeTotal})</h2>

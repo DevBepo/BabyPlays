@@ -335,7 +335,11 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FA] text-zinc-950">
-      <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
+      <Header
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        cartDropdownEnabled={false}
+      />
       <SubNavbar />
 
       {/* A MÁGICA ACONTECE AQUI: LAYOUT DE 3 COLUNAS */}
