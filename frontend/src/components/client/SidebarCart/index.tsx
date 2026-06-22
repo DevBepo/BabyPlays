@@ -11,7 +11,7 @@ import { resolveMediaUrl } from "@/lib/media-url";
 
 export function SidebarCart() {
   const router = useRouter();
-  const { carrinho, refreshCart, cartLoading } = useCart();
+  const { carrinho, closeCart, refreshCart, cartLoading } = useCart();
   const { user, cliente, isAuthenticated } = useAuth();
   
   // Estados de Datas e Contrato
@@ -122,7 +122,7 @@ export function SidebarCart() {
 
   if (cartLoading) {
     return (
-      <aside className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm animate-pulse h-[600px] lg:sticky lg:top-[104px] lg:self-start lg:max-h-[calc(100vh-120px)]">
+      <aside className="fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-sm animate-pulse border border-zinc-200 bg-white p-5 shadow-xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-[600px] lg:w-auto lg:max-w-none lg:self-start lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100vh-120px)]">
         <div className="h-6 bg-zinc-100 rounded w-1/2 mb-8"></div>
         <div className="space-y-4"><div className="h-20 bg-zinc-50 rounded"></div></div>
       </aside>
@@ -130,12 +130,18 @@ export function SidebarCart() {
   }
 
   return (
-    <aside id="reserva" className="scroll-mt-28 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:self-start flex flex-col gap-6 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
+    <aside id="reserva" className="custom-scrollbar fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-sm flex-col gap-6 overflow-y-auto border border-zinc-200 bg-white p-5 shadow-2xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100vh-120px)]">
       
       <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
         <h2 className="text-lg font-bold text-zinc-900">Seu carrinho ({quantidadeTotal})</h2>
-        <button className="text-sm font-semibold text-teal-600 hover:text-teal-700">
-          Editar carrinho
+        <button
+          type="button"
+          onClick={closeCart}
+          aria-label="Fechar resumo do carrinho"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <span aria-hidden="true">×</span>
+          Fechar
         </button>
       </div>
 

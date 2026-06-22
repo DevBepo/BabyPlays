@@ -128,12 +128,13 @@ function EmptyState({ title, message }: { title: string; message: string }) {
   );
 }
 
-function CarouselButton({ direction, onClick, visible }: { direction: "left" | "right"; onClick: () => void; visible: boolean; }) {
+function CarouselButton({ direction, onClick, visible, ariaLabel }: { direction: "left" | "right"; onClick: () => void; visible: boolean; ariaLabel: string; }) {
   if (!visible) return null;
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={ariaLabel}
       className={`absolute top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md shadow-zinc-900/10 transition-colors hover:border-teal-600 hover:text-teal-700 sm:flex ${direction === "left" ? "left-2" : "right-2"}`}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -242,6 +243,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 }
 
 export default function Home() {
+  const { isCartOpen } = useCart();
   const brinquedosCarouselRef = useRef<HTMLDivElement | null>(null);
   const kitsCarouselRef = useRef<HTMLDivElement | null>(null);
   
@@ -344,7 +346,7 @@ export default function Home() {
       <SubNavbar />
 
       {/* A MÁGICA ACONTECE AQUI: LAYOUT DE 3 COLUNAS */}
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[240px_minmax(0,1fr)_280px] lg:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_340px]">
+      <div className={`mx-auto flex max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:grid lg:gap-6 ${isCartOpen ? "lg:grid-cols-[240px_minmax(0,1fr)_280px] xl:grid-cols-[260px_minmax(0,1fr)_340px]" : "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
         
         {/* COLUNA 1: FILTROS (Importado do nosso novo componente) */}
         <SidebarFilters
@@ -384,7 +386,7 @@ export default function Home() {
                   <EmptyState title="Nenhum brinquedo encontrado." message="Ajuste a busca, categoria ou disponibilidade." />
                 ) : (
                   <div className="relative">
-                    <CarouselButton direction="left" visible={brinquedoScrollState.canScrollPrevious} onClick={() => scrollCarousel(brinquedosCarouselRef, -1)} />
+                    <CarouselButton direction="left" visible={brinquedoScrollState.canScrollPrevious} onClick={() => scrollCarousel(brinquedosCarouselRef, -1)} ariaLabel="Ver brinquedos anteriores" />
                     <div ref={brinquedosCarouselRef} className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {brinquedosFiltrados.map((brinquedo) => {
                         const imagem = getBrinquedoImage(brinquedo);
@@ -404,7 +406,7 @@ export default function Home() {
                         );
                       })}
                     </div>
-                    <CarouselButton direction="right" visible={brinquedoScrollState.canScrollNext} onClick={() => scrollCarousel(brinquedosCarouselRef, 1)} />
+                    <CarouselButton direction="right" visible={brinquedoScrollState.canScrollNext} onClick={() => scrollCarousel(brinquedosCarouselRef, 1)} ariaLabel="Ver proximos brinquedos" />
                   </div>
                 )}
               </section>
@@ -422,7 +424,7 @@ export default function Home() {
                   <EmptyState title="Nenhum kit festa encontrado." message="Ajuste a busca para ver mais kits." />
                 ) : (
                   <div className="relative">
-                    <CarouselButton direction="left" visible={kitsScrollState.canScrollPrevious} onClick={() => scrollCarousel(kitsCarouselRef, -1)} />
+                    <CarouselButton direction="left" visible={kitsScrollState.canScrollPrevious} onClick={() => scrollCarousel(kitsCarouselRef, -1)} ariaLabel="Ver kits anteriores" />
                     <div ref={kitsCarouselRef} className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {kitsFestaFiltrados.map((kit) => (
                         <div key={kit.id} className="snap-start">
@@ -430,7 +432,7 @@ export default function Home() {
                         </div>
                       ))}
                     </div>
-                    <CarouselButton direction="right" visible={kitsScrollState.canScrollNext} onClick={() => scrollCarousel(kitsCarouselRef, 1)} />
+                    <CarouselButton direction="right" visible={kitsScrollState.canScrollNext} onClick={() => scrollCarousel(kitsCarouselRef, 1)} ariaLabel="Ver proximos kits" />
                   </div>
                 )}
               </section>
@@ -439,7 +441,7 @@ export default function Home() {
         </div>
 
         {/* COLUNA 3: CARRINHO */}
-        <SidebarCart />
+        {isCartOpen ? <SidebarCart /> : null}
 
       </div>
       <Footer />

@@ -71,6 +71,7 @@ export function Header({
     cartLoading,
     closeCart,
     isCartOpen,
+    openCart,
     refreshCart,
     toggleCart,
   } = useCart();
@@ -80,7 +81,12 @@ export function Header({
   // Fechar o carrinho ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
+      if (
+        cartDropdownEnabled &&
+        isCartOpen &&
+        cartRef.current &&
+        !cartRef.current.contains(event.target as Node)
+      ) {
         closeCart();
       }
 
@@ -93,7 +99,7 @@ export function Header({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [closeCart]);
+  }, [cartDropdownEnabled, closeCart, isCartOpen]);
 
   useEffect(() => {
     let active = true;
@@ -174,11 +180,13 @@ export function Header({
       return;
     }
 
-    closeCart();
-    document.getElementById("reserva")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openCart();
+    window.setTimeout(() => {
+      document.getElementById("reserva")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
   };
 
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
