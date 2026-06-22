@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { removerItemCarrinho, converterCarrinhoEmPedido } from "@/services/cart";
 import { obterContratoVigente } from "@/services/contrato"; // NOVA IMPORTAÇÃO
 import { Input } from "@/components/ui/Input";
+import { resolveMediaUrl } from "@/lib/media-url";
 
 export function SidebarCart() {
   const router = useRouter();
@@ -142,10 +143,21 @@ export function SidebarCart() {
         {itens.length === 0 ? (
           <p className="text-sm text-zinc-500 text-center py-4">Seu carrinho está vazio.</p>
         ) : (
-          itens.map((item) => (
+          itens.map((item) => {
+            const imagemUrl = resolveMediaUrl(item.imagem_url);
+
+            return (
             <div key={item.id} className="flex gap-3 items-center relative border border-zinc-100 p-2.5 rounded-lg bg-zinc-50/50">
               <div className="w-16 h-16 bg-white rounded-md border border-zinc-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                <span className="text-[10px] text-zinc-400">Sem Img</span>
+                {imagemUrl ? (
+                  <img
+                    src={imagemUrl}
+                    alt={item.nome_snapshot}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-[10px] text-zinc-400">Sem imagem</span>
+                )}
               </div>
               <div className="flex flex-col flex-1 min-w-0">
                 <h3 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h3>
@@ -163,7 +175,8 @@ export function SidebarCart() {
                 ✕
               </button>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 

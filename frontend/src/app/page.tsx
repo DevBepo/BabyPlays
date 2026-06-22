@@ -144,7 +144,7 @@ function CarouselButton({ direction, onClick, visible }: { direction: "left" | "
 }
 
 function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
-  const { refreshCart } = useCart();
+  const { openCart, refreshCart } = useCart();
   const [adicionando, setAdicionando] = useState(false);
   const [periodoSelecionado, setPeriodoSelecionado] = useState<PeriodoLocacao>("15_dias");
   const adicionandoRef = useRef(false);
@@ -165,6 +165,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
     try {
       await adicionarAoCarrinho({ tipo_item: "kit_festa", kit_festa_id: kit.id, quantidade: 1, periodo_locacao: periodoEfetivo });
       await refreshCart();
+      openCart();
     } catch (err) {
       console.error("Erro ao adicionar kit festa:", err);
       alert(getCartErrorMessage(err));

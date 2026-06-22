@@ -36,6 +36,12 @@ const IconTrash = () => (
   </svg>
 );
 
+const IconClose = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m18 6-12 12" /><path d="m6 6 12 12" />
+  </svg>
+);
+
 type HeaderProps = {
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
@@ -348,7 +354,17 @@ export function Header({
               <div className="absolute right-0 top-full z-50 mt-4 flex w-[calc(100vw-2rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
                 <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
                   <h3 className="font-bold text-zinc-900">O seu carrinho</h3>
-                  <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>
+                    <button
+                      type="button"
+                      onClick={closeCart}
+                      aria-label="Fechar carrinho"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                    >
+                      <IconClose />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4 max-h-[300px] overflow-y-auto flex flex-col gap-4 z-10 relative bg-white">
