@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { useCart } from "@/hooks/useCart";
 import { adicionarAoCarrinho } from "@/services/cart";
+import { criarInteresseDisponibilidade } from "@/services/catalogo";
+import { useAuth } from "@/hooks/useAuth";
 import type { ApiError } from "@/types/api";
 import type { PeriodoLocacao, PeriodoLocacaoDisponivel } from "@/types/catalogo";
 
@@ -53,7 +56,10 @@ export function ProductCard({
   imagemAlt,
 }: ProductCardProps) {
   const { openCart, refreshCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [adicionando, setAdicionando] = useState(false);
+  const [registrandoInteresse, setRegistrandoInteresse] = useState(false);
   const [periodoSelecionado, setPeriodoSelecionado] =
     useState<PeriodoLocacao>("15_dias");
   const adicionandoRef = useRef(false);
@@ -94,6 +100,22 @@ export function ProductCard({
     }
   };
 
+  const handleInteresse = async () => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/brinquedos/${id}`);
+      return;
+    }
+    setRegistrandoInteresse(true);
+    try {
+      await criarInteresseDisponibilidade(id);
+      alert("Interesse registrado. A BabyPlays entrara em contato pelo seu WhatsApp.");
+    } catch (error) {
+      alert(getCartErrorMessage(error));
+    } finally {
+      setRegistrandoInteresse(false);
+    }
+  };
+
   return (
     <article className="group relative flex h-full min-h-[356px] w-[280px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[288px]">
       <div className="absolute left-3 top-3 z-10">
@@ -103,7 +125,7 @@ export function ProductCard({
           </Badge>
         ) : (
           <Badge variant="default" className="normal-case tracking-normal">
-            Indisponivel
+            Alugado
           </Badge>
         )}
       </div>
@@ -170,7 +192,7 @@ export function ProductCard({
             </div>
           ) : (
             <p className="mb-2 text-xs font-semibold text-zinc-500">
-              Indisponivel para locacao
+              Alugado
             </p>
           )}
 
@@ -184,9 +206,14 @@ export function ProductCard({
               {adicionando ? "Adicionando..." : "Adicionar ao carrinho"}
             </button>
           ) : (
-            <p className="inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-100 px-4 text-sm font-bold text-zinc-400">
-              {hasStock ? "Indisponivel para locacao" : "Esgotado"}
-            </p>
+            <button
+              type="button"
+              onClick={handleInteresse}
+              disabled={registrandoInteresse}
+              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-violet-200 bg-violet-50 px-4 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+            >
+              {registrandoInteresse ? "Registrando..." : "Avise-me quando disponivel"}
+            </button>
           )}
         </div>
       </div>

@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/hooks/useAuth";
 import { adicionarAoCarrinho } from "@/services/cart";
-import { listarBrinquedos } from "@/services/catalogo";
+import { criarInteresseDisponibilidade, listarBrinquedos } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { BrinquedoCatalogo, PeriodoLocacao } from "@/types/catalogo";
 import Image from "next/image";
+import { Footer } from "@/components/client/Footer";
 
 function formatPrice(value: string) {
   const numberValue = Number(value);
@@ -37,6 +39,7 @@ function BrinquedoDetalheContent() {
   const params = useParams();
   const router = useRouter();
   const { openCart, refreshCart } = useCart();
+  const { isAuthenticated } = useAuth();
   const id = Number(params?.id);
 
   const [brinquedo, setBrinquedo] = useState<BrinquedoCatalogo | null>(null);
@@ -45,6 +48,7 @@ function BrinquedoDetalheContent() {
   const [notFound, setNotFound] = useState(false);
   const [periodoSelecionado, setPeriodoSelecionado] = useState<PeriodoLocacao>("15_dias");
   const [adicionando, setAdicionando] = useState(false);
+  const [registrandoInteresse, setRegistrandoInteresse] = useState(false);
 
   useEffect(() => {
     async function carregarBrinquedo() {
@@ -113,6 +117,22 @@ function BrinquedoDetalheContent() {
       alert(getCartErrorMessage(err));
     } finally {
       setAdicionando(false);
+    }
+  };
+
+  const handleInteresse = async () => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/brinquedos/${id}`);
+      return;
+    }
+    setRegistrandoInteresse(true);
+    try {
+      await criarInteresseDisponibilidade(id);
+      alert("Interesse registrado. A BabyPlays entrara em contato pelo seu WhatsApp.");
+    } catch (error) {
+      alert(getCartErrorMessage(error));
+    } finally {
+      setRegistrandoInteresse(false);
     }
   };
 
@@ -189,7 +209,7 @@ function BrinquedoDetalheContent() {
                 {isAvailable ? (
                   <Badge variant="success">Disponivel</Badge>
                 ) : (
-                  <Badge variant="default">Indisponivel</Badge>
+                  <Badge variant="default">Alugado</Badge>
                 )}
                 <span className="text-xs font-medium text-zinc-500">
                   {brinquedo.quantidade_disponivel} unidade{brinquedo.quantidade_disponivel === 1 ? "" : "s"}
@@ -242,7 +262,7 @@ function BrinquedoDetalheContent() {
                     </div>
                   ) : (
                     <p className="text-sm font-medium text-zinc-500">
-                      Indisponivel para locacao
+                      Alugado
                     </p>
                   )}
                 </div>
@@ -266,9 +286,14 @@ function BrinquedoDetalheContent() {
                 {adicionando ? "Adicionando ao carrinho..." : "Adicionar ao carrinho"}
               </button>
             ) : (
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-center text-sm text-zinc-600">
-                Este brinquedo nao esta disponivel no momento.
-              </div>
+              <button
+                type="button"
+                onClick={handleInteresse}
+                disabled={registrandoInteresse}
+                className="h-12 w-full rounded-lg border border-violet-200 bg-violet-50 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+              >
+                {registrandoInteresse ? "Registrando..." : "Avise-me quando estiver disponivel"}
+              </button>
             )}
 
             <Link
@@ -280,6 +305,7 @@ function BrinquedoDetalheContent() {
           </div>
         </div>
       </div>
+      <Footer />
     </main>
   );
 }

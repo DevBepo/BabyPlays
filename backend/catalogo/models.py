@@ -325,6 +325,90 @@ class ItemKitFesta(models.Model):
         return f"{self.kit.nome} - {self.brinquedo.nome} ({self.quantidade})"
 
 
+class DedicacaoUnidadeKit(models.Model):
+    item_kit = models.ForeignKey(
+        ItemKitFesta,
+        related_name="unidades_dedicadas",
+        on_delete=models.CASCADE,
+        verbose_name="Item do kit",
+    )
+    unidade = models.OneToOneField(
+        UnidadeBrinquedo,
+        related_name="dedicacao_kit",
+        on_delete=models.PROTECT,
+        verbose_name="Unidade dedicada",
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+
+    class Meta:
+        ordering = ("item_kit__ordem", "unidade__codigo")
+        verbose_name = "Unidade dedicada ao kit"
+        verbose_name_plural = "Unidades dedicadas aos kits"
+
+    def clean(self):
+        super().clean()
+        if (
+            self.item_kit_id
+            and self.unidade_id
+            and self.item_kit.brinquedo_id != self.unidade.brinquedo_id
+        ):
+            raise ValidationError(
+                {"unidade": "A unidade deve pertencer ao brinquedo do item do kit."}
+            )
+
+    def __str__(self):
+        return f"{self.item_kit.kit.nome} - {self.unidade.codigo}"
+
+
+class InteresseDisponibilidade(models.Model):
+    class Status(models.TextChoices):
+        PENDENTE = "pendente", "Pendente"
+        CONTATADO = "contatado", "Contatado"
+        CANCELADO = "cancelado", "Cancelado"
+
+    cliente = models.ForeignKey(
+        "clientes.Cliente",
+        related_name="interesses_disponibilidade",
+        on_delete=models.CASCADE,
+        verbose_name="Cliente",
+    )
+    brinquedo = models.ForeignKey(
+        Brinquedo,
+        related_name="interesses_disponibilidade",
+        on_delete=models.CASCADE,
+        verbose_name="Brinquedo",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDENTE,
+        db_index=True,
+        verbose_name="Status",
+    )
+    disponibilidade_destacada = models.BooleanField(
+        default=False,
+        verbose_name="Disponibilidade destacada",
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+    contatado_em = models.DateTimeField(null=True, blank=True, verbose_name="Contatado em")
+
+    class Meta:
+        ordering = ("-disponibilidade_destacada", "criado_em", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cliente", "brinquedo"],
+                condition=Q(status="pendente"),
+                name="catalogo_interesse_pendente_unico_cliente_brinquedo",
+            )
+        ]
+        verbose_name = "Interesse de disponibilidade"
+        verbose_name_plural = "Interesses de disponibilidade"
+
+    def __str__(self):
+        return f"{self.cliente} - {self.brinquedo} ({self.status})"
+
+
 class ConfiguracaoKitPersonalizavel(models.Model):
     class ModoElegibilidade(models.TextChoices):
         CATEGORIAS = "categorias", "Categorias"

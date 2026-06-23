@@ -210,6 +210,8 @@ class Pedido(models.Model):
         verbose_name="Observacoes do cliente",
     )
     data_evento_pretendida = models.DateField(
+        null=True,
+        blank=True,
         verbose_name="Data pretendida do evento",
     )
     data_inicio_locacao = models.DateField(
@@ -285,6 +287,39 @@ class Pedido(models.Model):
 
     def __str__(self):
         return f"Pedido {self.id} - {self.nome_cliente_snapshot}"
+
+
+class HistoricoPedido(models.Model):
+    class Acao(models.TextChoices):
+        DATAS_ALTERADAS = "datas_alteradas", "Datas alteradas"
+        RENOVADO = "renovado", "Renovado"
+        STATUS_ALTERADO = "status_alterado", "Status alterado"
+
+    pedido = models.ForeignKey(
+        Pedido,
+        related_name="historico",
+        on_delete=models.CASCADE,
+        verbose_name="Pedido",
+    )
+    acao = models.CharField(max_length=30, choices=Acao.choices, verbose_name="Acao")
+    usuario_admin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="acoes_administrativas_pedidos",
+        verbose_name="Usuario administrativo",
+    )
+    dados = models.JSONField(default=dict, blank=True, verbose_name="Dados")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        verbose_name = "Historico do pedido"
+        verbose_name_plural = "Historicos dos pedidos"
+
+    def __str__(self):
+        return f"Pedido {self.pedido_id} - {self.acao}"
 
 
 class Contrato(models.Model):

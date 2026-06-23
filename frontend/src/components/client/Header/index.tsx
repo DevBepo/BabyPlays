@@ -36,12 +36,23 @@ const IconTrash = () => (
   </svg>
 );
 
+const IconClose = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m18 6-12 12" /><path d="m6 6 12 12" />
+  </svg>
+);
+
 type HeaderProps = {
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
+  cartDropdownEnabled?: boolean;
 };
 
-export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
+export function Header({
+  searchQuery,
+  onSearchQueryChange,
+  cartDropdownEnabled = true,
+}: HeaderProps) {
   const router = useRouter();
   const cartRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -60,6 +71,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     cartLoading,
     closeCart,
     isCartOpen,
+    openCart,
     refreshCart,
     toggleCart,
   } = useCart();
@@ -69,7 +81,12 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
   // Fechar o carrinho ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
+      if (
+        cartDropdownEnabled &&
+        isCartOpen &&
+        cartRef.current &&
+        !cartRef.current.contains(event.target as Node)
+      ) {
         closeCart();
       }
 
@@ -82,7 +99,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [closeCart]);
+  }, [cartDropdownEnabled, closeCart, isCartOpen]);
 
   useEffect(() => {
     let active = true;
@@ -157,30 +174,51 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
     }
   };
 
+  const handleCartClick = async () => {
+    if (cartDropdownEnabled) {
+      await toggleCart();
+      return;
+    }
+
+    openCart();
+    window.setTimeout(() => {
+      document.getElementById("reserva")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+  };
+
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
   const valorTotal = carrinho?.itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0) || 0;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
       <div className="mx-auto flex min-h-20 max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:gap-4">
-        <Link href="/" className="flex items-center gap-3 cursor-pointer select-none shrink-0">
-          <span className="relative block h-14 w-16 shrink-0 overflow-hidden">
+        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center gap-1 sm:gap-2">
+          <span className="relative block h-12 w-12 shrink-0 overflow-hidden sm:h-14 sm:w-16">
             <Image
               src="/assets/SomenteLogo.jpg"
-              alt="Logo BabyPlays"
+              alt=""
               width={128}
               height={102}
               priority
               unoptimized
-              sizes="64px"
-              className="absolute left-1/2 top-1/2 h-[92px] w-[115px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+              sizes="(max-width: 639px) 48px, 64px"
+              className="absolute left-1/2 top-1/2 h-[78px] w-[98px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[115px]"
             />
           </span>
-          <div className="text-xl font-black tracking-tight flex items-center">
-            <span className="text-teal-600">BABYPLAYS</span>
-            <span className="mx-0.5 hidden text-zinc-300 sm:inline">.</span>
-            <span className="hidden text-[#FF5A5F] sm:inline">BRINQUEDOS</span>
-          </div>
+          <span className="relative block h-12 w-44 shrink-0 overflow-hidden sm:h-[72px] sm:w-76">
+            <Image
+              src="/logo-babyplays-header.png"
+              alt="BabyPlays - Locação de brinquedos"
+              width={2048}
+              height={683}
+              priority
+              sizes="(max-width: 639px) 176px, 304px"
+              className="absolute left-1/2 top-1/2 h-auto w-40 max-h-110 -translate-x-1/2 -translate-y-1/2 object-contain sm:w-[280px] sm:max-h-[180px]"
+            />
+          </span>
         </Link>
 
         <form
@@ -313,7 +351,7 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
           <div className="relative" ref={cartRef}>
             <button
               type="button"
-              onClick={() => void toggleCart()}
+              onClick={() => void handleCartClick()}
               aria-label="Ver carrinho de compras"
               className="relative p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 rounded-full transition-colors cursor-pointer group"
             >
@@ -326,11 +364,21 @@ export function Header({ searchQuery, onSearchQueryChange }: HeaderProps) {
             </button>
 
             {/* O Dropdown do Carrinho */}
-            {isCartOpen && (
+            {cartDropdownEnabled && isCartOpen && (
               <div className="absolute right-0 top-full z-50 mt-4 flex w-[calc(100vw-2rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
                 <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
                   <h3 className="font-bold text-zinc-900">O seu carrinho</h3>
-                  <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>
+                    <button
+                      type="button"
+                      onClick={closeCart}
+                      aria-label="Fechar carrinho"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                    >
+                      <IconClose />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4 max-h-[300px] overflow-y-auto flex flex-col gap-4 z-10 relative bg-white">

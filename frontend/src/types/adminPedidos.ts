@@ -116,9 +116,9 @@ export type AdminPedidoListItem = {
   status: AdminPedidoStatus;
   cliente: AdminPedidoClienteResumo;
   cliente_snapshot: AdminPedidoClienteSnapshot;
-  data_evento_pretendida: string;
-  data_inicio_locacao: string;
-  data_fim_locacao: string;
+  data_evento_pretendida: string | null;
+  data_inicio_locacao: string | null;
+  data_fim_locacao: string | null;
   total_estimado_snapshot: string;
   criado_em: string;
   atualizado_em: string;
@@ -146,9 +146,9 @@ export type AdminPedidoDetail = {
   usuario: AdminPedidoUsuarioResumo;
   cliente: AdminPedidoClienteResumo;
   cliente_snapshot: AdminPedidoClienteSnapshot;
-  data_evento_pretendida: string;
-  data_inicio_locacao: string;
-  data_fim_locacao: string;
+  data_evento_pretendida: string | null;
+  data_inicio_locacao: string | null;
+  data_fim_locacao: string | null;
   observacoes_cliente: string;
   endereco_entrega: AdminPedidoEnderecoEntrega;
   valores: AdminPedidoValores;
@@ -163,6 +163,13 @@ export type AdminPedidoDetail = {
   acoes_disponiveis: AdminPedidoAction[];
   criado_em: string;
   atualizado_em: string;
+  historico: Array<{
+    id: number;
+    acao: string;
+    dados: Record<string, unknown>;
+    usuario_admin: number | null;
+    criado_em: string;
+  }>;
 };
 
 export type AdminPedidoActionResponse = {

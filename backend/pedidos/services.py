@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -10,6 +10,7 @@ from rest_framework import serializers
 from catalogo.models import (
     Brinquedo,
     ConfiguracaoKitPersonalizavel,
+    DedicacaoUnidadeKit,
     KitFesta,
     UnidadeBrinquedo,
 )
@@ -35,6 +36,7 @@ from .models import (
     Contrato,
     ItemCarrinho,
     ItemPedido,
+    HistoricoPedido,
     Pedido,
     ReservaUnidade,
 )
@@ -241,6 +243,17 @@ class CarrinhoService:
             raise serializers.ValidationError(
                 {"brinquedo_id": "Brinquedo inativo nao pode ser adicionado."}
             )
+        
+        # Ao invés de ficar adicionando item a item na lista do carrinho,
+        # É adicionado mais um na quantidade.
+        
+        for item in carrinho.itens.all():
+            if item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO and item.brinquedo_id == brinquedo_id:
+                periodo_existente = item.snapshot.get("periodo_locacao", {}).get("tipo")
+                if periodo_existente == periodo_locacao:
+                    nova_quantidade = item.quantidade + quantidade
+                    return CarrinhoService.alterar_quantidade(item, nova_quantidade)
+            
 
         dados = CarrinhoService._snapshot_brinquedo(
             brinquedo,
@@ -283,6 +296,16 @@ class CarrinhoService:
                 {"kit_festa_id": "Kit festa inativo nao pode ser adicionado."}
             )
 
+        # Literal a cópia da lógica para brinquedo.
+        # Só que para o Kit Festa.
+        
+        for item in carrinho.itens.all():
+            if item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA and item.kit_festa_id == kit_festa.id:
+                periodo_existente = item.snapshot.get("periodo_locacao", {}).get("tipo")
+                if periodo_existente == periodo_locacao:
+                    nova_quantidade = item.quantidade + quantidade
+                    return CarrinhoService.alterar_quantidade(item, nova_quantidade)
+        
         dados = CarrinhoService._snapshot_kit_festa(
             kit_festa,
             quantidade,
@@ -440,53 +463,11 @@ class PedidoService:
             "nome_cliente_snapshot",
             "telefone_cliente_snapshot",
             "email_cliente_snapshot",
-            "data_evento_pretendida",
-            "data_inicio_locacao",
-            "data_fim_locacao",
             "cep",
             "numero",
         ):
             if not dados.get(campo):
                 erros[campo] = "Este campo e obrigatorio."
-
-        data_evento = dados.get("data_evento_pretendida")
-        if isinstance(data_evento, str):
-            data_evento = parse_date(data_evento)
-            dados["data_evento_pretendida"] = data_evento
-
-        if data_evento and data_evento < timezone.localdate():
-            erros["data_evento_pretendida"] = (
-                "A data pretendida do evento nao pode estar no passado."
-            )
-        if dados.get("data_evento_pretendida") is None and "data_evento_pretendida" not in erros:
-            erros["data_evento_pretendida"] = "Informe uma data valida."
-
-        data_inicio_locacao = dados.get("data_inicio_locacao")
-        if isinstance(data_inicio_locacao, str):
-            data_inicio_locacao = parse_date(data_inicio_locacao)
-            dados["data_inicio_locacao"] = data_inicio_locacao
-
-        data_fim_locacao = dados.get("data_fim_locacao")
-        if isinstance(data_fim_locacao, str):
-            data_fim_locacao = parse_date(data_fim_locacao)
-            dados["data_fim_locacao"] = data_fim_locacao
-
-        if (
-            data_inicio_locacao
-            and data_fim_locacao
-            and data_fim_locacao <= data_inicio_locacao
-        ):
-            erros["data_fim_locacao"] = (
-                "A data final da locacao deve ser posterior a data inicial "
-                "da locacao."
-            )
-        if (
-            dados.get("data_inicio_locacao") is None
-            and "data_inicio_locacao" not in erros
-        ):
-            erros["data_inicio_locacao"] = "Informe uma data valida."
-        if dados.get("data_fim_locacao") is None and "data_fim_locacao" not in erros:
-            erros["data_fim_locacao"] = "Informe uma data valida."
 
         if erros:
             raise serializers.ValidationError(erros)
@@ -595,9 +576,9 @@ class PedidoService:
             telefone_cliente_snapshot=dados_cliente["telefone_cliente_snapshot"],
             email_cliente_snapshot=dados_cliente["email_cliente_snapshot"],
             observacoes_cliente=dados_cliente.get("observacoes_cliente", ""),
-            data_evento_pretendida=dados_cliente["data_evento_pretendida"],
-            data_inicio_locacao=dados_cliente["data_inicio_locacao"],
-            data_fim_locacao=dados_cliente["data_fim_locacao"],
+            data_evento_pretendida=None,
+            data_inicio_locacao=None,
+            data_fim_locacao=None,
             subtotal_itens_snapshot=subtotal,
             endereco_entrega_snapshot=calculo_taxa["endereco_interpretado"],
             distancia_ida_km_snapshot=calculo_taxa["distancia_ida_km"],
@@ -631,6 +612,51 @@ class PedidoService:
         ContratoService.registrar_aceite_do_pedido(pedido, contrato, request)
 
         return pedido
+
+    @staticmethod
+    def gerar_resumo_whatsapp(pedido):
+        pedido = Pedido.objects.prefetch_related("itens").get(pk=pedido.pk)
+        linhas = [
+            f"Pedido BabyPlays #{pedido.id}",
+            f"Cliente: {pedido.nome_cliente_snapshot}",
+            f"Telefone: {pedido.telefone_cliente_snapshot}",
+            "",
+            "Itens:",
+        ]
+        for item in pedido.itens.all():
+            periodo = item.snapshot.get("periodo_locacao", {})
+            label_periodo = periodo.get("label", "Periodo a combinar")
+            linhas.append(
+                f"- {item.quantidade}x {item.nome_snapshot} ({label_periodo}) - "
+                f"R$ {item.subtotal_snapshot:.2f}"
+            )
+            composicao = item.snapshot.get("kit_festa", {}).get("itens", [])
+            for componente in composicao:
+                linhas.append(
+                    f"  • {componente.get('quantidade', 1)}x "
+                    f"{componente.get('nome', 'Brinquedo')}"
+                )
+        endereco = pedido.endereco_entrega_snapshot or {}
+        endereco_partes = [
+            endereco.get("logradouro"),
+            endereco.get("numero"),
+            endereco.get("bairro"),
+            endereco.get("cidade"),
+            endereco.get("uf"),
+            endereco.get("cep"),
+        ]
+        linhas.extend(
+            [
+                "",
+                "Endereco: " + ", ".join(str(parte) for parte in endereco_partes if parte),
+                f"Subtotal: R$ {pedido.subtotal_itens_snapshot:.2f}",
+                f"Entrega e retirada: R$ {pedido.taxa_entrega_retirada_snapshot:.2f}",
+                f"Total estimado: R$ {pedido.total_estimado_snapshot:.2f}",
+                "",
+                "As datas exatas da locacao serao combinadas por aqui.",
+            ]
+        )
+        return "\n".join(linhas)
 
 
 class ContratoVigenteAusenteError(Exception):
@@ -903,13 +929,22 @@ class ReservaPedidoService:
         return None
 
     @staticmethod
-    def _unidades_candidatas_livres(brinquedo_id, data_inicio, data_fim):
-        unidades = list(
-            UnidadeBrinquedo.objects.select_for_update()
-            .filter(
-                brinquedo_id=brinquedo_id,
-                status=UnidadeBrinquedo.Status.DISPONIVEL,
+    def _unidades_candidatas_livres(
+        brinquedo_id, data_inicio, data_fim, kit_festa_id=None
+    ):
+        queryset = UnidadeBrinquedo.objects.select_for_update().filter(
+            brinquedo_id=brinquedo_id,
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        if kit_festa_id is None:
+            queryset = queryset.filter(dedicacao_kit__isnull=True)
+        else:
+            queryset = queryset.filter(
+                dedicacao_kit__item_kit__kit_id=kit_festa_id,
+                dedicacao_kit__item_kit__kit__ativo=True,
             )
+        unidades = list(
+            queryset
             .exclude(
                 reservas__status=ReservaUnidade.Status.ATIVA,
                 reservas__data_inicio__lt=data_fim,
@@ -990,36 +1025,40 @@ class ReservaPedidoService:
 
         for brinquedo_id in sorted(demandas):
             demanda = demandas[brinquedo_id]
-            quantidade_necessaria = demanda["quantidade"]
-            unidades_livres = ReservaPedidoService._unidades_candidatas_livres(
-                brinquedo_id,
-                data_inicio,
-                data_fim,
-            )
-            if len(unidades_livres) < quantidade_necessaria:
-                raise serializers.ValidationError(
-                    {
-                        "disponibilidade": (
-                            "Unidades insuficientes para o brinquedo "
-                            f"{brinquedo_id}."
-                        )
-                    }
+            for origem in demanda["origens"]:
+                item_pedido = origem["item_pedido"]
+                kit_festa_id = (
+                    item_pedido.kit_festa_id
+                    if item_pedido.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA
+                    else None
                 )
-
-            for unidade in unidades_livres[:quantidade_necessaria]:
-                reserva = ReservaUnidade(
-                    pedido=pedido,
-                    item_pedido=ReservaPedidoService._item_pedido_para_reserva(
-                        demanda
-                    ),
-                    unidade_brinquedo=unidade,
-                    data_inicio=data_inicio,
-                    data_fim=data_fim,
-                    status=ReservaUnidade.Status.ATIVA,
+                unidades_livres = ReservaPedidoService._unidades_candidatas_livres(
+                    brinquedo_id,
+                    data_inicio,
+                    data_fim,
+                    kit_festa_id=kit_festa_id,
                 )
-                reserva.full_clean()
-                reserva.save()
-                reservas_criadas.append(reserva)
+                if len(unidades_livres) < origem["quantidade"]:
+                    raise serializers.ValidationError(
+                        {
+                            "disponibilidade": (
+                                "Unidades insuficientes para o brinquedo "
+                                f"{brinquedo_id}."
+                            )
+                        }
+                    )
+                for unidade in unidades_livres[: origem["quantidade"]]:
+                    reserva = ReservaUnidade(
+                        pedido=pedido,
+                        item_pedido=item_pedido,
+                        unidade_brinquedo=unidade,
+                        data_inicio=data_inicio,
+                        data_fim=data_fim,
+                        status=ReservaUnidade.Status.ATIVA,
+                    )
+                    reserva.full_clean()
+                    reserva.save()
+                    reservas_criadas.append(reserva)
 
         pedido.status = Pedido.Status.RESERVADO
         pedido.save(update_fields=["status", "atualizado_em"])
@@ -1100,7 +1139,12 @@ class AgendaAdminService:
             .order_by("id")
         )
         return (
-            Pedido.objects.select_related("cliente", "aceite_contrato")
+            Pedido.objects.select_related("cliente")
+            .annotate(
+                tem_aceite_contrato_agenda=Exists(
+                    AceiteContrato.objects.filter(pedido_id=OuterRef("pk"))
+                )
+            )
             .prefetch_related(
                 "itens",
                 Prefetch(
@@ -1220,6 +1264,9 @@ class AgendaAdminService:
 
     @staticmethod
     def _tem_aceite_contrato(pedido):
+        tem_aceite = getattr(pedido, "tem_aceite_contrato_agenda", None)
+        if tem_aceite is not None:
+            return tem_aceite
         return hasattr(pedido, "aceite_contrato")
 
     @staticmethod
@@ -1300,6 +1347,193 @@ class AdminPedidoAcoesService:
         except serializers.ValidationError:
             return False
         return bool(demandas)
+
+
+class GestaoAdminPedidoService:
+    @staticmethod
+    def _registrar(pedido, usuario, acao, dados):
+        HistoricoPedido.objects.create(
+            pedido=pedido,
+            usuario_admin=usuario,
+            acao=acao,
+            dados=dados,
+        )
+
+    @staticmethod
+    def _serializar_data(valor):
+        return valor.isoformat() if valor else None
+
+    @staticmethod
+    @transaction.atomic
+    def atualizar_datas(pedido, usuario_admin, data_evento, data_inicio, data_fim):
+        pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if pedido.status in {
+            Pedido.Status.EM_LOCACAO,
+            Pedido.Status.RETIRADO,
+            Pedido.Status.CANCELADO,
+        }:
+            raise serializers.ValidationError(
+                {"status": "As datas nao podem ser alteradas neste status."}
+            )
+        if data_fim <= data_inicio:
+            raise serializers.ValidationError(
+                {"data_fim_locacao": "A data final deve ser posterior a inicial."}
+            )
+        if data_evento and data_evento < timezone.localdate():
+            raise serializers.ValidationError(
+                {"data_evento_pretendida": "A data do evento nao pode estar no passado."}
+            )
+
+        reservas = list(
+            ReservaUnidade.objects.select_for_update().filter(
+                pedido=pedido, status=ReservaUnidade.Status.ATIVA
+            )
+        )
+        for reserva in reservas:
+            conflito = ReservaUnidade.objects.filter(
+                unidade_brinquedo_id=reserva.unidade_brinquedo_id,
+                status=ReservaUnidade.Status.ATIVA,
+                data_inicio__lt=data_fim,
+                data_fim__gt=data_inicio,
+            ).exclude(pedido=pedido).exists()
+            if conflito:
+                raise serializers.ValidationError(
+                    {"disponibilidade": "Uma unidade reservada possui conflito nas novas datas."}
+                )
+
+        anterior = {
+            "data_evento_pretendida": GestaoAdminPedidoService._serializar_data(pedido.data_evento_pretendida),
+            "data_inicio_locacao": GestaoAdminPedidoService._serializar_data(pedido.data_inicio_locacao),
+            "data_fim_locacao": GestaoAdminPedidoService._serializar_data(pedido.data_fim_locacao),
+        }
+        pedido.data_evento_pretendida = data_evento
+        pedido.data_inicio_locacao = data_inicio
+        pedido.data_fim_locacao = data_fim
+        pedido.save(update_fields=[
+            "data_evento_pretendida", "data_inicio_locacao",
+            "data_fim_locacao", "atualizado_em",
+        ])
+        for reserva in reservas:
+            reserva.data_inicio = data_inicio
+            reserva.data_fim = data_fim
+            reserva.save(update_fields=["data_inicio", "data_fim", "atualizado_em"])
+        GestaoAdminPedidoService._registrar(
+            pedido,
+            usuario_admin,
+            HistoricoPedido.Acao.DATAS_ALTERADAS,
+            {
+                "anterior": anterior,
+                "novo": {
+                    "data_evento_pretendida": GestaoAdminPedidoService._serializar_data(data_evento),
+                    "data_inicio_locacao": data_inicio.isoformat(),
+                    "data_fim_locacao": data_fim.isoformat(),
+                },
+            },
+        )
+        return pedido
+
+    @staticmethod
+    @transaction.atomic
+    def renovar(pedido, usuario_admin, nova_data_fim):
+        pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if pedido.status not in {
+            Pedido.Status.RESERVADO,
+            Pedido.Status.CONFIRMADO,
+            Pedido.Status.EM_LOCACAO,
+        }:
+            raise serializers.ValidationError(
+                {"status": "Pedido nao pode ser renovado neste status."}
+            )
+        if not pedido.data_fim_locacao or nova_data_fim <= pedido.data_fim_locacao:
+            raise serializers.ValidationError(
+                {"nova_data_fim": "A nova data final deve ampliar o periodo atual."}
+            )
+        reservas = list(
+            ReservaUnidade.objects.select_for_update().filter(
+                pedido=pedido, status=ReservaUnidade.Status.ATIVA
+            )
+        )
+        if not reservas:
+            raise serializers.ValidationError({"reservas": "Pedido sem reservas ativas."})
+        for reserva in reservas:
+            if ReservaUnidade.objects.filter(
+                unidade_brinquedo_id=reserva.unidade_brinquedo_id,
+                status=ReservaUnidade.Status.ATIVA,
+                data_inicio__lt=nova_data_fim,
+                data_fim__gt=pedido.data_fim_locacao,
+            ).exclude(pedido=pedido).exists():
+                raise serializers.ValidationError(
+                    {"disponibilidade": "A renovacao conflita com outra reserva."}
+                )
+        data_anterior = pedido.data_fim_locacao
+        pedido.data_fim_locacao = nova_data_fim
+        pedido.save(update_fields=["data_fim_locacao", "atualizado_em"])
+        for reserva in reservas:
+            reserva.data_fim = nova_data_fim
+            reserva.save(update_fields=["data_fim", "atualizado_em"])
+        GestaoAdminPedidoService._registrar(
+            pedido,
+            usuario_admin,
+            HistoricoPedido.Acao.RENOVADO,
+            {"data_fim_anterior": data_anterior.isoformat(), "nova_data_fim": nova_data_fim.isoformat()},
+        )
+        return pedido
+
+    @staticmethod
+    @transaction.atomic
+    def cancelar(pedido, usuario_admin):
+        pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if pedido.status in {Pedido.Status.EM_LOCACAO, Pedido.Status.RETIRADO}:
+            raise serializers.ValidationError(
+                {"status": "Locacao iniciada ou retirada nao pode ser cancelada."}
+            )
+        anterior = pedido.status
+        ReservaUnidade.objects.filter(
+            pedido=pedido, status=ReservaUnidade.Status.ATIVA
+        ).update(status=ReservaUnidade.Status.CANCELADA, atualizado_em=timezone.now())
+        pedido.status = Pedido.Status.CANCELADO
+        pedido.save(update_fields=["status", "atualizado_em"])
+        GestaoAdminPedidoService._registrar(
+            pedido, usuario_admin, HistoricoPedido.Acao.STATUS_ALTERADO,
+            {"anterior": anterior, "novo": pedido.status},
+        )
+        return pedido
+
+    @staticmethod
+    @transaction.atomic
+    def alterar_status(pedido, usuario_admin, novo_status):
+        if pedido.status == novo_status:
+            return pedido
+        anterior = pedido.status
+        if novo_status == Pedido.Status.CANCELADO:
+            return GestaoAdminPedidoService.cancelar(pedido, usuario_admin)
+        if novo_status == Pedido.Status.RESERVADO:
+            ReservaPedidoService.reservar_unidades(pedido)
+        elif novo_status == Pedido.Status.CONFIRMADO:
+            if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
+                ReservaPedidoService.reservar_unidades(pedido)
+            pedido = Pedido.objects.get(pk=pedido.pk)
+            ConfirmacaoPedidoService.confirmar(pedido, usuario_admin)
+        elif novo_status == Pedido.Status.EM_LOCACAO:
+            if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
+                ReservaPedidoService.reservar_unidades(pedido)
+            pedido = Pedido.objects.get(pk=pedido.pk)
+            if pedido.status == Pedido.Status.RESERVADO:
+                ConfirmacaoPedidoService.confirmar(pedido, usuario_admin)
+            pedido = Pedido.objects.get(pk=pedido.pk)
+            OperacaoLocacaoService.iniciar_locacao(pedido, usuario_admin)
+        elif novo_status == Pedido.Status.RETIRADO:
+            OperacaoLocacaoService.registrar_retirada(pedido, usuario_admin)
+        else:
+            raise serializers.ValidationError(
+                {"status": "O status solicitado nao pode ser aplicado diretamente."}
+            )
+        pedido = Pedido.objects.get(pk=pedido.pk)
+        GestaoAdminPedidoService._registrar(
+            pedido, usuario_admin, HistoricoPedido.Acao.STATUS_ALTERADO,
+            {"anterior": anterior, "novo": pedido.status},
+        )
+        return pedido
 
 
 class ConfirmacaoPedidoService:

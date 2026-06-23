@@ -6,6 +6,10 @@ from .views import (
     CategoriaViewSet,
     KitFestaViewSet,
     KitPersonalizavelViewSet,
+    InteresseDisponibilidadeView,
+    InteresseDisponibilidadeDetailView,
+    AdminInteresseDisponibilidadeView,
+    AdminInteresseDisponibilidadeDetailView,
 )
 
 router = DefaultRouter()
@@ -19,6 +23,10 @@ router.register(
 )
 
 urlpatterns = [
+    path('interesses-disponibilidade/', InteresseDisponibilidadeView.as_view(), name='interesses-disponibilidade'),
+    path('interesses-disponibilidade/<int:interesse_id>/', InteresseDisponibilidadeDetailView.as_view(), name='interesse-disponibilidade-detalhe'),
+    path('admin/interesses-disponibilidade/', AdminInteresseDisponibilidadeView.as_view(), name='admin-interesses-disponibilidade'),
+    path('admin/interesses-disponibilidade/<int:interesse_id>/', AdminInteresseDisponibilidadeDetailView.as_view(), name='admin-interesse-disponibilidade-detalhe'),
     path(
         'admin/unidades/<int:unidade_id>/liberar-disponibilidade/',
         AdminLiberarDisponibilidadeUnidadeView.as_view(),

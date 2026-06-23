@@ -4,10 +4,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Categoria, ImagemBrinquedo, UnidadeBrinquedo
+from .models import Categoria, ImagemBrinquedo, InteresseDisponibilidade, UnidadeBrinquedo
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
@@ -19,6 +19,8 @@ from .serializers import (
     DisponibilidadePeriodoSerializer,
     KitFestaAdminSerializer,
     KitFestaPublicSerializer,
+    InteresseDisponibilidadeSerializer,
+    AtualizarInteresseAdminSerializer,
     UnidadeBrinquedoAdminSerializer,
     UnidadeBrinquedoOperacaoSerializer,
     ValidarSelecaoKitPersonalizavelSerializer,
@@ -206,6 +208,78 @@ class AdminLiberarDisponibilidadeUnidadeView(APIView):
             request.user,
         )
         return Response(UnidadeBrinquedoOperacaoSerializer(unidade).data)
+
+
+class InteresseDisponibilidadeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = InteresseDisponibilidade.objects.filter(
+            cliente__user=request.user
+        ).select_related("brinquedo", "cliente")
+        return Response(InteresseDisponibilidadeSerializer(queryset, many=True).data)
+
+    def post(self, request):
+        if not hasattr(request.user, "cliente"):
+            return Response(
+                {"detail": "Complete o cadastro de cliente antes de solicitar o aviso."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = InteresseDisponibilidadeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        brinquedo = serializer.validated_data["brinquedo"]
+        if BrinquedoService.quantidade_disponivel(brinquedo) > 0:
+            return Response(
+                {"brinquedo": "Este brinquedo ja esta disponivel."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        interesse, criado = InteresseDisponibilidade.objects.get_or_create(
+            cliente=request.user.cliente,
+            brinquedo=brinquedo,
+            status=InteresseDisponibilidade.Status.PENDENTE,
+        )
+        return Response(
+            InteresseDisponibilidadeSerializer(interesse).data,
+            status=status.HTTP_201_CREATED if criado else status.HTTP_200_OK,
+        )
+
+
+class InteresseDisponibilidadeDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, interesse_id):
+        interesse = get_object_or_404(
+            InteresseDisponibilidade,
+            id=interesse_id,
+            cliente__user=request.user,
+            status=InteresseDisponibilidade.Status.PENDENTE,
+        )
+        interesse.status = InteresseDisponibilidade.Status.CANCELADO
+        interesse.save(update_fields=["status", "atualizado_em"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminInteresseDisponibilidadeView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        queryset = InteresseDisponibilidade.objects.filter(
+            status=InteresseDisponibilidade.Status.PENDENTE
+        ).select_related("brinquedo", "cliente")
+        return Response(InteresseDisponibilidadeSerializer(queryset, many=True).data)
+
+
+class AdminInteresseDisponibilidadeDetailView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, interesse_id):
+        interesse = get_object_or_404(InteresseDisponibilidade, id=interesse_id)
+        serializer = AtualizarInteresseAdminSerializer(
+            interesse, data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(InteresseDisponibilidadeSerializer(interesse).data)
 
 
 class KitFestaViewSet(viewsets.ModelViewSet):
