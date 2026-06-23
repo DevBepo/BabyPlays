@@ -216,7 +216,7 @@ export function Header({
               height={683}
               priority
               sizes="(max-width: 639px) 176px, 304px"
-              className="absolute left-1/2 top-1/2 h-auto w-full -translate-x-1/2 -translate-y-1/2 object-contain"
+              className="absolute left-1/2 top-1/2 h-auto w-40 max-h-110 -translate-x-1/2 -translate-y-1/2 object-contain sm:w-[280px] sm:max-h-[180px]"
             />
           </span>
         </Link>
