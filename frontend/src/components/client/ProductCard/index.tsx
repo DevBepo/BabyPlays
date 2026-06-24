@@ -117,7 +117,7 @@ export function ProductCard({
   };
 
   return (
-    <article className="group relative flex h-full min-h-[356px] w-[280px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[288px]">
+    <article className="group relative flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="absolute left-3 top-3 z-10">
         {isAvailable ? (
           <Badge variant="success" className="normal-case tracking-normal">
@@ -130,12 +130,12 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="h-48 w-full overflow-hidden bg-zinc-50">
+      <div className="aspect-square w-full overflow-hidden bg-zinc-50">
         {imagemUrl ? (
           <img
             src={imagemUrl}
             alt={imagemAlt || nome}
-            className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+            className="h-full w-full object-contain p-1 transition-transform duration-500 ease-out group-hover:scale-125"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center border-b border-dashed border-zinc-200 bg-white text-xs font-medium text-zinc-400">

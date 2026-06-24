@@ -87,7 +87,9 @@ function getKitImage(kit: KitFestaCatalogo) {
 }
 
 function scrollCarousel(ref: RefObject<HTMLDivElement | null>, direction: -1 | 1) {
-  ref.current?.scrollBy({ left: direction * 620, behavior: "smooth" });
+  const carousel = ref.current;
+  if (!carousel) return;
+  carousel.scrollBy({ left: direction * carousel.clientWidth, behavior: "smooth" });
 }
 
 type CarouselScrollState = { canScrollPrevious: boolean; canScrollNext: boolean; };
@@ -177,10 +179,15 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
   };
 
   return (
-    <article className="flex h-full min-h-[356px] w-[280px] shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-[288px]">
-      <div className="relative h-44 overflow-hidden bg-zinc-50">
+    <article className="group flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+      <div className="relative aspect-square overflow-hidden bg-zinc-50">
         {imagemUrl ? (
-          <Image src={imagemUrl} alt={imagem?.alt_text || kit.nome} fill className="object-cover" />
+          <Image
+            src={imagemUrl}
+            alt={imagem?.alt_text || kit.nome}
+            fill
+            className="object-contain p-1 transition-transform duration-500 ease-out group-hover:scale-125"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center border-b border-dashed border-zinc-200 bg-white text-xs font-medium text-zinc-400">Sem imagem</div>
         )}
@@ -385,13 +392,13 @@ export default function Home() {
                 {brinquedosFiltrados.length === 0 ? (
                   <EmptyState title="Nenhum brinquedo encontrado." message="Ajuste a busca, categoria ou disponibilidade." />
                 ) : (
-                  <div className="relative">
+                  <div className="relative overflow-hidden rounded-lg">
                     <CarouselButton direction="left" visible={brinquedoScrollState.canScrollPrevious} onClick={() => scrollCarousel(brinquedosCarouselRef, -1)} ariaLabel="Ver brinquedos anteriores" />
-                    <div ref={brinquedosCarouselRef} className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div ref={brinquedosCarouselRef} className="@container flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {brinquedosFiltrados.map((brinquedo) => {
                         const imagem = getBrinquedoImage(brinquedo);
                         return (
-                          <div key={brinquedo.id} className="snap-start">
+                          <div key={brinquedo.id} className="w-full shrink-0 snap-start @min-[480px]:w-[calc((100%-1rem)/2)] @min-[720px]:w-[calc((100%-2rem)/3)] @min-[980px]:w-[calc((100%-3rem)/4)]">
                             <ProductCard
                               id={brinquedo.id}
                               nome={brinquedo.nome}
@@ -423,11 +430,11 @@ export default function Home() {
                 {kitsFestaFiltrados.length === 0 ? (
                   <EmptyState title="Nenhum kit festa encontrado." message="Ajuste a busca para ver mais kits." />
                 ) : (
-                  <div className="relative">
+                  <div className="relative overflow-hidden rounded-lg">
                     <CarouselButton direction="left" visible={kitsScrollState.canScrollPrevious} onClick={() => scrollCarousel(kitsCarouselRef, -1)} ariaLabel="Ver kits anteriores" />
-                    <div ref={kitsCarouselRef} className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div ref={kitsCarouselRef} className="@container flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {kitsFestaFiltrados.map((kit) => (
-                        <div key={kit.id} className="snap-start">
+                        <div key={kit.id} className="w-full shrink-0 snap-start @min-[480px]:w-[calc((100%-1rem)/2)] @min-[720px]:w-[calc((100%-2rem)/3)] @min-[980px]:w-[calc((100%-3rem)/4)]">
                           <KitFestaCard kit={kit} />
                         </div>
                       ))}
