@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useLayoutEffect, useState } from "react";
-
+import Image from "next/image";
 import { AdminSidebar } from "../AdminSideBar";
 import { useAuth } from "@/hooks/useAuth";
 import { getAdminMe } from "@/services/auth";
@@ -209,11 +209,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       <div className="pl-64 flex flex-col min-h-screen">
         <header className="h-14 bg-white border-b border-zinc-200 px-6 flex items-center justify-between sticky top-0 z-20">
-          <div>
-            <h1 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">
-              Ambiente de Gestao
-            </h1>
-          </div>
+        <div className="relative h-8 w-40">
+          <Image
+            src="/logo-babyplays-header.png"
+            alt="Logo BabyPlays"
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
 
           <div className="flex items-center gap-3">
             <div className="flex flex-col text-right">
