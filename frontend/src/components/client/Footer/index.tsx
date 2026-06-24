@@ -1,6 +1,10 @@
+import { getInstagramUrl, getWhatsAppUrl } from "@/lib/contact-links";
+
 export function Footer() {
-  const whatsappUrl = "https://wa.me/5551981177297?text=Ol%C3%A1%2C%20quero%20conhecer%20mais%20dos%20produtos%20da%20Baby%20Plays!";
-  const instagramUrl = "https://www.instagram.com/babyplays.brinquedos?igsh=OGY4NmY3Znp6bnAx";
+  const whatsappUrl = getWhatsAppUrl(
+    "Olá! Quero conhecer mais sobre os brinquedos e kits da BabyPlays.",
+  );
+  const instagramUrl = getInstagramUrl();
 
   return (
     <footer className="mt-auto w-full border-t border-zinc-200 bg-white">
@@ -14,7 +18,7 @@ export function Footer() {
 
           {/* Links de Contato (Estilo Minimalista) */}
           <div className="flex items-center gap-8">
-            <a
+            {whatsappUrl && <a
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -26,9 +30,9 @@ export function Footer() {
                 </svg>
               </span>
               WhatsApp
-            </a>
+            </a>}
 
-            <a
+            {instagramUrl && <a
               href={instagramUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -42,7 +46,7 @@ export function Footer() {
                 </svg>
               </span>
               Instagram
-            </a>
+            </a>}
           </div>
 
         </div>

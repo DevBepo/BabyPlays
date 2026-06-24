@@ -41,11 +41,11 @@ const IconHelp = () => (
 export function SubNavbar() {
   // 2. Array de itens para facilitar a manutenção e não repetir código
   const navItems = [
-    { label: "Brinquedos", icon: <IconStar />, href: "#brinquedos" },
-    { label: "Kits Festas", icon: <IconGift />, href: "#kits-festa" },
-    { label: "Como funciona", icon: <IconClock />, href: "#como-funciona" },
-    { label: "Planos", icon: <IconCheck />, href: "#planos" },
-    { label: "Ajuda", icon: <IconHelp />, href: "#ajuda" },
+    { label: "Brinquedos", icon: <IconStar />, href: "/#brinquedos" },
+    { label: "Kits Festas", icon: <IconGift />, href: "/#kits-festa" },
+    { label: "Como funciona", icon: <IconClock />, href: "/como-funciona" },
+    { label: "Planos", icon: <IconCheck />, href: "/#planos" },
+    { label: "Ajuda", icon: <IconHelp />, href: "/ajuda" },
   ];
 
   return (
