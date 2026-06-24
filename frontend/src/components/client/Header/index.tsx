@@ -208,15 +208,15 @@ export function Header({
               className="absolute left-1/2 top-1/2 h-[78px] w-[98px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[115px]"
             />
           </span>
-          <span className="relative block h-12 w-44 shrink-0 overflow-hidden sm:h-[72px] sm:w-76">
+          <span className="relative block h-12 w-44 shrink-0 overflow-hidden sm:h-[72px] sm:w-76 lg:overflow-visible">
             <Image
               src="/logo-babyplays-header.png"
               alt="BabyPlays - Locação de brinquedos"
               width={2048}
               height={683}
               priority
-              sizes="(max-width: 639px) 176px, 304px"
-              className="absolute left-1/2 top-1/2 h-auto w-40 max-h-110 -translate-x-1/2 -translate-y-1/2 object-contain sm:w-[280px] sm:max-h-[180px]"
+              sizes="(max-width: 639px) 176px, (max-width: 1023px) 280px, 352px"
+              className="absolute left-1/2 top-1/2 h-auto w-40 max-h-110 -translate-x-1/2 -translate-y-1/2 object-contain sm:w-[280px] sm:max-h-[180px] lg:left-0 lg:w-[352px] lg:translate-x-0"
             />
           </span>
         </Link>
