@@ -149,7 +149,7 @@ export function SidebarCart() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 overflow-y-auto max-h-[250px] custom-scrollbar pr-2">
+        <div className="custom-scrollbar flex max-h-[280px] min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-2">
           {itens.length === 0 ? (
             <p className="text-sm text-zinc-500 text-center py-4">Seu carrinho está vazio.</p>
           ) : (
@@ -157,20 +157,20 @@ export function SidebarCart() {
               const imagemUrl = resolveMediaUrl(item.imagem_url);
 
               return (
-              <div key={item.id} className="flex gap-3 items-center relative border border-zinc-100 p-2.5 rounded-lg bg-zinc-50/50">
-                <div className="w-16 h-16 bg-white rounded-md border border-zinc-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
+              <div key={item.id} className="relative flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/50 p-3">
+                <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white">
                   {imagemUrl ? (
                     <img
                       src={imagemUrl}
                       alt={item.nome_snapshot}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain p-1"
                     />
                   ) : (
                     <span className="text-[10px] text-zinc-400">Sem imagem</span>
                   )}
                 </div>
-                <div className="flex flex-col flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h3>
+                <div className="flex min-w-0 flex-1 flex-col pr-7">
+                  <h3 className="line-clamp-2 text-sm font-bold leading-snug text-zinc-800">{item.nome_snapshot}</h3>
                   <span className="text-[11px] text-zinc-500 mt-0.5">
                     {item.quantidade}x • {item.snapshot.periodo_locacao?.label || "15 dias"}
                   </span>

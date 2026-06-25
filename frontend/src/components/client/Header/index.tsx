@@ -392,23 +392,23 @@ export function Header({
                       <p className="text-sm text-zinc-500">O carrinho está vazio.</p>
                     </div>
                   ) : (
-                    carrinho?.itens.map((item) => (
-                      <div key={item.id} className="flex gap-3 group">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-                          {resolveMediaUrl(item.imagem_url) ? (
-                            <img
-                              src={resolveMediaUrl(item.imagem_url) ?? undefined}
-                              alt={item.nome_snapshot}
-                              className="h-full w-full object-cover"
-                            />
+                      carrinho?.itens.map((item) => (
+                        <div key={item.id} className="group flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5">
+                          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                            {resolveMediaUrl(item.imagem_url) ? (
+                              <img
+                                src={resolveMediaUrl(item.imagem_url) ?? undefined}
+                                alt={item.nome_snapshot}
+                                className="h-full w-full object-contain p-1"
+                              />
                           ) : (
                             <span className="px-1 text-center text-[10px] text-zinc-400">
                               Sem imagem
                             </span>
                           )}
                         </div>
-                        <div className="flex-1">
-                          <h4 className="text-sm font-bold text-zinc-800 line-clamp-1">{item.nome_snapshot}</h4>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="line-clamp-2 pr-1 text-sm font-bold leading-snug text-zinc-800">{item.nome_snapshot}</h4>
                           {item.snapshot.periodo_locacao ? (
                             <p className="mt-0.5 text-xs font-medium text-zinc-500">
                               Periodo: {item.snapshot.periodo_locacao.label}
@@ -419,10 +419,10 @@ export function Header({
                             <span className="text-xs text-zinc-400">Qtd: {item.quantidade}</span>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleRemoverItem(item.id)}
-                          disabled={removendoId === item.id}
-                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                          <button
+                            onClick={() => handleRemoverItem(item.id)}
+                            disabled={removendoId === item.id}
+                            className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                           title="Remover item"
                         >
                           {removendoId === item.id ? (
