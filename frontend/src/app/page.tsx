@@ -366,7 +366,7 @@ export default function Home() {
       />
       <SubNavbar />
 
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+      <div className="relative overflow-visible bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
         <span className="pointer-events-none absolute -left-16 top-12 h-48 w-48 rounded-full bg-[#FAB555]/25" />
         <span className="pointer-events-none absolute right-[7%] top-28 h-5 w-5 rounded-full bg-[#EA524B]/80" />
         <span className="pointer-events-none absolute -right-14 top-[38%] h-44 w-44 rotate-12 rounded-[3rem] bg-[#76CFC8]/18" />
