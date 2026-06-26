@@ -637,7 +637,18 @@ class CarrinhoAPITests(APITestCase):
         self.assertIsNone(pedido.data_fim_locacao)
         self.assertIsNone(response.data["data_inicio_locacao"])
         self.assertIsNone(response.data["data_fim_locacao"])
-        self.assertIn(f"Pedido BabyPlays #{pedido.id}", response.data["whatsapp_resumo"])
+        resumo_whatsapp = response.data["whatsapp_resumo"]
+        self.assertIn("solicitacao de locacao", resumo_whatsapp)
+        self.assertIn(f"Pedido: #{pedido.id}", resumo_whatsapp)
+        self.assertIn("Contrato aceito no site: Sim", resumo_whatsapp)
+        self.assertIn(
+            (
+                "Gostaria de confirmar disponibilidade, datas de "
+                "entrega/retirada e os proximos passos."
+            ),
+            resumo_whatsapp,
+        )
+        self.assertNotIn("reserva confirmada", resumo_whatsapp.lower())
         self.assertEqual(pedido.itens.count(), 1)
         item = pedido.itens.get()
         self.assertEqual(item.tipo_item, ItemCarrinho.TipoItem.BRINQUEDO)

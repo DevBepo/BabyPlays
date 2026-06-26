@@ -617,17 +617,24 @@ class PedidoService:
     def gerar_resumo_whatsapp(pedido):
         pedido = Pedido.objects.prefetch_related("itens").get(pk=pedido.pk)
         linhas = [
-            f"Pedido BabyPlays #{pedido.id}",
-            f"Cliente: {pedido.nome_cliente_snapshot}",
+            (
+                "Ola! Acabei de fazer uma solicitacao de locacao pelo site "
+                "da BabyPlays."
+            ),
+            "",
+            f"Pedido: #{pedido.id}",
+            "",
+            f"Nome: {pedido.nome_cliente_snapshot}",
             f"Telefone: {pedido.telefone_cliente_snapshot}",
             "",
-            "Itens:",
+            "Itens escolhidos:",
         ]
         for item in pedido.itens.all():
             periodo = item.snapshot.get("periodo_locacao", {})
             label_periodo = periodo.get("label", "Periodo a combinar")
             linhas.append(
-                f"- {item.quantidade}x {item.nome_snapshot} ({label_periodo}) - "
+                f"- {item.nome_snapshot} - {item.quantidade} unidade(s) "
+                f"({label_periodo}) - "
                 f"R$ {item.subtotal_snapshot:.2f}"
             )
             composicao = item.snapshot.get("kit_festa", {}).get("itens", [])
@@ -645,15 +652,28 @@ class PedidoService:
             endereco.get("uf"),
             endereco.get("cep"),
         ]
+        endereco_formatado = ", ".join(
+            str(parte) for parte in endereco_partes if parte
+        )
+        if endereco_formatado:
+            linhas.extend(["", f"Endereco: {endereco_formatado}"])
+        if pedido.observacoes_cliente:
+            linhas.extend(
+                ["", "Observacoes:", pedido.observacoes_cliente]
+            )
         linhas.extend(
             [
                 "",
-                "Endereco: " + ", ".join(str(parte) for parte in endereco_partes if parte),
                 f"Subtotal: R$ {pedido.subtotal_itens_snapshot:.2f}",
                 f"Entrega e retirada: R$ {pedido.taxa_entrega_retirada_snapshot:.2f}",
                 f"Total estimado: R$ {pedido.total_estimado_snapshot:.2f}",
                 "",
-                "As datas exatas da locacao serao combinadas por aqui.",
+                "Contrato aceito no site: Sim",
+                "",
+                (
+                    "Gostaria de confirmar disponibilidade, datas de "
+                    "entrega/retirada e os proximos passos."
+                ),
             ]
         )
         return "\n".join(linhas)

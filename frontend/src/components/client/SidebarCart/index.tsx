@@ -8,6 +8,7 @@ import { removerItemCarrinho, converterCarrinhoEmPedido } from "@/services/cart"
 import { obterContratoVigente } from "@/services/contrato";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal"; // Importando o nosso Modal
+import { getWhatsAppUrl } from "@/lib/contact-links";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ContratoLocacao } from "@/types/contrato"; // Importando a tipagem
 
@@ -105,12 +106,7 @@ export function SidebarCart() {
 
       await refreshCart();
       setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false); setExpandirDados(false);
-      const whatsapp = process.env.NEXT_PUBLIC_BABYPLAYS_WHATSAPP?.replace(/\D/g, "");
-      if (!whatsapp) {
-        alert(`Pedido #${pedido.id} salvo com sucesso, mas o WhatsApp da BabyPlays não está configurado.`);
-        return;
-      }
-      window.location.href = `https://wa.me/${whatsapp}?text=${encodeURIComponent(pedido.whatsapp_resumo)}`;
+      window.location.href = getWhatsAppUrl(pedido.whatsapp_resumo);
     } catch (err: unknown) {
       console.error("Erro ao converter pedido:", err);
       const mensagem =
