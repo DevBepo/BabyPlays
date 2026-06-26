@@ -117,20 +117,20 @@ export function ProductCard({
   };
 
   return (
-    <article className="group relative flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <article className="group relative flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-3xl border border-[#AB2E97]/15 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#AB2E97]/30 hover:shadow-lg hover:shadow-[#803233]/10">
       <div className="absolute left-3 top-3 z-10">
         {isAvailable ? (
-          <Badge variant="success" className="normal-case tracking-normal">
+          <Badge variant="success" className="normal-case tracking-normal bg-[#E8F8F6] text-[#2C1615]">
             Disponivel
           </Badge>
         ) : (
-          <Badge variant="default" className="normal-case tracking-normal">
+          <Badge variant="default" className="normal-case tracking-normal bg-[#FDECEB] text-[#803233]">
             Alugado
           </Badge>
         )}
       </div>
 
-      <div className="aspect-square w-full overflow-hidden bg-zinc-50">
+      <div className="aspect-square w-full overflow-hidden bg-[#FFF8EC]">
         {imagemUrl ? (
           <img
             src={imagemUrl}
@@ -138,14 +138,14 @@ export function ProductCard({
             className="h-full w-full object-contain p-1 transition-transform duration-500 ease-out group-hover:scale-125"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center border-b border-dashed border-zinc-200 bg-white text-xs font-medium text-zinc-400">
+          <div className="flex h-full w-full items-center justify-center border-b border-dashed border-[#FAB555]/50 bg-white text-xs font-medium text-zinc-400">
             Sem imagem
           </div>
         )}
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="line-clamp-2 text-sm font-bold leading-5 text-zinc-900">
+        <h3 className="line-clamp-2 text-sm font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
           {nome}
         </h3>
 
@@ -155,7 +155,7 @@ export function ProductCard({
 
         <div className="mt-3 flex items-end justify-between gap-3">
           <div>
-            <p className="text-lg font-black leading-none text-zinc-950">
+            <p className="text-lg font-black leading-none text-[#2C1615]">
               {periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}
             </p>
             <p className="mt-1 text-[11px] font-medium text-zinc-500">
@@ -181,8 +181,8 @@ export function ProductCard({
                     aria-pressed={selected}
                     className={`inline-flex h-7 items-center justify-center rounded-full border px-2.5 text-[11px] font-bold leading-none transition-colors ${
                       selected
-                        ? "border-teal-600 bg-teal-50 text-teal-800"
-                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                        ? "border-[#AB2E97] bg-[#F7EAF5] text-[#803233]"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-[#76CFC8]"
                     }`}
                   >
                     {option.label}
@@ -201,7 +201,7 @@ export function ProductCard({
               type="button"
               onClick={handleAddToCart}
               disabled={adicionando}
-              className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#FF5A5F] px-4 text-sm font-bold text-white transition-colors hover:bg-[#e94d52] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#AB2E97] px-4 text-sm font-semibold text-white shadow-sm shadow-[#AB2E97]/15 transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {adicionando ? "Adicionando..." : "Adicionar ao carrinho"}
             </button>
@@ -210,7 +210,7 @@ export function ProductCard({
               type="button"
               onClick={handleInteresse}
               disabled={registrandoInteresse}
-              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-violet-200 bg-violet-50 px-4 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+              className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#AB2E97]/25 bg-[#F7EAF5] px-4 text-sm font-bold text-[#AB2E97] transition-colors hover:bg-[#FFF4DF] disabled:opacity-60 [font-family:var(--font-fredoka)]"
             >
               {registrandoInteresse ? "Registrando..." : "Avise-me quando disponivel"}
             </button>

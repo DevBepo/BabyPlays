@@ -8,6 +8,7 @@ import { removerItemCarrinho, converterCarrinhoEmPedido } from "@/services/cart"
 import { obterContratoVigente } from "@/services/contrato";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal"; // Importando o nosso Modal
+import { getWhatsAppUrl } from "@/lib/contact-links";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ContratoLocacao } from "@/types/contrato"; // Importando a tipagem
 
@@ -105,12 +106,7 @@ export function SidebarCart() {
 
       await refreshCart();
       setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false); setExpandirDados(false);
-      const whatsapp = process.env.NEXT_PUBLIC_BABYPLAYS_WHATSAPP?.replace(/\D/g, "");
-      if (!whatsapp) {
-        alert(`Pedido #${pedido.id} salvo com sucesso, mas o WhatsApp da BabyPlays não está configurado.`);
-        return;
-      }
-      window.location.href = `https://wa.me/${whatsapp}?text=${encodeURIComponent(pedido.whatsapp_resumo)}`;
+      window.location.href = getWhatsAppUrl(pedido.whatsapp_resumo);
     } catch (err: unknown) {
       console.error("Erro ao converter pedido:", err);
       const mensagem =
@@ -125,7 +121,7 @@ export function SidebarCart() {
 
   if (cartLoading) {
     return (
-      <aside className="fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-sm animate-pulse border border-zinc-200 bg-white p-5 shadow-xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-[600px] lg:w-auto lg:max-w-none lg:self-start lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100vh-120px)]">
+      <aside className="fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-sm animate-pulse border border-zinc-200 bg-white p-5 shadow-xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto">
         <div className="h-6 bg-zinc-100 rounded w-1/2 mb-8"></div>
         <div className="space-y-4"><div className="h-20 bg-zinc-50 rounded"></div></div>
       </aside>
@@ -134,7 +130,7 @@ export function SidebarCart() {
 
   return (
     <>
-      <aside id="reserva" className="custom-scrollbar fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-sm flex-col gap-6 overflow-y-auto border border-zinc-200 bg-white p-5 shadow-2xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100vh-120px)]">
+      <aside id="reserva" className="custom-scrollbar fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-sm flex-col gap-6 overflow-y-auto border border-zinc-200 bg-white p-5 shadow-2xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)]">
         
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
           <h2 className="text-lg font-bold text-zinc-900">Seu carrinho ({quantidadeTotal})</h2>

@@ -12,25 +12,25 @@ const AGE_FILTERS = [
 ];
 
 const FILTER_ICON_COLORS = [
-  "text-teal-600",
-  "text-emerald-600",
-  "text-rose-500",
-  "text-violet-600",
-  "text-sky-600",
-  "text-cyan-600",
-  "text-amber-500",
-  "text-zinc-500",
+  "text-[#AB2E97]",
+  "text-[#76CFC8]",
+  "text-[#EA524B]",
+  "text-[#F07F40]",
+  "text-[#FAB555]",
+  "text-[#803233]",
+  "text-[#AB2E97]",
+  "text-[#76CFC8]",
 ];
 
 function FilterSectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h2 className="text-[13px] font-semibold leading-5 text-zinc-800">
+    <h2 className="text-[13px] font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
       {children}
     </h2>
   );
 }
 
-function FilterIcon({ colorClass = "text-teal-600" }: { colorClass?: string }) {
+function FilterIcon({ colorClass = "text-[#AB2E97]" }: { colorClass?: string }) {
   return (
     <span
       className={`flex h-5 w-5 shrink-0 items-center justify-center ${colorClass}`}
@@ -77,10 +77,10 @@ export function SidebarFilters({
   loading,
 }: SidebarFiltersProps) {
   return (
-    <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
-      <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-        <h1 className="text-base font-black text-zinc-950">Catálogo</h1>
-        <span className="text-xs font-semibold text-zinc-500">
+    <aside className="rounded-3xl border border-[#AB2E97]/15 bg-white/80 p-5 shadow-sm shadow-[#803233]/5 backdrop-blur-sm lg:sticky lg:top-[104px] lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
+      <div className="flex items-center justify-between border-b border-[#FAB555]/35 pb-3">
+        <h1 className="text-base font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Catálogo</h1>
+        <span className="rounded-full bg-[#FFF4DF] px-2.5 py-1 text-xs font-semibold text-[#803233]">
           {totalItensFiltrados} itens
         </span>
       </div>
@@ -94,7 +94,7 @@ export function SidebarFilters({
                 key={age}
                 type="button"
                 disabled
-                className="flex min-h-9 w-full items-center rounded-md border border-zinc-200/70 bg-white px-3 py-2 text-left text-sm font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75"
+                className="flex min-h-9 w-full items-center rounded-xl border border-[#FAB555]/30 bg-white/70 px-3 py-2 text-left text-sm font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75"
               >
                 <span>{age}</span>
               </button>
@@ -111,8 +111,8 @@ export function SidebarFilters({
               aria-pressed={selectedCategory === "todos"}
               className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
                 selectedCategory === "todos"
-                  ? "border-teal-500 bg-teal-50/70 text-zinc-900"
-                  : "border-transparent bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
+                  ? "border-[#AB2E97]/40 bg-[#F7EAF5] text-[#2C1615]"
+                  : "border-transparent bg-white/70 text-zinc-700 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
               }`}
             >
               <FilterIcon colorClass={FILTER_ICON_COLORS[0]} />
@@ -127,8 +127,8 @@ export function SidebarFilters({
                 aria-pressed={selectedCategory === slug}
                 className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
                   selectedCategory === slug
-                    ? "border-teal-500 bg-teal-50/70 text-zinc-900"
-                    : "border-transparent bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
+                    ? "border-[#AB2E97]/40 bg-[#F7EAF5] text-[#2C1615]"
+                    : "border-transparent bg-white/70 text-zinc-700 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
                 }`}
               >
                 <FilterIcon
@@ -141,7 +141,7 @@ export function SidebarFilters({
             ))}
 
             {categorias.length === 0 && !loading ? (
-              <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-500">
+              <p className="rounded-xl bg-[#FFF4DF] px-3 py-2 text-xs leading-5 text-[#803233]">
                 As categorias aparecem quando houver dados ativos na API.
               </p>
             ) : null}
@@ -156,11 +156,11 @@ export function SidebarFilters({
             aria-pressed={onlyAvailable}
             className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
               onlyAvailable
-                ? "border-teal-500 bg-teal-50/70 text-zinc-900"
-                : "border-transparent bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
+                ? "border-[#76CFC8]/60 bg-[#E8F8F6] text-[#2C1615]"
+                : "border-transparent bg-white/70 text-zinc-700 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
             }`}
           >
-            <FilterIcon colorClass="text-emerald-600" />
+            <FilterIcon colorClass="text-[#76CFC8]" />
             <span className="min-w-0 flex-1">Disponível</span>
           </button>
         </section>

@@ -8,6 +8,17 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-purple: #ab2e97;
+  --color-brand-orange: #f07f40;
+  --color-brand-coral: #ea524b;
+  --color-brand-yellow: #fab555;
+  --color-brand-turquoise: #76cfc8;
+  --color-brand-brown: #803233;
+  --color-brand-ink: #2c1615;
+  --color-brand-purple-soft: #f7eaf5;
+  --color-brand-yellow-soft: #fff4df;
+  --color-brand-turquoise-soft: #e8f8f6;
+  --color-brand-coral-soft: #fdeceb;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
