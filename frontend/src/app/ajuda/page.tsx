@@ -162,11 +162,11 @@ function BrandVisual({
 
 export default function AjudaPage() {
   return (
-    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[#FFF9F7] text-[#2C1615]">
+    <main className="flex min-h-screen flex-col overflow-x-clip bg-[#FFF9F7] text-[#2C1615]">
       <Header />
       <SubNavbar />
 
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+      <div className="relative overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
       <section className="relative">
         <div className="absolute -left-16 -top-16 hidden h-44 w-44 rounded-full bg-[#76CFC8]/45 sm:block" />
         <div className="absolute left-[12%] top-12 hidden h-5 w-5 rounded-full bg-[#EA524B] sm:block" />

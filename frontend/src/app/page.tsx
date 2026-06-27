@@ -358,7 +358,7 @@ export default function Home() {
   }, [kitsFestaFiltrados.length, loading]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#FFF9F7] text-[#2C1615]">
+    <main className="min-h-screen overflow-x-clip bg-[#FFF9F7] text-[#2C1615]">
       <Header
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
@@ -366,7 +366,7 @@ export default function Home() {
       />
       <SubNavbar />
 
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+      <div className="relative overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
         <span className="pointer-events-none absolute -left-16 top-12 hidden h-48 w-48 rounded-full bg-[#FAB555]/25 sm:block" />
         <span className="pointer-events-none absolute right-[7%] top-28 hidden h-5 w-5 rounded-full bg-[#EA524B]/80 sm:block" />
         <span className="pointer-events-none absolute -right-14 top-[38%] hidden h-44 w-44 rotate-12 rounded-[3rem] bg-[#76CFC8]/18 sm:block" />

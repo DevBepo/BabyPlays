@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { getAdminMe } from "@/services/auth";
-import { removerItemCarrinho } from "@/services/cart";
-import { resolveMediaUrl } from "@/lib/media-url";
+import { SidebarCart } from "@/components/client/SidebarCart";
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -30,18 +28,6 @@ const IconCart = () => (
   </svg>
 );
 
-const IconTrash = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-  </svg>
-);
-
-const IconClose = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m18 6-12 12" /><path d="m6 6 12 12" />
-  </svg>
-);
-
 type HeaderProps = {
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
@@ -53,14 +39,11 @@ export function Header({
   onSearchQueryChange,
   cartDropdownEnabled = true,
 }: HeaderProps) {
-  const router = useRouter();
-  const cartRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
-  const [removendoId, setRemovendoId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [verificandoAdmin, setVerificandoAdmin] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -68,28 +51,16 @@ export function Header({
   const { cliente, user, isAuthenticated, logout } = useAuth();
   const {
     carrinho,
-    cartLoading,
     closeCart,
     isCartOpen,
     openCart,
-    refreshCart,
     toggleCart,
   } = useCart();
   const currentSearchQuery = searchQuery ?? localSearchQuery;
   const accountLabel = cliente?.nome ?? user?.email ?? "cliente";
 
-  // Fechar o carrinho ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        cartDropdownEnabled &&
-        isCartOpen &&
-        cartRef.current &&
-        !cartRef.current.contains(event.target as Node)
-      ) {
-        closeCart();
-      }
-
       if (
         accountRef.current &&
         !accountRef.current.contains(event.target as Node)
@@ -99,7 +70,18 @@ export function Header({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [cartDropdownEnabled, closeCart, isCartOpen]);
+  }, []);
+
+  useEffect(() => {
+    if (!cartDropdownEnabled || !isCartOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cartDropdownEnabled, isCartOpen]);
 
   useEffect(() => {
     let active = true;
@@ -162,18 +144,6 @@ export function Header({
     }
   };
 
-  const handleRemoverItem = async (itemId: number) => {
-    setRemovendoId(itemId);
-    try {
-      await removerItemCarrinho(itemId);
-      await refreshCart();
-    } catch {
-      alert("Erro ao remover item do carrinho.");
-    } finally {
-      setRemovendoId(null);
-    }
-  };
-
   const handleCartClick = async () => {
     if (cartDropdownEnabled) {
       await toggleCart();
@@ -190,7 +160,6 @@ export function Header({
   };
 
   const quantidadeCarrinho = carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
-  const valorTotal = carrinho?.itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0) || 0;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
@@ -347,8 +316,8 @@ export function Header({
 
           <div className="h-6 w-px bg-zinc-200 hidden sm:block"></div>
 
-          {/* ÁREA DO CARRINHO COM DROPDOWN */}
-          <div className="relative" ref={cartRef}>
+          {/* ÁREA DO CARRINHO */}
+          <div className="relative">
             <button
               type="button"
               onClick={() => void handleCartClick()}
@@ -363,97 +332,16 @@ export function Header({
               )}
             </button>
 
-            {/* O Dropdown do Carrinho */}
             {cartDropdownEnabled && isCartOpen && (
-              <div className="absolute right-0 top-full z-50 mt-3 flex w-[calc(100vw-1.5rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:mt-4 sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
-                <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
-                  <h3 className="font-bold text-zinc-900">O seu carrinho</h3>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-zinc-500">{quantidadeCarrinho} item(s)</span>
-                    <button
-                      type="button"
-                      onClick={closeCart}
-                      aria-label="Fechar carrinho"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 sm:h-8 sm:w-8"
-                    >
-                      <IconClose />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative z-10 flex max-h-[55vh] flex-col gap-3 overflow-y-auto bg-white p-3 sm:max-h-[300px] sm:gap-4 sm:p-4">
-                  {cartLoading ? (
-                    <p className="text-center text-sm text-zinc-400 py-4 animate-pulse">A carregar...</p>
-                  ) : quantidadeCarrinho === 0 ? (
-                    <div className="text-center py-6 flex flex-col items-center">
-                      <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3 text-zinc-300">
-                        <IconCart />
-                      </div>
-                      <p className="text-sm text-zinc-500">O carrinho está vazio.</p>
-                    </div>
-                  ) : (
-                      carrinho?.itens.map((item) => (
-                        <div key={item.id} className="group flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5">
-                          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white sm:h-20 sm:w-20">
-                            {resolveMediaUrl(item.imagem_url) ? (
-                              <img
-                                src={resolveMediaUrl(item.imagem_url) ?? undefined}
-                                alt={item.nome_snapshot}
-                                className="h-full w-full object-contain p-1"
-                              />
-                          ) : (
-                            <span className="px-1 text-center text-[10px] text-zinc-400">
-                              Sem imagem
-                            </span>
-                          )}
-                        </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="line-clamp-2 pr-1 text-sm font-bold leading-snug text-zinc-800">{item.nome_snapshot}</h4>
-                          {item.snapshot.periodo_locacao ? (
-                            <p className="mt-0.5 text-xs font-medium text-zinc-500">
-                              Periodo: {item.snapshot.periodo_locacao.label}
-                            </p>
-                          ) : null}
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-bold text-teal-600">R$ {item.subtotal_snapshot}</span>
-                            <span className="text-xs text-zinc-400">Qtd: {item.quantidade}</span>
-                          </div>
-                        </div>
-                          <button
-                            onClick={() => handleRemoverItem(item.id)}
-                            disabled={removendoId === item.id}
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50 sm:h-auto sm:w-auto sm:p-1.5"
-                          title="Remover item"
-                        >
-                          {removendoId === item.id ? (
-                            <span className="block w-4 h-4 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-                          ) : (
-                            <IconTrash />
-                          )}
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {quantidadeCarrinho > 0 && (
-                  <div className="p-4 border-t border-zinc-100 bg-zinc-50 z-10 relative">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-sm text-zinc-600 font-medium">Total:</span>
-                      <span className="text-lg font-black text-teal-600">R$ {valorTotal.toFixed(2)}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        closeCart();
-                        router.push("/checkout");
-                      }}
-                      className="h-12 w-full rounded-xl bg-[#FF5A5F] text-sm font-bold text-white shadow-md shadow-red-500/20 transition-colors hover:bg-[#ff444a]"
-                    >
-                      Finalizar Pedido
-                    </button>
-                  </div>
-                )}
-              </div>
+              <>
+                <button
+                  type="button"
+                  aria-label="Fechar carrinho"
+                  onClick={closeCart}
+                  className="fixed inset-0 z-50 cursor-default bg-[#2C1615]/25 backdrop-blur-[1px]"
+                />
+                <SidebarCart variant="drawer" />
+              </>
             )}
           </div>
         </div>
