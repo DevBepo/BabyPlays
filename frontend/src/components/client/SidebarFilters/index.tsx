@@ -77,7 +77,7 @@ export function SidebarFilters({
   loading,
 }: SidebarFiltersProps) {
   return (
-    <aside className="rounded-3xl border border-[#AB2E97]/15 bg-white/80 p-5 shadow-sm shadow-[#803233]/5 backdrop-blur-sm lg:sticky lg:top-[104px] lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
+    <aside className="rounded-2xl border border-[#AB2E97]/15 bg-white/85 p-4 shadow-sm shadow-[#803233]/5 backdrop-blur-sm sm:rounded-3xl sm:p-5 lg:sticky lg:top-[104px] lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
       <div className="flex items-center justify-between border-b border-[#FAB555]/35 pb-3">
         <h1 className="text-base font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Catálogo</h1>
         <span className="rounded-full bg-[#FFF4DF] px-2.5 py-1 text-xs font-semibold text-[#803233]">
@@ -85,16 +85,16 @@ export function SidebarFilters({
         </span>
       </div>
 
-      <div className="mt-5 space-y-6">
+      <div className="mt-4 space-y-4 sm:mt-5 sm:space-y-6">
         <section className="space-y-3">
           <FilterSectionTitle>Idade da criança</FilterSectionTitle>
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-1.5 sm:block sm:space-y-1.5">
             {AGE_FILTERS.map((age) => (
               <button
                 key={age}
                 type="button"
                 disabled
-                className="flex min-h-9 w-full items-center rounded-xl border border-[#FAB555]/30 bg-white/70 px-3 py-2 text-left text-sm font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75"
+                className="flex min-h-10 w-full items-center rounded-xl border border-[#FAB555]/30 bg-white/70 px-3 py-2 text-left text-xs font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75 sm:min-h-9 sm:text-sm"
               >
                 <span>{age}</span>
               </button>
@@ -104,12 +104,12 @@ export function SidebarFilters({
 
         <section className="space-y-3">
           <FilterSectionTitle>Categorias</FilterSectionTitle>
-          <div className="space-y-1.5">
+          <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1 custom-scrollbar sm:max-h-none sm:overflow-visible sm:pr-0">
             <button
               type="button"
               onClick={() => setSelectedCategory("todos")}
               aria-pressed={selectedCategory === "todos"}
-              className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
+              className={`flex min-h-10 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors sm:min-h-9 ${
                 selectedCategory === "todos"
                   ? "border-[#AB2E97]/40 bg-[#F7EAF5] text-[#2C1615]"
                   : "border-transparent bg-white/70 text-zinc-700 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
@@ -125,7 +125,7 @@ export function SidebarFilters({
                 type="button"
                 onClick={() => setSelectedCategory(slug)}
                 aria-pressed={selectedCategory === slug}
-                className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
+                className={`flex min-h-10 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors sm:min-h-9 ${
                   selectedCategory === slug
                     ? "border-[#AB2E97]/40 bg-[#F7EAF5] text-[#2C1615]"
                     : "border-transparent bg-white/70 text-zinc-700 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
@@ -154,7 +154,7 @@ export function SidebarFilters({
             type="button"
             onClick={() => setOnlyAvailable(!onlyAvailable)}
             aria-pressed={onlyAvailable}
-            className={`flex min-h-9 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors ${
+            className={`flex min-h-10 w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-normal leading-5 transition-colors sm:min-h-9 ${
               onlyAvailable
                 ? "border-[#76CFC8]/60 bg-[#E8F8F6] text-[#2C1615]"
                 : "border-transparent bg-white/70 text-zinc-700 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
