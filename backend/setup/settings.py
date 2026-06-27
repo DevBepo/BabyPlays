@@ -260,3 +260,13 @@ CSRF_COOKIE_SAMESITE = env_str("CSRF_COOKIE_SAMESITE", "Lax" if DEBUG else "None
 # Railway sets the `X-Forwarded-Proto` header to 'https'.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
+
+# HSTS is enabled only outside local DEBUG and is emitted for secure requests.
+# Subdomains and preload stay disabled until every final-domain subdomain has
+# been validated over HTTPS.
+SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "same-origin"
