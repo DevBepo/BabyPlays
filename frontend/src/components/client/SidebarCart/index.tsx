@@ -113,10 +113,20 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
       window.location.href = getWhatsAppUrl(pedido.whatsapp_resumo);
     } catch (err: unknown) {
       console.error("Erro ao converter pedido:", err);
+      const mensagemPadrao =
+        "Não foi possível finalizar sua solicitação agora. Tente novamente ou fale com a BabyPlays pelo WhatsApp.";
+      const apiError =
+        typeof err === "object" && err !== null
+          ? (err as { status?: unknown; message?: unknown })
+          : null;
+      const statusErro =
+        apiError?.status !== undefined
+          ? Number(apiError.status)
+          : null;
       const mensagem =
-        typeof err === "object" && err !== null && "message" in err
-          ? String((err as { message: unknown }).message)
-          : "Ocorreu um erro ao processar a sua reserva.";
+        statusErro !== null && statusErro < 500 && apiError?.message
+          ? String(apiError.message)
+          : mensagemPadrao;
       alert(mensagem);
     } finally {
       setLoadingPedido(false);

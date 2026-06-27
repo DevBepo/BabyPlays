@@ -691,6 +691,23 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(cliente.telefone, "11999999999")
         self.assertEqual(pedido.cliente, cliente)
 
+    def test_staff_sem_cliente_converte_kit_em_solicitacao(self):
+        self.usuario.is_staff = True
+        self.usuario.save(update_fields=["is_staff"])
+        self.adicionar_kit_festa()
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.usuario, self.usuario)
+        self.assertEqual(pedido.cliente.user, self.usuario)
+        self.assertEqual(
+            pedido.itens.get().tipo_item,
+            ItemCarrinho.TipoItem.KIT_FESTA,
+        )
+        self.assertIn("solicitacao de locacao", response.data["whatsapp_resumo"])
+
     def test_reaproveita_cliente_existente_na_conversao(self):
         cliente = Cliente.objects.create(
             user=self.usuario,

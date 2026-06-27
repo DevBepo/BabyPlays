@@ -526,7 +526,6 @@ class PedidoService:
 
         carrinho = (
             Carrinho.objects.select_for_update()
-            .select_related("usuario")
             .get(id=carrinho.id)
         )
         if carrinho.status != Carrinho.Status.ATIVO:
