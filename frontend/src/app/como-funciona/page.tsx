@@ -176,28 +176,28 @@ function ProcessMark({ number }: { number: string }) {
 
 export default function ComoFuncionaPage() {
   return (
-    <main className="flex min-h-screen flex-col bg-[#FFF9F7] text-[#2C1615]">
+    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[#FFF9F7] text-[#2C1615]">
       <Header />
       <SubNavbar />
 
       <div className="relative overflow-hidden bg-gradient-to-b from-[#E8F8F6] via-[#FFF8EC] to-[#F7EAF5]">
         <section className="relative">
-          <div className="absolute -left-14 -top-16 h-44 w-44 rounded-full bg-[#FAB555]/45" />
-          <div className="absolute left-[10%] top-10 h-4 w-4 rounded-full bg-[#EA524B]" />
-          <div className="absolute -right-12 bottom-0 h-40 w-40 rounded-full bg-[#AB2E97]/12" />
-          <div className="absolute right-[9%] top-9 h-6 w-6 rotate-12 rounded-md bg-[#F07F40]" />
+          <div className="absolute -left-14 -top-16 hidden h-44 w-44 rounded-full bg-[#FAB555]/45 sm:block" />
+          <div className="absolute left-[10%] top-10 hidden h-4 w-4 rounded-full bg-[#EA524B] sm:block" />
+          <div className="absolute -right-12 bottom-0 hidden h-40 w-40 rounded-full bg-[#AB2E97]/12 sm:block" />
+          <div className="absolute right-[9%] top-9 hidden h-6 w-6 rotate-12 rounded-md bg-[#F07F40] sm:block" />
 
-          <div className="relative mx-auto max-w-5xl px-4 py-12 text-center sm:px-6 sm:py-16">
-            <span className="inline-flex rounded-full border border-[#76CFC8]/70 bg-white px-4 py-2 text-sm font-bold text-[#AB2E97] shadow-sm">
+          <div className="relative mx-auto max-w-5xl px-4 py-8 text-center sm:px-6 sm:py-16">
+            <span className="inline-flex rounded-full border border-[#76CFC8]/70 bg-white px-3 py-1.5 text-xs font-bold text-[#AB2E97] shadow-sm sm:px-4 sm:py-2 sm:text-sm">
               Um passo de cada vez
             </span>
-            <h1 className="mt-5 text-3xl font-bold tracking-tight text-[#2C1615] sm:text-5xl [font-family:var(--font-fredoka)]">
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-[#2C1615] sm:mt-5 sm:text-5xl [font-family:var(--font-fredoka)]">
               Como funciona a locação?
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-zinc-700 sm:text-lg">
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-zinc-700 sm:mt-4 sm:text-lg sm:leading-7">
               Você escolhe os brinquedos e a BabyPlays cuida dos detalhes com você.
             </p>
-            <div className="mx-auto mt-6 flex w-fit items-center gap-2" aria-hidden="true">
+            <div className="mx-auto mt-5 flex w-fit items-center gap-2 sm:mt-6" aria-hidden="true">
               <span className="h-2 w-12 rounded-full bg-[#AB2E97]" />
               <span className="h-2 w-5 rounded-full bg-[#EA524B]" />
               <span className="h-2 w-8 rounded-full bg-[#76CFC8]" />
@@ -205,21 +205,21 @@ export default function ComoFuncionaPage() {
           </div>
         </section>
 
-        <section className="relative mx-auto w-full max-w-5xl px-4 pb-12 sm:px-6 sm:pb-16">
-          <div className="absolute bottom-24 left-0 h-28 w-28 -translate-x-1/2 rounded-full bg-[#76CFC8]/20" />
-          <div className="absolute right-0 top-1/3 h-24 w-24 translate-x-1/2 rotate-12 rounded-[2rem] bg-[#FAB555]/25" />
+        <section className="relative mx-auto w-full max-w-5xl px-4 pb-10 sm:px-6 sm:pb-16">
+          <div className="absolute bottom-24 left-0 hidden h-28 w-28 -translate-x-1/2 rounded-full bg-[#76CFC8]/20 sm:block" />
+          <div className="absolute right-0 top-1/3 hidden h-24 w-24 translate-x-1/2 rotate-12 rounded-[2rem] bg-[#FAB555]/25 sm:block" />
 
           <div className="relative grid gap-4">
-            <div className="absolute bottom-8 left-6 top-8 hidden w-1 rounded-full bg-gradient-to-b from-[#AB2E97]/30 via-[#76CFC8]/45 to-[#EA524B]/25 sm:block" />
+            <div className="absolute bottom-8 left-6 top-8 hidden w-1 rounded-full bg-gradient-to-b from-[#AB2E97]/30 via-[#76CFC8]/45 to-[#EA524B]/25 md:block" />
             {steps.map((step) => (
               <article
                 key={step.number}
-                className={`relative flex gap-4 overflow-hidden rounded-3xl border p-5 shadow-sm sm:items-center sm:p-6 ${step.surface}`}
+                className={`relative flex gap-3 overflow-hidden rounded-2xl border p-4 shadow-sm sm:gap-4 sm:items-center sm:rounded-3xl sm:p-6 ${step.surface}`}
               >
-                <span className={`absolute -right-7 -top-8 h-24 w-24 rounded-full ${step.decoration}`} />
+                <span className={`absolute -right-8 -top-9 h-20 w-20 rounded-full sm:-right-7 sm:-top-8 sm:h-24 sm:w-24 ${step.decoration}`} />
                 <div className="relative z-10 flex shrink-0 items-center gap-3">
                   <span
-                    className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-black text-white shadow-sm ${step.accent}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black text-white shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl sm:text-lg ${step.accent}`}
                   >
                     {step.number}
                   </span>
@@ -228,26 +228,26 @@ export default function ComoFuncionaPage() {
                   </div>
                 </div>
                 <div className="relative z-10">
-                  <h2 className="text-lg font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{step.title}</h2>
+                  <h2 className="text-base font-bold text-[#2C1615] sm:text-lg [font-family:var(--font-fredoka)]">{step.title}</h2>
                   <p className="mt-1 text-sm leading-6 text-zinc-700">{step.text}</p>
                 </div>
               </article>
             ))}
           </div>
 
-          <p className="relative mt-6 rounded-2xl border border-[#FAB555]/60 bg-[#FFF4DF] px-5 py-4 text-sm font-medium leading-6 text-[#803233] shadow-sm">
+          <p className="relative mt-5 rounded-2xl border border-[#FAB555]/60 bg-[#FFF4DF] px-4 py-3 text-sm font-medium leading-6 text-[#803233] shadow-sm sm:mt-6 sm:px-5 sm:py-4">
             O envio do pedido não confirma automaticamente a reserva. A confirmação
             depende da disponibilidade e do retorno da BabyPlays pelo WhatsApp.
           </p>
 
           <section
             id="onde-atendemos"
-            className="relative mt-7 scroll-mt-28 overflow-hidden rounded-3xl border border-[#76CFC8]/50 bg-white/65 p-5 shadow-md shadow-[#76CFC8]/10 sm:p-6"
+            className="relative mt-6 scroll-mt-28 overflow-hidden rounded-2xl border border-[#76CFC8]/50 bg-white/65 p-4 shadow-md shadow-[#76CFC8]/10 sm:mt-7 sm:rounded-3xl sm:p-6"
           >
-            <span className="absolute -bottom-12 -right-10 h-32 w-32 rounded-full bg-[#76CFC8]/25" />
-            <span className="absolute right-10 top-8 h-4 w-4 rounded-full bg-[#F07F40]" />
+            <span className="absolute -bottom-12 -right-10 hidden h-32 w-32 rounded-full bg-[#76CFC8]/25 sm:block" />
+            <span className="absolute right-10 top-8 hidden h-4 w-4 rounded-full bg-[#F07F40] sm:block" />
             <div className="relative z-10">
-              <h2 className="text-xl font-bold text-[#2C1615] sm:text-2xl [font-family:var(--font-fredoka)]">
+              <h2 className="text-lg font-bold text-[#2C1615] sm:text-2xl [font-family:var(--font-fredoka)]">
                 Onde atendemos?
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700">
@@ -258,7 +258,7 @@ export default function ComoFuncionaPage() {
                 {cities.map((city, index) => (
                   <span
                     key={city}
-                    className={`rounded-full border px-3 py-1.5 text-sm font-bold text-[#2C1615] ${
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold text-[#2C1615] sm:text-sm ${
                       index % 2 === 0
                         ? "border-[#76CFC8] bg-[#E8F8F6]"
                         : "border-[#FAB555] bg-[#FFF4DF]"
@@ -286,10 +286,10 @@ export default function ComoFuncionaPage() {
             </div>
           </section>
 
-          <section id="por-que-alugar" className="relative mt-8 scroll-mt-28">
-            <span className="absolute -left-8 top-12 h-20 w-20 rounded-full bg-[#AB2E97]/10" />
+          <section id="por-que-alugar" className="relative mt-7 scroll-mt-28 sm:mt-8">
+            <span className="absolute -left-8 top-12 hidden h-20 w-20 rounded-full bg-[#AB2E97]/10 sm:block" />
             <div className="relative">
-              <h2 className="text-2xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">
+              <h2 className="text-xl font-bold text-[#2C1615] sm:text-2xl [font-family:var(--font-fredoka)]">
                 Por que alugar brinquedos?
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700 sm:text-base">
@@ -302,7 +302,7 @@ export default function ComoFuncionaPage() {
                 {benefits.map((benefit) => (
                   <article
                     key={benefit.title}
-                    className={`relative overflow-hidden rounded-2xl border p-4 shadow-sm ${benefit.color}`}
+                    className={`relative overflow-hidden rounded-2xl border p-3.5 shadow-sm sm:p-4 ${benefit.color}`}
                   >
                     <span
                       className={`absolute -right-5 -top-6 h-16 w-16 rounded-full ${benefit.accent} opacity-15`}
@@ -322,16 +322,16 @@ export default function ComoFuncionaPage() {
             </div>
           </section>
 
-          <div className="relative mt-8 overflow-hidden rounded-3xl border border-[#AB2E97]/25 bg-white/75 p-6 shadow-lg shadow-[#AB2E97]/10 backdrop-blur-sm sm:p-8">
-            <span className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#76CFC8]/30" />
-            <span className="absolute right-8 top-7 h-3 w-3 rounded-full bg-[#F07F40]" />
+          <div className="relative mt-7 overflow-hidden rounded-2xl border border-[#AB2E97]/25 bg-white/75 p-5 shadow-lg shadow-[#AB2E97]/10 backdrop-blur-sm sm:mt-8 sm:rounded-3xl sm:p-8">
+            <span className="absolute -right-8 -top-8 hidden h-28 w-28 rounded-full bg-[#76CFC8]/30 sm:block" />
+            <span className="absolute right-8 top-7 hidden h-3 w-3 rounded-full bg-[#F07F40] sm:block" />
             <div className="relative z-10">
               <div className="mb-4 flex h-10 w-14 items-center gap-1.5" aria-hidden="true">
                 <span className="h-8 w-8 -rotate-6 rounded-xl bg-[#AB2E97]" />
                 <span className="h-6 w-6 rotate-6 rounded-lg bg-[#FAB555]" />
                 <span className="h-3 w-3 rounded-full bg-[#EA524B]" />
               </div>
-              <h2 className="text-2xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">
+              <h2 className="text-xl font-bold text-[#2C1615] sm:text-2xl [font-family:var(--font-fredoka)]">
                 Ainda em dúvida sobre qual brinquedo escolher?
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-700">
@@ -341,7 +341,7 @@ export default function ComoFuncionaPage() {
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/ajuda"
-                  className="inline-flex items-center justify-center rounded-xl bg-[#AB2E97] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#803233] [font-family:var(--font-fredoka)]"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#AB2E97] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#803233] [font-family:var(--font-fredoka)]"
                 >
                   Ir para Ajuda
                 </Link>
