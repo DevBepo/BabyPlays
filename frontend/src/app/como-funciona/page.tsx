@@ -176,11 +176,11 @@ function ProcessMark({ number }: { number: string }) {
 
 export default function ComoFuncionaPage() {
   return (
-    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[#FFF9F7] text-[#2C1615]">
+    <main className="flex min-h-screen flex-col overflow-x-clip bg-[#FFF9F7] text-[#2C1615]">
       <Header />
       <SubNavbar />
 
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#E8F8F6] via-[#FFF8EC] to-[#F7EAF5]">
+      <div className="relative overflow-x-clip bg-gradient-to-b from-[#E8F8F6] via-[#FFF8EC] to-[#F7EAF5]">
         <section className="relative">
           <div className="absolute -left-14 -top-16 hidden h-44 w-44 rounded-full bg-[#FAB555]/45 sm:block" />
           <div className="absolute left-[10%] top-10 hidden h-4 w-4 rounded-full bg-[#EA524B] sm:block" />

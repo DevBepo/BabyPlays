@@ -12,7 +12,11 @@ import { getWhatsAppUrl } from "@/lib/contact-links";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ContratoLocacao } from "@/types/contrato"; // Importando a tipagem
 
-export function SidebarCart() {
+type SidebarCartProps = {
+  variant?: "catalog" | "drawer";
+};
+
+export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const router = useRouter();
   const { carrinho, closeCart, refreshCart, cartLoading } = useCart();
   const { user, cliente, isAuthenticated } = useAuth();
@@ -121,7 +125,10 @@ export function SidebarCart() {
 
   if (cartLoading) {
     return (
-      <aside className="fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-sm animate-pulse border border-zinc-200 bg-white p-5 shadow-xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto">
+      <aside className={variant === "drawer"
+        ? "fixed inset-y-0 right-0 z-[60] h-dvh w-full max-w-[min(100vw,420px)] animate-pulse border-l border-zinc-200 bg-white p-5 shadow-2xl"
+        : "fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-sm animate-pulse border border-zinc-200 bg-white p-5 shadow-xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto"}
+      >
         <div className="h-6 bg-zinc-100 rounded w-1/2 mb-8"></div>
         <div className="space-y-4"><div className="h-20 bg-zinc-50 rounded"></div></div>
       </aside>
@@ -130,7 +137,14 @@ export function SidebarCart() {
 
   return (
     <>
-      <aside id="reserva" className="custom-scrollbar fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-[min(100vw,420px)] flex-col gap-4 overflow-y-auto border border-zinc-200 bg-white p-4 shadow-2xl sm:gap-6 sm:p-5 lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)]">
+      <aside
+        id="reserva"
+        className={`custom-scrollbar flex flex-col gap-4 overflow-y-auto bg-white p-4 sm:gap-6 sm:p-5 ${
+          variant === "drawer"
+            ? "fixed inset-y-0 right-0 z-[60] h-dvh w-full max-w-[min(100vw,420px)] border-l border-zinc-200 shadow-2xl"
+            : "fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-[min(100vw,420px)] border border-zinc-200 shadow-2xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)]"
+        }`}
+      >
         
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
           <h2 className="text-base font-bold text-zinc-900 sm:text-lg">Seu carrinho ({quantidadeTotal})</h2>
