@@ -130,22 +130,22 @@ export function SidebarCart() {
 
   return (
     <>
-      <aside id="reserva" className="custom-scrollbar fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-sm flex-col gap-6 overflow-y-auto border border-zinc-200 bg-white p-5 shadow-2xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)]">
+      <aside id="reserva" className="custom-scrollbar fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-[min(100vw,420px)] flex-col gap-4 overflow-y-auto border border-zinc-200 bg-white p-4 shadow-2xl sm:gap-6 sm:p-5 lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)]">
         
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
-          <h2 className="text-lg font-bold text-zinc-900">Seu carrinho ({quantidadeTotal})</h2>
+          <h2 className="text-base font-bold text-zinc-900 sm:text-lg">Seu carrinho ({quantidadeTotal})</h2>
           <button
             type="button"
             onClick={closeCart}
             aria-label="Fechar resumo do carrinho"
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+            className="inline-flex min-h-10 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
           >
             <span aria-hidden="true">×</span>
             Fechar
           </button>
         </div>
 
-        <div className="custom-scrollbar flex max-h-[280px] min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-2">
+        <div className="custom-scrollbar flex max-h-[38dvh] min-h-0 shrink-0 flex-col gap-3 overflow-y-auto pr-1 sm:max-h-[280px] sm:gap-4 sm:pr-2">
           {itens.length === 0 ? (
             <p className="text-sm text-zinc-500 text-center py-4">Seu carrinho está vazio.</p>
           ) : (
@@ -154,7 +154,7 @@ export function SidebarCart() {
 
               return (
               <div key={item.id} className="relative flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/50 p-3">
-                <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white sm:h-24 sm:w-24">
                   {imagemUrl ? (
                     <img
                       src={imagemUrl}
@@ -176,7 +176,7 @@ export function SidebarCart() {
                 </div>
                 <button 
                   onClick={() => handleRemoverItem(item.id)}
-                  className="absolute top-2 right-2 text-zinc-400 hover:text-red-500 p-1"
+                  className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 hover:bg-red-50 hover:text-red-500 sm:right-2 sm:top-2 sm:h-auto sm:w-auto sm:p-1"
                 >
                   ✕
                 </button>
@@ -193,7 +193,7 @@ export function SidebarCart() {
         <div className="flex flex-col border-t border-zinc-100 pt-4">
           <button 
             onClick={() => setExpandirDados(!expandirDados)}
-            className="flex items-center justify-between w-full text-left group"
+            className="group flex min-h-11 w-full items-center justify-between text-left"
           >
             <h3 className="text-sm font-bold text-zinc-800 group-hover:text-teal-600 transition-colors">
               Dados de Entrega e Contato
@@ -206,19 +206,19 @@ export function SidebarCart() {
           {expandirDados && (
             <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Nome Completo *" value={nome} onChange={(e) => setNome(e.target.value)} className="text-xs py-2 col-span-2" />
-                <Input placeholder="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="text-xs py-2 col-span-2" />
-                <Input placeholder="Telefone *" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="text-xs py-2 col-span-2" />
+                <Input placeholder="Nome Completo *" value={nome} onChange={(e) => setNome(e.target.value)} className="col-span-2 min-h-11 py-2 text-sm" />
+                <Input placeholder="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-2 min-h-11 py-2 text-sm" />
+                <Input placeholder="Telefone *" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="col-span-2 min-h-11 py-2 text-sm" />
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="mt-2 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
                 <div className="col-span-1">
-                  <Input placeholder="CEP *" value={cep} onChange={(e) => setCep(e.target.value)} maxLength={9} className="text-xs py-2" />
+                  <Input placeholder="CEP *" value={cep} onChange={(e) => setCep(e.target.value)} maxLength={9} className="min-h-11 py-2 text-sm" />
                 </div>
                 <div className="col-span-1">
-                  <Input placeholder="Número *" value={numero} onChange={(e) => setNumero(e.target.value)} className="text-xs py-2" />
+                  <Input placeholder="Número *" value={numero} onChange={(e) => setNumero(e.target.value)} className="min-h-11 py-2 text-sm" />
                 </div>
-                <div className="col-span-1">
-                  <Input placeholder="Comp." value={complemento} onChange={(e) => setComplemento(e.target.value)} className="text-xs py-2" />
+                <div className="col-span-2 min-[430px]:col-span-1">
+                  <Input placeholder="Comp." value={complemento} onChange={(e) => setComplemento(e.target.value)} className="min-h-11 py-2 text-sm" />
                 </div>
               </div>
             </div>
@@ -242,20 +242,20 @@ export function SidebarCart() {
         </div>
 
         <div className="flex flex-col gap-4 mt-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
                 type="checkbox" 
                 checked={contratoAceito} 
                 onChange={(e) => setContratoAceito(e.target.checked)}
-                className="w-4 h-4 text-teal-600 rounded border-zinc-300 focus:ring-teal-500" 
+                className="h-5 w-5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500"
               />
               <span className="text-sm font-bold text-zinc-800">Contrato aceito</span>
             </label>
             <button 
               type="button" 
               onClick={() => setModalContratoAberto(true)} 
-              className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline"
+              className="min-h-10 shrink-0 rounded-lg px-2 text-xs font-bold text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:underline"
             >
               Ver contrato
             </button>
@@ -264,7 +264,7 @@ export function SidebarCart() {
           <button 
             onClick={handleFinalizarReserva}
             disabled={itens.length === 0 || loadingPedido}
-            className="w-full py-3.5 bg-[#FF5A5F] hover:bg-[#ff444a] text-white font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#AB2E97] font-bold text-white shadow-sm shadow-[#AB2E97]/20 transition-colors hover:bg-[#872476] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F07F40] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loadingPedido ? (
               <span className="block w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />

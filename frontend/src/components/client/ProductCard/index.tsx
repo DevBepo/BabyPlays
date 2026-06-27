@@ -179,7 +179,7 @@ export function ProductCard({
                     type="button"
                     onClick={() => setPeriodoSelecionado(option.tipo)}
                     aria-pressed={selected}
-                    className={`inline-flex h-7 items-center justify-center rounded-full border px-2.5 text-[11px] font-bold leading-none transition-colors ${
+                    className={`inline-flex min-h-8 items-center justify-center rounded-full border px-3 text-[11px] font-bold leading-none transition-colors sm:h-7 sm:min-h-0 sm:px-2.5 ${
                       selected
                         ? "border-[#AB2E97] bg-[#F7EAF5] text-[#803233]"
                         : "border-zinc-200 bg-white text-zinc-600 hover:border-[#76CFC8]"
@@ -201,7 +201,7 @@ export function ProductCard({
               type="button"
               onClick={handleAddToCart}
               disabled={adicionando}
-              className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#AB2E97] px-4 text-sm font-semibold text-white shadow-sm shadow-[#AB2E97]/15 transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#AB2E97] px-4 text-sm font-semibold text-white shadow-sm shadow-[#AB2E97]/15 transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70 sm:h-10"
             >
               {adicionando ? "Adicionando..." : "Adicionar ao carrinho"}
             </button>
@@ -210,7 +210,7 @@ export function ProductCard({
               type="button"
               onClick={handleInteresse}
               disabled={registrandoInteresse}
-              className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#AB2E97]/25 bg-[#F7EAF5] px-4 text-sm font-bold text-[#AB2E97] transition-colors hover:bg-[#FFF4DF] disabled:opacity-60 [font-family:var(--font-fredoka)]"
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-[#AB2E97]/25 bg-[#F7EAF5] px-4 text-sm font-bold text-[#AB2E97] transition-colors hover:bg-[#FFF4DF] disabled:opacity-60 sm:h-10 [font-family:var(--font-fredoka)]"
             >
               {registrandoInteresse ? "Registrando..." : "Avise-me quando disponivel"}
             </button>

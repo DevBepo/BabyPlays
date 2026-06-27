@@ -162,33 +162,33 @@ function BrandVisual({
 
 export default function AjudaPage() {
   return (
-    <main className="flex min-h-screen flex-col bg-[#FFF9F7] text-[#2C1615]">
+    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[#FFF9F7] text-[#2C1615]">
       <Header />
       <SubNavbar />
 
       <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
       <section className="relative">
-        <div className="absolute -left-16 -top-16 h-44 w-44 rounded-full bg-[#76CFC8]/45" />
-        <div className="absolute left-[12%] top-12 h-5 w-5 rounded-full bg-[#EA524B]" />
-        <div className="absolute bottom-8 left-[7%] h-3 w-3 rounded-full bg-[#AB2E97]" />
-        <div className="absolute -right-12 bottom-4 h-40 w-40 rounded-full bg-[#AB2E97]/12" />
-        <div className="absolute right-[8%] top-8 h-6 w-6 rotate-12 rounded-md bg-[#F07F40]" />
+        <div className="absolute -left-16 -top-16 hidden h-44 w-44 rounded-full bg-[#76CFC8]/45 sm:block" />
+        <div className="absolute left-[12%] top-12 hidden h-5 w-5 rounded-full bg-[#EA524B] sm:block" />
+        <div className="absolute bottom-8 left-[7%] hidden h-3 w-3 rounded-full bg-[#AB2E97] sm:block" />
+        <div className="absolute -right-12 bottom-4 hidden h-40 w-40 rounded-full bg-[#AB2E97]/12 sm:block" />
+        <div className="absolute right-[8%] top-8 hidden h-6 w-6 rotate-12 rounded-md bg-[#F07F40] sm:block" />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-7 px-4 py-9 sm:px-6 sm:py-12 md:grid-cols-[minmax(0,1fr)_280px] md:text-left">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-7 px-4 py-7 sm:px-6 sm:py-12 md:grid-cols-[minmax(0,1fr)_280px] md:text-left">
           <div className="text-center md:text-left">
-            <span className="inline-flex rounded-full border border-[#AB2E97]/15 bg-white px-4 py-2 text-sm font-bold text-[#AB2E97] shadow-sm">
+            <span className="inline-flex rounded-full border border-[#AB2E97]/15 bg-white px-3 py-1.5 text-xs font-bold text-[#AB2E97] shadow-sm sm:px-4 sm:py-2 sm:text-sm">
               💜 Pode chamar, a gente ajuda
             </span>
-            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-[#2C1615] sm:text-5xl">
+            <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-tight text-[#2C1615] sm:mt-5 sm:text-5xl">
               Precisa de ajuda para escolher?
             </h1>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-zinc-700 sm:text-lg">
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-700 sm:mt-5 sm:text-lg sm:leading-7">
               Cada fase tem uma brincadeira ideal. A BabyPlays ajuda a escolher
               brinquedos que combinem com o momento da criança, seja para
               explorar, engatinhar, andar, imaginar, gastar energia ou brincar
               junto com outras crianças.
             </p>
-            <div className="mx-auto mt-6 h-2 w-24 rounded-full bg-[#EA524B] md:mx-0" />
+            <div className="mx-auto mt-5 h-2 w-20 rounded-full bg-[#EA524B] sm:mt-6 sm:w-24 md:mx-0" />
           </div>
 
           <div className="relative mx-auto hidden w-full max-w-[260px] md:block">
@@ -209,23 +209,23 @@ export default function AjudaPage() {
       </section>
 
       <section className="relative">
-        <div className="absolute -left-12 bottom-5 h-32 w-32 rounded-full bg-[#76CFC8]/20" />
-        <div className="absolute left-[8%] top-8 h-3 w-3 rounded-full bg-[#F07F40]" />
-        <div className="absolute -right-10 top-6 h-28 w-28 rotate-12 rounded-[2rem] bg-[#FAB555]/25" />
+        <div className="absolute -left-12 bottom-5 hidden h-32 w-32 rounded-full bg-[#76CFC8]/20 sm:block" />
+        <div className="absolute left-[8%] top-8 hidden h-3 w-3 rounded-full bg-[#F07F40] sm:block" />
+        <div className="absolute -right-10 top-6 hidden h-28 w-28 rotate-12 rounded-[2rem] bg-[#FAB555]/25 sm:block" />
 
-        <div className="relative mx-auto grid w-full max-w-6xl gap-5 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2">
-          <article className="relative flex flex-col overflow-hidden rounded-3xl border border-[#AB2E97]/30 bg-[#F7EAF5] p-7 shadow-lg shadow-[#AB2E97]/10 sm:p-8">
+        <div className="relative mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:gap-5 sm:px-6 sm:py-10 lg:grid-cols-2">
+          <article className="relative flex flex-col overflow-hidden rounded-2xl border border-[#AB2E97]/30 bg-[#F7EAF5] p-5 shadow-lg shadow-[#AB2E97]/10 sm:rounded-3xl sm:p-8">
             <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#EA524B]/20" />
             <div className="absolute right-8 top-7 h-3 w-3 rounded-full bg-[#F07F40]" />
             <BrandVisual type="feed" />
-            <h2 className="mt-4 text-2xl font-black text-[#2C1615]">
+            <h2 className="mt-4 text-xl font-black text-[#2C1615] sm:text-2xl">
               Quero ver ideias primeiro
             </h2>
-            <p className="mt-3 flex-1 text-sm leading-7 text-zinc-600 sm:text-base">
+            <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600 sm:text-base sm:leading-7">
               Veja brinquedos, kits e inspirações no Instagram da BabyPlays para
               descobrir opções que combinam com diferentes idades e ocasiões.
             </p>
-            <div className="mt-6">
+            <div className="mt-5 sm:mt-6">
               <ContactActions
                 useBrandPalette
                 showWhatsApp={false}
@@ -234,18 +234,18 @@ export default function AjudaPage() {
             </div>
           </article>
 
-          <article className="relative flex flex-col overflow-hidden rounded-3xl border border-[#76CFC8] bg-[#E8F8F6] p-7 shadow-lg shadow-[#76CFC8]/20 sm:p-8">
+          <article className="relative flex flex-col overflow-hidden rounded-2xl border border-[#76CFC8] bg-[#E8F8F6] p-5 shadow-lg shadow-[#76CFC8]/20 sm:rounded-3xl sm:p-8">
             <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#AB2E97]/15" />
             <div className="absolute right-8 top-7 h-3 w-3 rounded-full bg-[#F07F40]" />
             <BrandVisual type="conversation" />
-            <h2 className="mt-4 text-2xl font-black text-[#2C1615]">
+            <h2 className="mt-4 text-xl font-black text-[#2C1615] sm:text-2xl">
               Quero ajuda para escolher
             </h2>
-            <p className="mt-3 flex-1 text-sm leading-7 text-zinc-600 sm:text-base">
+            <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600 sm:text-base sm:leading-7">
               Conte a idade da criança, a ocasião e o que você está procurando. A
               BabyPlays te ajuda com uma sugestão mais personalizada.
             </p>
-            <div className="mt-6">
+            <div className="mt-5 sm:mt-6">
               <ContactActions
                 useBrandPalette
                 showInstagram={false}
@@ -257,20 +257,20 @@ export default function AjudaPage() {
       </section>
 
       <section className="relative">
-        <div className="absolute -left-10 top-16 h-24 w-24 rotate-12 rounded-[1.75rem] bg-[#AB2E97]/10" />
-        <div className="absolute bottom-8 left-[5%] h-4 w-4 rounded-full bg-[#EA524B]/70" />
-        <div className="absolute -right-14 bottom-10 h-36 w-36 rounded-full bg-[#76CFC8]/25" />
-        <div className="absolute right-[9%] top-10 h-3 w-3 rounded-full bg-[#AB2E97]" />
+        <div className="absolute -left-10 top-16 hidden h-24 w-24 rotate-12 rounded-[1.75rem] bg-[#AB2E97]/10 sm:block" />
+        <div className="absolute bottom-8 left-[5%] hidden h-4 w-4 rounded-full bg-[#EA524B]/70 sm:block" />
+        <div className="absolute -right-14 bottom-10 hidden h-36 w-36 rounded-full bg-[#76CFC8]/25 sm:block" />
+        <div className="absolute right-[9%] top-10 hidden h-3 w-3 rounded-full bg-[#AB2E97] sm:block" />
 
-        <div className="relative mx-auto w-full max-w-6xl px-4 pb-12 pt-8 sm:px-6 sm:pb-14 sm:pt-10">
-          <p className="mb-5 text-lg font-semibold text-[#AB2E97] sm:text-xl [font-family:var(--font-fredoka)]">
+        <div className="relative mx-auto w-full max-w-6xl px-4 pb-10 pt-6 sm:px-6 sm:pb-14 sm:pt-10">
+          <p className="mb-4 text-base font-semibold text-[#AB2E97] sm:mb-5 sm:text-xl [font-family:var(--font-fredoka)]">
             Na hora de escolher, alguns pontos ajudam:
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             {helpCards.map((card) => (
               <article
                 key={card.title}
-                className={`relative overflow-hidden rounded-2xl border p-5 shadow-sm ${card.color}`}
+                className={`relative overflow-hidden rounded-2xl border p-4 shadow-sm sm:p-5 ${card.color}`}
               >
                 <CardDecoration
                   type={

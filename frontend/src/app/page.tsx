@@ -236,7 +236,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
                     key={option.tipo}
                     type="button"
                     onClick={() => setPeriodoSelecionado(option.tipo)}
-                    className={`inline-flex h-7 items-center justify-center rounded-full border px-2.5 text-[11px] font-bold leading-none transition-colors ${selected ? "border-[#F07F40] bg-[#FFF1E8] text-[#803233]" : "border-zinc-200 bg-white text-zinc-600 hover:border-[#FAB555]"}`}
+                    className={`inline-flex min-h-8 items-center justify-center rounded-full border px-3 text-[11px] font-bold leading-none transition-colors sm:h-7 sm:min-h-0 sm:px-2.5 ${selected ? "border-[#F07F40] bg-[#FFF1E8] text-[#803233]" : "border-zinc-200 bg-white text-zinc-600 hover:border-[#FAB555]"}`}
                   >
                     {option.label}
                   </button>
@@ -252,7 +252,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
               type="button"
               onClick={handleAddToCart}
               disabled={adicionando}
-              className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#AB2E97] px-4 text-sm font-semibold text-white shadow-sm shadow-[#AB2E97]/15 transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#AB2E97] px-4 text-sm font-semibold text-white shadow-sm shadow-[#AB2E97]/15 transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70 sm:h-10"
             >
               {adicionando ? "Adicionando..." : "Adicionar ao carrinho"}
             </button>
@@ -358,7 +358,7 @@ export default function Home() {
   }, [kitsFestaFiltrados.length, loading]);
 
   return (
-    <main className="min-h-screen bg-[#FFF9F7] text-[#2C1615]">
+    <main className="min-h-screen overflow-x-hidden bg-[#FFF9F7] text-[#2C1615]">
       <Header
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
@@ -366,14 +366,14 @@ export default function Home() {
       />
       <SubNavbar />
 
-      <div className="relative overflow-visible bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
-        <span className="pointer-events-none absolute -left-16 top-12 h-48 w-48 rounded-full bg-[#FAB555]/25" />
-        <span className="pointer-events-none absolute right-[7%] top-28 h-5 w-5 rounded-full bg-[#EA524B]/80" />
-        <span className="pointer-events-none absolute -right-14 top-[38%] h-44 w-44 rotate-12 rounded-[3rem] bg-[#76CFC8]/18" />
-        <span className="pointer-events-none absolute bottom-28 left-[12%] h-24 w-24 rounded-full bg-[#AB2E97]/8" />
+      <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+        <span className="pointer-events-none absolute -left-16 top-12 hidden h-48 w-48 rounded-full bg-[#FAB555]/25 sm:block" />
+        <span className="pointer-events-none absolute right-[7%] top-28 hidden h-5 w-5 rounded-full bg-[#EA524B]/80 sm:block" />
+        <span className="pointer-events-none absolute -right-14 top-[38%] hidden h-44 w-44 rotate-12 rounded-[3rem] bg-[#76CFC8]/18 sm:block" />
+        <span className="pointer-events-none absolute bottom-28 left-[12%] hidden h-24 w-24 rounded-full bg-[#AB2E97]/8 sm:block" />
 
       {/* A MÁGICA ACONTECE AQUI: LAYOUT DE 3 COLUNAS */}
-      <div className={`relative mx-auto flex max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:grid lg:gap-6 ${isCartOpen ? "lg:grid-cols-[240px_minmax(0,1fr)_280px] xl:grid-cols-[260px_minmax(0,1fr)_340px]" : "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
+      <div className={`relative mx-auto flex max-w-[1600px] flex-col gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-5 lg:grid lg:gap-6 ${isCartOpen ? "lg:grid-cols-[240px_minmax(0,1fr)_280px] xl:grid-cols-[260px_minmax(0,1fr)_340px]" : "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
         
         {/* COLUNA 1: FILTROS (Importado do nosso novo componente) */}
         <SidebarFilters
@@ -387,13 +387,20 @@ export default function Home() {
         />
 
         {/* COLUNA 2: PRODUTOS (Vitrine) */}
-        <div className="min-w-0 space-y-8">
+        <div className="min-w-0 space-y-7 sm:space-y-8">
           {loading ? (
             <><LoadingCarousel /><LoadingCarousel /></>
           ) : hasCatalogError && hasNoCatalogData ? (
             <Card padding="lg" className="items-center rounded-lg text-center">
               <h2 className="text-xl font-bold text-zinc-900">Nao foi possivel carregar o catalogo.</h2>
-              <Button type="button" className="mt-6" loading={loading} onClick={() => void loadCatalogo()}>Tentar novamente</Button>
+              <Button
+                type="button"
+                className="mt-6 !bg-[#F07F40] !text-[#2C1615] hover:!bg-[#DC6E32] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]"
+                loading={loading}
+                onClick={() => void loadCatalogo()}
+              >
+                Tentar novamente
+              </Button>
             </Card>
           ) : (
             <>
