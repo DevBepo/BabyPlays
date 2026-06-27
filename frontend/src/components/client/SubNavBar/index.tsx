@@ -64,15 +64,15 @@ export function SubNavbar() {
   ];
 
   return (
-    <nav className="w-full bg-white border-b border-zinc-200">
+    <nav className="w-full border-b border-zinc-200 bg-white">
       {/* Container com scroll horizontal em telas menores (overflow-x-auto) */}
-      <div className="mx-auto flex h-12 max-w-[1600px] items-center overflow-x-auto px-4 sm:px-6 scrollbar-hide">
-        <ul className="flex min-w-max items-center gap-5 whitespace-nowrap sm:gap-6 lg:gap-7">
+      <div className="mx-auto flex h-11 max-w-[1600px] items-center overflow-x-auto px-3 scrollbar-hide sm:h-12 sm:px-6">
+        <ul className="flex min-w-max items-center gap-2.5 whitespace-nowrap sm:gap-6 lg:gap-7">
           {navItems.map((item, index) => (
             <li key={index}>
               <Link
                 href={item.href}
-                className="group flex items-center gap-1.5 text-sm font-semibold text-zinc-600 transition-colors hover:text-[#AB2E97] [font-family:var(--font-fredoka)]"
+                className="group flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-[#F7EAF5] hover:text-[#AB2E97] sm:min-h-0 sm:px-0 sm:text-sm sm:hover:bg-transparent [font-family:var(--font-fredoka)]"
               >
                 {/* O ícone fica mais claro por padrão, e escurece no hover junto com o texto */}
                 <span className="text-zinc-400 transition-colors group-hover:text-[#AB2E97]">

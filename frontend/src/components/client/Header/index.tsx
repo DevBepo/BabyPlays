@@ -194,9 +194,9 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
-      <div className="mx-auto flex min-h-20 max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:gap-4">
-        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center gap-1 sm:gap-2">
-          <span className="relative block h-12 w-12 shrink-0 overflow-hidden sm:h-14 sm:w-16">
+      <div className="mx-auto flex min-h-16 max-w-[1600px] flex-wrap items-center justify-between gap-x-2 gap-y-2 px-3 py-2 sm:min-h-20 sm:px-6 sm:py-3 lg:flex-nowrap lg:gap-4">
+        <Link href="/" className="flex min-w-0 shrink cursor-pointer select-none items-center gap-1 sm:shrink-0 sm:gap-2">
+          <span className="relative block h-10 w-10 shrink-0 overflow-hidden sm:h-14 sm:w-16">
             <Image
               src="/assets/SomenteLogo.jpg"
               alt=""
@@ -204,19 +204,19 @@ export function Header({
               height={102}
               priority
               unoptimized
-              sizes="(max-width: 639px) 48px, 64px"
-              className="absolute left-1/2 top-1/2 h-[78px] w-[98px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[115px]"
+              sizes="(max-width: 639px) 40px, 64px"
+              className="absolute left-1/2 top-1/2 h-[64px] w-[80px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[115px]"
             />
           </span>
-          <span className="relative block h-12 w-44 shrink-0 overflow-hidden sm:h-[72px] sm:w-76 lg:overflow-visible">
+          <span className="relative block h-10 w-[150px] shrink overflow-hidden min-[430px]:w-44 sm:h-[72px] sm:w-76 sm:shrink-0 lg:overflow-visible">
             <Image
               src="/logo-babyplays-header.png"
               alt="BabyPlays - Locação de brinquedos"
               width={2048}
               height={683}
               priority
-              sizes="(max-width: 639px) 176px, (max-width: 1023px) 280px, 352px"
-              className="absolute left-1/2 top-1/2 h-auto w-40 max-h-110 -translate-x-1/2 -translate-y-1/2 object-contain sm:w-[280px] sm:max-h-[180px] lg:left-0 lg:w-[352px] lg:translate-x-0"
+              sizes="(max-width: 429px) 150px, (max-width: 639px) 176px, (max-width: 1023px) 280px, 352px"
+              className="absolute left-1/2 top-1/2 h-auto w-[142px] max-h-28 -translate-x-1/2 -translate-y-1/2 object-contain min-[430px]:w-40 sm:w-[280px] sm:max-h-[180px] lg:left-0 lg:w-[352px] lg:translate-x-0"
             />
           </span>
         </Link>
@@ -230,7 +230,7 @@ export function Header({
             placeholder="Buscar brinquedos e kits"
             value={currentSearchQuery}
             onChange={(e) => handleSearchQueryChange(e.target.value)}
-            className="w-full h-11 pl-5 pr-12 bg-[#F8F9FA] border border-zinc-200 rounded-full text-sm text-zinc-900 outline-none transition-all focus:bg-white focus:border-teal-600 focus:ring-1 focus:ring-teal-600 placeholder:text-zinc-400"
+            className="h-10 w-full rounded-full border border-zinc-200 bg-[#F8F9FA] pl-4 pr-11 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-teal-600 focus:bg-white focus:ring-1 focus:ring-teal-600 sm:h-11 sm:pl-5 sm:pr-12"
           />
           <button
             type="submit"
@@ -241,7 +241,7 @@ export function Header({
           </button>
         </form>
 
-        <div className="flex shrink-0 items-center gap-3 sm:gap-6">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-6">
           {isAuthenticated ? (
             <div className="relative select-none" ref={accountRef}>
               <button
@@ -249,7 +249,7 @@ export function Header({
                 onClick={() => setIsAccountMenuOpen((open) => !open)}
                 aria-expanded={isAccountMenuOpen}
                 aria-haspopup="menu"
-                className="flex items-center gap-3 rounded-full transition-colors hover:text-teal-600"
+                className="flex min-h-10 items-center gap-3 rounded-full transition-colors hover:text-teal-600"
               >
                 <div className="text-right hidden sm:block">
                   <p className="text-xs text-zinc-500 font-medium leading-tight">
@@ -259,7 +259,7 @@ export function Header({
                     Minha conta
                   </p>
                 </div>
-                <span className="p-2 text-zinc-700 bg-zinc-50 rounded-full transition-colors">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors">
                   <IconUser />
                 </span>
               </button>
@@ -338,7 +338,7 @@ export function Header({
               </div>
               <Link 
                 href="/login" 
-                className="p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 hover:bg-teal-50 rounded-full transition-colors cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-600"
               >
                 <IconUser />
               </Link>
@@ -353,7 +353,7 @@ export function Header({
               type="button"
               onClick={() => void handleCartClick()}
               aria-label="Ver carrinho de compras"
-              className="relative p-2 text-zinc-700 hover:text-teal-600 bg-zinc-50 rounded-full transition-colors cursor-pointer group"
+              className="group relative flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors hover:text-teal-600"
             >
               <IconCart />
               {quantidadeCarrinho > 0 && (
@@ -365,7 +365,7 @@ export function Header({
 
             {/* O Dropdown do Carrinho */}
             {cartDropdownEnabled && isCartOpen && (
-              <div className="absolute right-0 top-full z-50 mt-4 flex w-[calc(100vw-2rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
+              <div className="absolute right-0 top-full z-50 mt-3 flex w-[calc(100vw-1.5rem)] max-w-sm origin-top-right flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:mt-4 sm:w-80 md:w-96 before:content-[''] before:absolute before:-top-2 before:right-4 before:w-4 before:h-4 before:bg-white before:rotate-45 before:border-l before:border-t before:border-zinc-100">
                 <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between z-10 relative">
                   <h3 className="font-bold text-zinc-900">O seu carrinho</h3>
                   <div className="flex items-center gap-3">
@@ -374,14 +374,14 @@ export function Header({
                       type="button"
                       onClick={closeCart}
                       aria-label="Fechar carrinho"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 sm:h-8 sm:w-8"
                     >
                       <IconClose />
                     </button>
                   </div>
                 </div>
 
-                <div className="p-4 max-h-[300px] overflow-y-auto flex flex-col gap-4 z-10 relative bg-white">
+                <div className="relative z-10 flex max-h-[55vh] flex-col gap-3 overflow-y-auto bg-white p-3 sm:max-h-[300px] sm:gap-4 sm:p-4">
                   {cartLoading ? (
                     <p className="text-center text-sm text-zinc-400 py-4 animate-pulse">A carregar...</p>
                   ) : quantidadeCarrinho === 0 ? (
@@ -394,7 +394,7 @@ export function Header({
                   ) : (
                       carrinho?.itens.map((item) => (
                         <div key={item.id} className="group flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5">
-                          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white sm:h-20 sm:w-20">
                             {resolveMediaUrl(item.imagem_url) ? (
                               <img
                                 src={resolveMediaUrl(item.imagem_url) ?? undefined}
@@ -422,7 +422,7 @@ export function Header({
                           <button
                             onClick={() => handleRemoverItem(item.id)}
                             disabled={removendoId === item.id}
-                            className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50 sm:h-auto sm:w-auto sm:p-1.5"
                           title="Remover item"
                         >
                           {removendoId === item.id ? (
@@ -447,7 +447,7 @@ export function Header({
                         closeCart();
                         router.push("/checkout");
                       }}
-                      className="w-full py-3 bg-[#FF5A5F] hover:bg-[#ff444a] text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-red-500/20"
+                      className="h-12 w-full rounded-xl bg-[#FF5A5F] text-sm font-bold text-white shadow-md shadow-red-500/20 transition-colors hover:bg-[#ff444a]"
                     >
                       Finalizar Pedido
                     </button>

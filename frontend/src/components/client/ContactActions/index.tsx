@@ -33,7 +33,7 @@ export function ContactActions({
 }) {
   const instagramUrl = getInstagramUrl();
   const whatsappUrl = getWhatsAppUrl(whatsappMessage);
-  const baseClass = `inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-colors ${
+  const baseClass = `inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl font-bold transition-colors sm:w-auto ${
     compact ? "px-4 py-2.5 text-sm" : "px-5 py-3 text-sm"
   }`;
   const hasInstagram = showInstagram && Boolean(instagramUrl);
