@@ -6,7 +6,6 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { getAdminMe } from "@/services/auth";
-import { SidebarCart } from "@/components/client/SidebarCart";
 
 const IconSearch = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,7 +53,7 @@ export function Header({
     closeCart,
     isCartOpen,
     openCart,
-    toggleCart,
+    refreshCart,
   } = useCart();
   const currentSearchQuery = searchQuery ?? localSearchQuery;
   const accountLabel = cliente?.nome ?? user?.email ?? "cliente";
@@ -71,17 +70,6 @@ export function Header({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    if (!cartDropdownEnabled || !isCartOpen) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [cartDropdownEnabled, isCartOpen]);
 
   useEffect(() => {
     let active = true;
@@ -146,7 +134,15 @@ export function Header({
 
   const handleCartClick = async () => {
     if (cartDropdownEnabled) {
-      await toggleCart();
+      if (isCartOpen) {
+        closeCart();
+        return;
+      }
+
+      openCart();
+      await refreshCart().catch((error) => {
+        console.error("Erro ao atualizar o carrinho:", error);
+      });
       return;
     }
 
@@ -332,17 +328,6 @@ export function Header({
               )}
             </button>
 
-            {cartDropdownEnabled && isCartOpen && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Fechar carrinho"
-                  onClick={closeCart}
-                  className="fixed inset-0 z-50 cursor-default bg-[#2C1615]/25 backdrop-blur-[1px]"
-                />
-                <SidebarCart variant="drawer" />
-              </>
-            )}
           </div>
         </div>
       </div>

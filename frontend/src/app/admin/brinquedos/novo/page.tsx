@@ -41,6 +41,7 @@ export default function NovoBrinquedo() {
   const [preco30Dias, setPreco30Dias] = useState("");
   const [descricao, setDescricao] = useState("");
   const [ativo, setAtivo] = useState(true);
+  const [indisponivelCatalogo, setIndisponivelCatalogo] = useState(false);
   const [imagem, setImagem] = useState<File | null>(null);
 
   const categoriasOptions = categorias.map((categoria) => ({
@@ -100,6 +101,7 @@ export default function NovoBrinquedo() {
         preco_15_dias: preco15Dias || null,
         preco_30_dias: preco30Dias || null,
         ativo,
+        indisponivel_catalogo: indisponivelCatalogo,
       });
 
       if (imagem && novoBrinquedo.id) {
@@ -272,10 +274,17 @@ export default function NovoBrinquedo() {
 
           <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
             <Checkbox
-              label="Ativo no catalogo"
+              label="Exibir no catalogo"
               checked={ativo}
               onChange={(event) => setAtivo(event.target.checked)}
             />
+            <div className="mt-3">
+              <Checkbox
+                label="Marcar como indisponivel no catalogo"
+                checked={indisponivelCatalogo}
+                onChange={(event) => setIndisponivelCatalogo(event.target.checked)}
+              />
+            </div>
           </div>
 
           <div className="mt-2 flex items-center justify-end gap-4 border-t border-zinc-100 pt-4">

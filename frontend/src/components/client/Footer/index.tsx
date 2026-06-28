@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 
@@ -37,7 +37,6 @@ const IconWhatsapp = () => (
 
 export function Footer() {
   const pathname = usePathname();
-  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { openCart } = useCart();
   const whatsappUrl = "https://wa.me/5551981177297?text=Ol%C3%A1%2C%20quero%20conhecer%20mais%20dos%20produtos%20da%20Baby%20Plays!";
@@ -46,14 +45,14 @@ export function Footer() {
   const handleCartShortcut = () => {
     openCart();
 
-    if (pathname !== "/") {
-      router.push("/#reserva");
-      return;
+    if (pathname === "/") {
+      window.setTimeout(() => {
+        document.getElementById("reserva")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
     }
-
-    window.setTimeout(() => {
-      document.getElementById("reserva")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   };
 
   return (
@@ -112,7 +111,7 @@ export function Footer() {
             <h2 className="mb-2 text-base font-bold text-[#AB2E97] [font-family:var(--font-fredoka)]">Fale com a gente</h2>
             <p className="mb-3 text-sm leading-5 text-[#2C1615]/65">Tire dúvidas e acompanhe as novidades da BabyPlays.</p>
             <div className="flex flex-wrap gap-2.5">
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#F07F40] px-3.5 text-sm font-bold text-[#2C1615] shadow-sm transition-colors hover:bg-[#E77336] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]">
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#76CFC8] px-3.5 text-sm font-bold text-[#173E3A] shadow-sm transition-colors hover:bg-[#5DBDB5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]">
                 <IconWhatsapp /> WhatsApp
               </a>
               <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[#AB2E97]/25 bg-white/65 px-3.5 text-sm font-bold text-[#AB2E97] transition-colors hover:border-[#AB2E97]/45 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]">

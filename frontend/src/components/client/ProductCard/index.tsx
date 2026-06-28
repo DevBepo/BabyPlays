@@ -18,6 +18,8 @@ interface ProductCardProps {
   periodosDisponiveis: PeriodoLocacaoDisponivel[];
   categoriaNome?: string;
   quantidadeDisponivel: number;
+  disponivelParaCarrinho: boolean;
+  statusCatalogo: "disponivel" | "indisponivel" | "alugado";
   imagemUrl?: string | null;
   imagemAlt?: string;
 }
@@ -52,6 +54,8 @@ export function ProductCard({
   periodosDisponiveis,
   categoriaNome,
   quantidadeDisponivel,
+  disponivelParaCarrinho,
+  statusCatalogo,
   imagemUrl,
   imagemAlt,
 }: ProductCardProps) {
@@ -72,7 +76,8 @@ export function ProductCard({
   const hasPeriodOptions = periodosDisponiveis.length > 0;
   const periodoEfetivo = periodoAtual?.tipo;
   const hasStock = quantidadeDisponivel > 0;
-  const isAvailable = hasStock && hasPeriodOptions;
+  const isAvailable = disponivelParaCarrinho && hasStock && hasPeriodOptions;
+  const isManuallyUnavailable = statusCatalogo === "indisponivel";
 
   const handleAddToCart = async () => {
     if (!isAvailable || !periodoEfetivo || adicionandoRef.current) {
@@ -125,7 +130,7 @@ export function ProductCard({
           </Badge>
         ) : (
           <Badge variant="default" className="normal-case tracking-normal bg-[#FDECEB] text-[#803233]">
-            Alugado
+            {isManuallyUnavailable ? "Indisponivel" : "Alugado"}
           </Badge>
         )}
       </div>
@@ -192,7 +197,7 @@ export function ProductCard({
             </div>
           ) : (
             <p className="mb-2 text-xs font-semibold text-zinc-500">
-              Alugado
+              {isManuallyUnavailable ? "Indisponivel no momento" : "Alugado"}
             </p>
           )}
 
@@ -204,6 +209,14 @@ export function ProductCard({
               className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#AB2E97] px-4 text-sm font-semibold text-white shadow-sm shadow-[#AB2E97]/15 transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70 sm:h-10"
             >
               {adicionando ? "Adicionando..." : "Adicionar ao carrinho"}
+            </button>
+          ) : isManuallyUnavailable ? (
+            <button
+              type="button"
+              disabled
+              className="inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 px-4 text-sm font-bold text-zinc-500 sm:h-10 [font-family:var(--font-fredoka)]"
+            >
+              Indisponivel no momento
             </button>
           ) : (
             <button

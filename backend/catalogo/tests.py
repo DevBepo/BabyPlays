@@ -925,6 +925,37 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["nome"], self.brinquedo.nome)
 
+    def test_brinquedo_indisponivel_continua_no_catalogo_publico(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-001",
+        )
+        self.brinquedo.indisponivel_catalogo = True
+        self.brinquedo.save(update_fields=["indisponivel_catalogo"])
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], self.brinquedo.id)
+        self.assertTrue(response.data[0]["exibir_no_catalogo"])
+        self.assertFalse(response.data[0]["disponivel_para_carrinho"])
+        self.assertEqual(response.data[0]["status_catalogo"], "indisponivel")
+
+    def test_brinquedo_disponivel_retorna_estado_para_carrinho(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-001",
+        )
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data[0]["disponivel_para_carrinho"])
+        self.assertEqual(response.data[0]["status_catalogo"], "disponivel")
+
     def test_api_publica_listagem_nao_retorna_ativo(self):
         response = self.client.get(self.brinquedos_url)
 
@@ -1040,6 +1071,23 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(self.brinquedo.ativo)
         self.assertFalse(response.data["ativo"])
+
+    def test_usuario_admin_marca_brinquedo_como_indisponivel_no_catalogo(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.patch(
+            f"{self.brinquedos_url}{self.brinquedo.id}/",
+            {"indisponivel_catalogo": True},
+            format="json",
+        )
+
+        self.brinquedo.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(self.brinquedo.ativo)
+        self.assertTrue(self.brinquedo.indisponivel_catalogo)
+        self.assertTrue(response.data["indisponivel_catalogo"])
 
     def test_usuario_comum_nao_consegue_alterar_status_do_brinquedo(self):
         self.client.force_authenticate(user=self.usuario_comum)

@@ -46,6 +46,10 @@ export type BrinquedoCatalogo = {
   permite_diaria: boolean;
   periodos_disponiveis: PeriodoLocacaoDisponivel[];
   ativo?: boolean;
+  indisponivel_catalogo?: boolean;
+  exibir_no_catalogo?: boolean;
+  disponivel_para_carrinho?: boolean;
+  status_catalogo?: "disponivel" | "indisponivel" | "alugado";
   categoria: CategoriaResumo | null;
   quantidade_disponivel: number;
   imagem_principal: ImagemBrinquedo | null;

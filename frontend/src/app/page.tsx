@@ -324,7 +324,7 @@ export default function Home() {
   const brinquedosFiltrados = useMemo(() => {
     return brinquedos.filter((brinquedo) => {
       const matchCategory = selectedCategory === "todos" || brinquedo.categoria?.slug === selectedCategory;
-      const matchAvailability = !onlyAvailable || brinquedo.quantidade_disponivel > 0;
+      const matchAvailability = !onlyAvailable || brinquedo.disponivel_para_carrinho === true;
       return matchCategory && matchAvailability && matchesSearch(brinquedo, normalizedSearch);
     }).sort((a, b) => b.id - a.id);
   }, [brinquedos, normalizedSearch, onlyAvailable, selectedCategory]);
@@ -437,6 +437,8 @@ export default function Home() {
                               periodosDisponiveis={brinquedo.periodos_disponiveis}
                               categoriaNome={brinquedo.categoria?.nome}
                               quantidadeDisponivel={brinquedo.quantidade_disponivel}
+                              disponivelParaCarrinho={brinquedo.disponivel_para_carrinho === true}
+                              statusCatalogo={brinquedo.status_catalogo ?? "alugado"}
                               imagemUrl={resolveMediaUrl(imagem?.url)}
                               imagemAlt={imagem?.alt_text}
                             />
