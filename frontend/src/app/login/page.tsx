@@ -4,14 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 
-import { getAdminMe } from "@/services/auth";
-import { useAuth } from "@/hooks/useAuth";
-import type { ApiError } from "@/types/api";
+import { AuthPageShell } from "@/components/client/AuthPageShell";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-
-import Image from "next/image";
+import { useAuth } from "@/hooks/useAuth";
+import { getAdminMe } from "@/services/auth";
+import type { ApiError } from "@/types/api";
 
 const DEFAULT_CLIENT_REDIRECT = "/";
 const DEFAULT_ADMIN_REDIRECT = "/admin/pedidos";
@@ -105,75 +103,65 @@ function LoginForm() {
   };
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-12 text-zinc-900">
-      <div className="w-full max-w-md flex flex-col gap-6">
-        <div className="flex flex-col items-center text-center">
-          <Link
-            href="/"
-            className="inline-block transition-opacity hover:opacity-80"
-          >
-            <Image
-              src="/assets/LogoComEscrita.jpg"
-              alt="Logo BabyPlays"
-              width={150}
-              height={50}
-              priority
-              className="object-contain"
-            />
-          </Link>
-          <h1 className="mt-4 text-2xl font-bold text-zinc-950">
-            Entrar na conta
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Acesse com seu e-mail para continuar sua reserva.
-          </p>
-        </div>
-
-        <Card padding="lg">
-          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
-              >
-                {error}
-              </div>
-            )}
-
-            <Input
-              label="E-mail"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-
-            <Input
-              label="Senha"
-              name="senha"
-              type="password"
-              autoComplete="current-password"
-              value={senha}
-              onChange={(event) => setSenha(event.target.value)}
-              required
-            />
-
-            <Button type="submit" fullWidth loading={loading}>
-              Entrar
-            </Button>
-          </form>
-        </Card>
-        <p className="text-center text-sm text-zinc-600">
+    <AuthPageShell
+      eyebrow="Que bom ter você aqui"
+      title="Entrar na BabyPlays"
+      description="Acesse sua conta para acompanhar suas informações, pedidos e solicitações."
+      footer={
+        <>
           Ainda não tem uma conta?{" "}
-          <Link href="/register" className="font-semibold text-teal-600 hover:text-teal-700">
-            Crie aqui
+          <Link
+            href="/register"
+            className="font-bold text-[#AB2E97] underline decoration-[#AB2E97]/25 underline-offset-4 transition-colors hover:text-[#803233]"
+          >
+            Criar conta
           </Link>
-        </p>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-5 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:border-[#803233]/20 [&_input]:focus:border-[#AB2E97] [&_input]:focus:ring-[#AB2E97] [&_label]:font-semibold [&_label]:text-[#2C1615]"
+        onSubmit={handleSubmit}
+      >
+        {error && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold leading-5 text-[#803233]"
+          >
+            {error}
+          </div>
+        )}
 
-      </div>
-    </main>
+        <Input
+          label="E-mail"
+          name="email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+
+        <Input
+          label="Senha"
+          name="senha"
+          type="password"
+          autoComplete="current-password"
+          value={senha}
+          onChange={(event) => setSenha(event.target.value)}
+          required
+        />
+
+        <Button
+          type="submit"
+          fullWidth
+          loading={loading}
+          className="!min-h-12 !rounded-xl !bg-[#AB2E97] !text-white shadow-sm shadow-[#AB2E97]/20 hover:!bg-[#803233] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]"
+        >
+          Entrar
+        </Button>
+      </form>
+    </AuthPageShell>
   );
 }
 

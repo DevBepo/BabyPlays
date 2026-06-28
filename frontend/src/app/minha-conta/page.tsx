@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Header } from "@/components/client/Header";
+import { Footer } from "@/components/client/Footer";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -67,9 +68,12 @@ function getApiMessage(error: unknown, fallback: string) {
 
 function EmptyPanel({ title, message }: { title: string; message: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-zinc-200 bg-white px-6 py-10 text-center">
-      <h3 className="text-base font-bold text-zinc-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500">
+    <div className="rounded-3xl border border-dashed border-[#76CFC8]/70 bg-white/80 px-6 py-10 text-center shadow-sm shadow-[#803233]/5">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F8F6] text-[#AB2E97]" aria-hidden="true">
+        <span className="h-3 w-3 rounded-full bg-current" />
+      </div>
+      <h3 className="text-lg font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#803233]/70">
         {message}
       </p>
     </div>
@@ -80,36 +84,36 @@ function PedidoCard({ pedido }: { pedido: PedidoCliente }) {
   const totalItens = pedido.itens.reduce((total, item) => total + item.quantidade, 0);
 
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+    <article className="rounded-3xl border border-[#FAB555]/35 bg-white p-5 shadow-sm shadow-[#803233]/5 transition-shadow hover:shadow-md sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#AB2E97]">
             Pedido #{pedido.id}
           </p>
-          <h3 className="mt-1 text-base font-black text-zinc-900">
+          <h3 className="mt-1 text-lg font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">
             {statusLabels[pedido.status] ?? pedido.status}
           </h3>
         </div>
-        <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
+        <span className="rounded-full bg-[#E8F8F6] px-3 py-1 text-xs font-bold text-[#2C6F6A]">
           {formatCurrency(pedido.total_estimado_snapshot)}
         </span>
       </div>
 
-      <div className="mt-4 grid gap-3 text-sm text-zinc-600 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 text-sm text-zinc-600 sm:grid-cols-3">
         <div>
-          <p className="text-xs font-semibold text-zinc-400">Evento</p>
+          <p className="text-xs font-semibold text-[#803233]/55">Evento</p>
           <p className="mt-1 font-medium text-zinc-800">
             {formatDate(pedido.data_evento_pretendida)}
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-zinc-400">Locacao</p>
+          <p className="text-xs font-semibold text-[#803233]/55">Locação</p>
           <p className="mt-1 font-medium text-zinc-800">
             {formatDate(pedido.data_inicio_locacao)} a {formatDate(pedido.data_fim_locacao)}
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-zinc-400">Itens</p>
+          <p className="text-xs font-semibold text-[#803233]/55">Itens</p>
           <p className="mt-1 font-medium text-zinc-800">
             {totalItens} item{totalItens === 1 ? "" : "s"}
           </p>
@@ -117,7 +121,7 @@ function PedidoCard({ pedido }: { pedido: PedidoCliente }) {
       </div>
 
       {pedido.itens.length > 0 ? (
-        <div className="mt-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+        <div className="mt-5 divide-y divide-[#FAB555]/20 rounded-2xl border border-[#FAB555]/25 bg-[#FFF8EC]/60">
           {pedido.itens.slice(0, 3).map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <span className="line-clamp-1 text-sm font-medium text-zinc-700">
@@ -221,43 +225,53 @@ export default function MinhaContaPage() {
 
   if (authLoading || !isAuthenticated) {
     return (
-      <main className="min-h-screen bg-[#F8F9FA] px-6 py-16 text-zinc-900">
-        <div className="mx-auto max-w-md rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-semibold text-zinc-600">Carregando sua conta...</p>
+      <main className="min-h-screen bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC] px-6 py-16 text-[#2C1615]">
+        <div className="mx-auto max-w-md rounded-3xl border border-[#AB2E97]/10 bg-white/90 p-8 text-center shadow-xl shadow-[#803233]/8">
+          <div className="mx-auto mb-4 h-8 w-8 animate-pulse rounded-full bg-[#76CFC8]/50" aria-hidden="true" />
+          <p className="font-semibold [font-family:var(--font-fredoka)]">Carregando sua conta...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F8F9FA] text-zinc-950">
+    <main className="min-h-screen overflow-x-clip bg-[#FFF9F7] text-[#2C1615]">
         <Header />
 
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+          <span className="pointer-events-none absolute -left-16 top-8 hidden h-48 w-48 rounded-full bg-[#FAB555]/25 sm:block" />
+          <span className="pointer-events-none absolute right-[7%] top-24 hidden h-5 w-5 rounded-full bg-[#EA524B]/75 sm:block" />
+          <span className="pointer-events-none absolute -right-16 bottom-20 hidden h-52 w-52 rotate-12 rounded-[3rem] bg-[#76CFC8]/18 md:block" />
+
+        <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
+          <section className="overflow-hidden rounded-3xl border border-[#AB2E97]/12 bg-white/90 p-5 shadow-lg shadow-[#803233]/7 backdrop-blur-sm sm:p-7">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
-                  Minha conta
+                <div className="mb-3 flex items-center gap-2" aria-hidden="true">
+                  <span className="h-2 w-10 rounded-full bg-[#AB2E97]" />
+                  <span className="h-2 w-4 rounded-full bg-[#76CFC8]" />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#AB2E97]">
+                  Seu espaço BabyPlays
                 </p>
-                <h1 className="mt-1 text-2xl font-black tracking-tight text-zinc-950">
-                  {cliente?.nome ?? user?.email}
+                <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#2C1615] [font-family:var(--font-fredoka)] sm:text-4xl">
+                  Minha conta
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                  Acompanhe suas reservas e confira seus dados cadastrais.
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#803233]/70 sm:text-base">
+                  Olá, {cliente?.nome ?? user?.email}. Acompanhe suas informações e solicitações na BabyPlays.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
+              <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[#AB2E97]/10 bg-[#F7EAF5]/60 p-1.5">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`h-10 rounded-md px-3 text-xs font-bold transition-colors sm:text-sm ${
+                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97] ${
                       activeTab === tab.id
-                        ? "bg-white text-teal-700 shadow-sm"
-                        : "text-zinc-600 hover:bg-white/70 hover:text-zinc-900"
+                        ? "bg-[#AB2E97] text-white shadow-sm shadow-[#AB2E97]/20"
+                        : "text-[#803233] hover:bg-white hover:text-[#AB2E97]"
                     }`}
                   >
                     {tab.label}
@@ -268,10 +282,12 @@ export default function MinhaContaPage() {
           </section>
 
           {activeTab === "dados" ? (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <Card padding="lg" className="rounded-lg">
-                <h2 className="text-lg font-black text-zinc-900">Dados cadastrais</h2>
-                <form className="mt-6 grid gap-5 sm:grid-cols-2" onSubmit={handleSave}>
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <Card padding="lg" className="!rounded-3xl !border-[#AB2E97]/12 shadow-sm shadow-[#803233]/5">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#AB2E97]">Dados pessoais</p>
+                <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Seus dados cadastrais</h2>
+                <p className="mt-2 text-sm leading-6 text-[#803233]/65">Mantenha suas informações atualizadas para facilitar nosso contato.</p>
+                <form className="mt-6 grid gap-5 sm:grid-cols-2 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:border-[#803233]/20 [&_input]:focus:border-[#AB2E97] [&_input]:focus:ring-[#AB2E97] [&_label]:font-semibold [&_label]:text-[#2C1615]" onSubmit={handleSave}>
                   <div className="sm:col-span-2">
                     <Input
                       label="Nome"
@@ -297,34 +313,35 @@ export default function MinhaContaPage() {
                   />
 
                   {saveError ? (
-                    <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 sm:col-span-2">
+                    <p role="alert" className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold text-[#803233] sm:col-span-2">
                       {saveError}
                     </p>
                   ) : null}
                   {saveMessage ? (
-                    <p className="rounded-lg border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-800 sm:col-span-2">
+                    <p role="status" className="rounded-2xl border border-[#76CFC8]/40 bg-[#E8F8F6] px-4 py-3 text-sm font-semibold text-[#2C6F6A] sm:col-span-2">
                       {saveMessage}
                     </p>
                   ) : null}
 
                   <div className="sm:col-span-2">
-                    <Button type="submit" loading={saving}>
-                      Salvar alteracoes
+                    <Button type="submit" loading={saving} className="!min-h-11 !rounded-xl !bg-[#AB2E97] !text-white hover:!bg-[#803233] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]">
+                      Salvar alterações
                     </Button>
                   </div>
                 </form>
               </Card>
 
-              <Card padding="lg" className="rounded-lg">
-                <h2 className="text-lg font-black text-zinc-900">Resumo</h2>
+              <Card padding="lg" className="!rounded-3xl !border-[#FAB555]/35 shadow-sm shadow-[#803233]/5">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#F07F40]">Visão geral</p>
+                <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Resumo da conta</h2>
                 <div className="mt-5 space-y-4">
-                  <div className="rounded-lg bg-zinc-50 p-4">
-                    <p className="text-xs font-semibold text-zinc-500">Pedidos</p>
-                    <p className="mt-1 text-2xl font-black text-zinc-950">{pedidos.length}</p>
+                  <div className="rounded-2xl border border-[#76CFC8]/25 bg-[#E8F8F6]/70 p-4">
+                    <p className="text-xs font-semibold text-[#2C6F6A]">Pedidos e solicitações</p>
+                    <p className="mt-1 text-3xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{pedidos.length}</p>
                   </div>
-                  <div className="rounded-lg bg-zinc-50 p-4">
-                    <p className="text-xs font-semibold text-zinc-500">Ultimo pedido</p>
-                    <p className="mt-1 text-sm font-bold text-zinc-800">
+                  <div className="rounded-2xl border border-[#FAB555]/25 bg-[#FFF4DF]/75 p-4">
+                    <p className="text-xs font-semibold text-[#803233]/65">Último pedido</p>
+                    <p className="mt-1 text-sm font-bold text-[#2C1615]">
                       {pedidosRecentes[0] ? `#${pedidosRecentes[0].id}` : "Nenhum ainda"}
                     </p>
                   </div>
@@ -334,19 +351,20 @@ export default function MinhaContaPage() {
           ) : null}
 
           {activeTab === "pedidos" ? (
-            <section className="space-y-4">
+            <section className="space-y-5 rounded-3xl border border-[#AB2E97]/10 bg-white/55 p-4 shadow-sm shadow-[#803233]/5 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-black text-zinc-900">Meus pedidos</h2>
-                  <p className="mt-1 text-sm text-zinc-500">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#AB2E97]">Histórico</p>
+                  <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Meus pedidos</h2>
+                  <p className="mt-1 text-sm text-[#803233]/65">
                     {pedidos.length} pedido{pedidos.length === 1 ? "" : "s"} encontrado{pedidos.length === 1 ? "" : "s"}.
                   </p>
                 </div>
                 <Link
                   href="/"
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 transition-colors hover:border-teal-200 hover:text-teal-700"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#AB2E97]/20 bg-white px-4 text-sm font-bold text-[#AB2E97] transition-colors hover:border-[#AB2E97] hover:bg-[#F7EAF5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]"
                 >
-                  Ver catalogo
+                  Ver catálogo
                 </Link>
               </div>
 
@@ -370,6 +388,8 @@ export default function MinhaContaPage() {
           ) : null}
 
         </div>
+        </div>
+        <Footer />
     </main>
   );
 }
