@@ -86,6 +86,7 @@ export type CriarBrinquedoPayload = {
   preco_15_dias?: string | number | null;
   preco_30_dias?: string | number | null;
   ativo: boolean;
+  indisponivel_catalogo?: boolean;
 };
 
 export type AtualizarBrinquedoPayload = Partial<CriarBrinquedoPayload>;
@@ -117,6 +118,7 @@ type CriarBrinquedoResponse = {
   preco_15_dias: string | null;
   preco_30_dias: string | null;
   ativo: boolean;
+  indisponivel_catalogo: boolean;
   data_cadastro: string;
   quantidade_disponivel: number;
 };

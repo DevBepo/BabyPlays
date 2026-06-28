@@ -38,6 +38,7 @@ type BrinquedoFormState = {
   preco_15_dias: string;
   preco_30_dias: string;
   ativo: boolean;
+  indisponivel_catalogo: boolean;
 };
 
 const initialForm: BrinquedoFormState = {
@@ -48,6 +49,7 @@ const initialForm: BrinquedoFormState = {
   preco_15_dias: "",
   preco_30_dias: "",
   ativo: true,
+  indisponivel_catalogo: false,
 };
 
 function isApiError(error: unknown): error is ApiError {
@@ -85,6 +87,7 @@ function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
     preco_15_dias: brinquedo.preco_15_dias ?? "",
     preco_30_dias: brinquedo.preco_30_dias ?? "",
     ativo: brinquedo.ativo !== false,
+    indisponivel_catalogo: brinquedo.indisponivel_catalogo === true,
   };
 }
 
@@ -344,6 +347,7 @@ export default function ListaBrinquedosAdmin() {
       preco_15_dias: form.preco_15_dias || null,
       preco_30_dias: form.preco_30_dias || null,
       ativo: form.ativo,
+      indisponivel_catalogo: form.indisponivel_catalogo,
     };
 
     try {
@@ -414,8 +418,8 @@ export default function ListaBrinquedosAdmin() {
       await atualizarBrinquedo(brinquedo.id, { ativo: novoStatusAtivo });
       setSucesso(
         novoStatusAtivo
-          ? "Brinquedo ativado com sucesso."
-          : "Brinquedo desativado com sucesso.",
+          ? "Brinquedo exibido no catalogo."
+          : "Brinquedo ocultado do catalogo.",
       );
       await carregarBrinquedos();
     } catch (error) {
@@ -423,6 +427,34 @@ export default function ListaBrinquedosAdmin() {
         isApiError(error)
           ? error.message
           : "Nao foi possivel atualizar o status do brinquedo.",
+      );
+    } finally {
+      setBrinquedoAlterandoStatus(null);
+    }
+  }
+
+  async function handleAlternarIndisponibilidade(brinquedo: BrinquedoCatalogo) {
+    const novoStatus = brinquedo.indisponivel_catalogo !== true;
+
+    setBrinquedoAlterandoStatus(brinquedo.id);
+    setErro(null);
+    setSucesso(null);
+
+    try {
+      await atualizarBrinquedo(brinquedo.id, {
+        indisponivel_catalogo: novoStatus,
+      });
+      setSucesso(
+        novoStatus
+          ? "Brinquedo marcado como indisponivel no catalogo."
+          : "Brinquedo liberado para o carrinho.",
+      );
+      await carregarBrinquedos();
+    } catch (error) {
+      setErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel atualizar a disponibilidade do brinquedo.",
       );
     } finally {
       setBrinquedoAlterandoStatus(null);
@@ -675,7 +707,7 @@ export default function ListaBrinquedosAdmin() {
             <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
               <div className="flex flex-col gap-3">
                 <Checkbox
-                  label="Ativo no catalogo"
+                  label="Exibir no catalogo"
                   checked={form.ativo}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -684,6 +716,19 @@ export default function ListaBrinquedosAdmin() {
                     }))
                   }
                 />
+                <Checkbox
+                  label="Marcar como indisponivel no catalogo"
+                  checked={form.indisponivel_catalogo}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      indisponivel_catalogo: event.target.checked,
+                    }))
+                  }
+                />
+                <p className="text-xs text-zinc-500">
+                  O brinquedo continua visivel, mas nao pode ser adicionado ao carrinho.
+                </p>
               </div>
             </div>
 
@@ -776,11 +821,16 @@ export default function ListaBrinquedosAdmin() {
                       {periodoResumo(brinquedo)}
                     </Td>
                     <Td>
-                      {brinquedo.ativo !== false ? (
-                        <Badge variant="success">Ativo</Badge>
-                      ) : (
-                        <Badge variant="default">Inativo</Badge>
-                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {brinquedo.ativo !== false ? (
+                          <Badge variant="success">Exibido</Badge>
+                        ) : (
+                          <Badge variant="default">Oculto</Badge>
+                        )}
+                        {brinquedo.indisponivel_catalogo === true ? (
+                          <Badge variant="default">Indisponivel</Badge>
+                        ) : null}
+                      </div>
                     </Td>
                     <Td className="text-right">
                       <div className="flex justify-end gap-2">
@@ -800,7 +850,21 @@ export default function ListaBrinquedosAdmin() {
                           disabled={brinquedoRemovendo === brinquedo.id}
                           onClick={() => void handleAlternarStatusBrinquedo(brinquedo)}
                         >
-                          {brinquedo.ativo !== false ? "Desativar" : "Ativar"}
+                          {brinquedo.ativo !== false
+                            ? "Ocultar do catalogo"
+                            : "Exibir no catalogo"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={brinquedo.indisponivel_catalogo === true ? "secondary" : "outline"}
+                          loading={brinquedoAlterandoStatus === brinquedo.id}
+                          disabled={brinquedoRemovendo === brinquedo.id}
+                          onClick={() => void handleAlternarIndisponibilidade(brinquedo)}
+                        >
+                          {brinquedo.indisponivel_catalogo === true
+                            ? "Marcar disponivel"
+                            : "Marcar indisponivel"}
                         </Button>
                         <Button
                           type="button"

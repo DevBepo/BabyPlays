@@ -94,7 +94,8 @@ function BrinquedoDetalheContent() {
   const imagemUrl = resolveMediaUrl(imagem?.url);
   const hasPeriodOptions = (brinquedo?.periodos_disponiveis.length ?? 0) > 0;
   const hasStock = (brinquedo?.quantidade_disponivel ?? 0) > 0;
-  const isAvailable = hasStock && hasPeriodOptions;
+  const isAvailable = brinquedo?.disponivel_para_carrinho === true && hasStock && hasPeriodOptions;
+  const isManuallyUnavailable = brinquedo?.status_catalogo === "indisponivel";
 
   const handleAddToCart = async () => {
     if (!brinquedo || !isAvailable || !periodoSelecionado || adicionando) {
@@ -209,7 +210,9 @@ function BrinquedoDetalheContent() {
                 {isAvailable ? (
                   <Badge variant="success">Disponivel</Badge>
                 ) : (
-                  <Badge variant="default">Alugado</Badge>
+                  <Badge variant="default">
+                    {isManuallyUnavailable ? "Indisponivel" : "Alugado"}
+                  </Badge>
                 )}
                 <span className="text-xs font-medium text-zinc-500">
                   {brinquedo.quantidade_disponivel} unidade{brinquedo.quantidade_disponivel === 1 ? "" : "s"}
@@ -262,7 +265,7 @@ function BrinquedoDetalheContent() {
                     </div>
                   ) : (
                     <p className="text-sm font-medium text-zinc-500">
-                      Alugado
+                      {isManuallyUnavailable ? "Indisponivel no momento" : "Alugado"}
                     </p>
                   )}
                 </div>
@@ -284,6 +287,14 @@ function BrinquedoDetalheContent() {
                 className="h-12 w-full rounded-lg bg-[#FF5A5F] text-lg font-bold text-white transition-colors hover:bg-[#e94d52] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {adicionando ? "Adicionando ao carrinho..." : "Adicionar ao carrinho"}
+              </button>
+            ) : isManuallyUnavailable ? (
+              <button
+                type="button"
+                disabled
+                className="h-12 w-full cursor-not-allowed rounded-lg border border-zinc-200 bg-zinc-100 text-sm font-bold text-zinc-500"
+              >
+                Indisponivel no momento
               </button>
             ) : (
               <button

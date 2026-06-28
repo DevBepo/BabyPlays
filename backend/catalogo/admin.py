@@ -66,11 +66,12 @@ class BrinquedoAdmin(admin.ModelAdmin):
         "preco_15_dias",
         "preco_30_dias",
         "ativo",
+        "indisponivel_catalogo",
         "quantidade_disponivel",
         "total_unidades",
         "data_cadastro",
     )
-    list_filter = ("ativo", "categoria", "data_cadastro")
+    list_filter = ("ativo", "indisponivel_catalogo", "categoria", "data_cadastro")
     search_fields = ("nome", "descricao", "categoria__nome")
     readonly_fields = ("data_cadastro", "quantidade_disponivel", "total_unidades")
     ordering = ("nome",)

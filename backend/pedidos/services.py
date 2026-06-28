@@ -243,6 +243,14 @@ class CarrinhoService:
             raise serializers.ValidationError(
                 {"brinquedo_id": "Brinquedo inativo nao pode ser adicionado."}
             )
+        if brinquedo.indisponivel_catalogo:
+            raise serializers.ValidationError(
+                {
+                    "brinquedo_id": (
+                        "Brinquedo indisponivel no catalogo nao pode ser adicionado."
+                    )
+                }
+            )
         
         # Ao invés de ficar adicionando item a item na lista do carrinho,
         # É adicionado mais um na quantidade.
@@ -403,6 +411,18 @@ class CarrinhoService:
     @transaction.atomic
     def alterar_quantidade(item, quantidade):
         if item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO:
+            if not item.brinquedo.ativo:
+                raise serializers.ValidationError(
+                    {"brinquedo_id": "Brinquedo inativo nao pode ser alterado."}
+                )
+            if item.brinquedo.indisponivel_catalogo:
+                raise serializers.ValidationError(
+                    {
+                        "brinquedo_id": (
+                            "Brinquedo indisponivel no catalogo nao pode ser alterado."
+                        )
+                    }
+                )
             periodo_locacao = item.snapshot.get("periodo_locacao", {}).get(
                 "tipo",
                 "15_dias",
@@ -548,6 +568,28 @@ class PedidoService:
             raise serializers.ValidationError(
                 {"carrinho": "Carrinho vazio nao pode ser convertido em pedido."}
             )
+
+        for item in itens:
+            if item.tipo_item != ItemCarrinho.TipoItem.BRINQUEDO:
+                continue
+            if not item.brinquedo.ativo:
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O brinquedo "{item.brinquedo.nome}" nao esta mais '
+                            "exibido no catalogo. Remova-o para continuar."
+                        )
+                    }
+                )
+            if item.brinquedo.indisponivel_catalogo:
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O brinquedo "{item.brinquedo.nome}" esta indisponivel '
+                            "no catalogo. Remova-o para continuar."
+                        )
+                    }
+                )
 
         subtotal = sum(
             (item.subtotal_snapshot for item in itens),
@@ -1003,7 +1045,7 @@ class ReservaPedidoService:
     def reservar_unidades(pedido):
         pedido = (
             Pedido.objects.select_for_update()
-            .prefetch_related("itens")
+            .prefetch_related("itens__brinquedo")
             .get(id=pedido.id)
         )
         demandas = ReservaPedidoService._montar_demandas(pedido)
@@ -1584,6 +1626,20 @@ class ConfirmacaoPedidoService:
             raise serializers.ValidationError(
                 {"data_fim_locacao": "Periodo de locacao invalido."}
             )
+
+        for item in pedido.itens.all():
+            if (
+                item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO
+                and item.brinquedo.indisponivel_catalogo
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "itens": (
+                            f'O brinquedo "{item.brinquedo.nome}" esta '
+                            "indisponivel no catalogo."
+                        )
+                    }
+                )
 
         demandas = ReservaPedidoService._montar_demandas(pedido)
         reservas_ativas = list(ReservaPedidoService._reservas_ativas_do_pedido(pedido))

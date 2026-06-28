@@ -106,6 +106,9 @@ class ImagemBrinquedoPublicSerializer(serializers.ModelSerializer):
 
 class BrinquedoPublicSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
+    exibir_no_catalogo = serializers.BooleanField(source="ativo", read_only=True)
+    disponivel_para_carrinho = serializers.SerializerMethodField()
+    status_catalogo = serializers.SerializerMethodField()
     categoria = CategoriaResumoSerializer(read_only=True)
     imagem_principal = serializers.SerializerMethodField()
     imagens = serializers.SerializerMethodField()
@@ -124,6 +127,9 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "permite_diaria",
             "periodos_disponiveis",
             "categoria",
+            "exibir_no_catalogo",
+            "disponivel_para_carrinho",
+            "status_catalogo",
             "quantidade_disponivel",
             "imagem_principal",
             "imagens",
@@ -135,6 +141,20 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         if quantidade_anotada is not None:
             return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_disponivel_para_carrinho(self, obj):
+        return (
+            not obj.indisponivel_catalogo
+            and self.get_quantidade_disponivel(obj) > 0
+            and bool(periodos_locacao_disponiveis(obj))
+        )
+
+    def get_status_catalogo(self, obj):
+        if obj.indisponivel_catalogo:
+            return "indisponivel"
+        if self.get_disponivel_para_carrinho(obj):
+            return "disponivel"
+        return "alugado"
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
@@ -193,6 +213,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "permite_diaria",
             "periodos_disponiveis",
             "ativo",
+            "indisponivel_catalogo",
             "data_cadastro",
             "quantidade_disponivel",
             "imagem_principal",

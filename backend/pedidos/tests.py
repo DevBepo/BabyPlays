@@ -393,6 +393,16 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(ItemCarrinho.objects.count(), 0)
 
+    def test_brinquedo_indisponivel_no_catalogo_nao_pode_ser_adicionado(self):
+        self.brinquedo.indisponivel_catalogo = True
+        self.brinquedo.save(update_fields=["indisponivel_catalogo"])
+
+        response = self.adicionar_brinquedo()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("indisponivel", str(response.data).lower())
+        self.assertEqual(ItemCarrinho.objects.count(), 0)
+
     def test_kit_festa_inativo_nao_pode_ser_adicionado(self):
         self.kit_festa.ativo = False
         self.kit_festa.save(update_fields=["ativo"])
@@ -656,6 +666,18 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(item.snapshot["brinquedo"]["nome"], "Cama elastica")
         self.assertNotIn("snapshot", response.data["itens"][0])
         self.assertEqual(response.data["itens"][0]["nome_snapshot"], "Cama elastica")
+
+    def test_brinquedo_que_ficou_indisponivel_nao_converte_carrinho(self):
+        self.adicionar_brinquedo()
+        self.brinquedo.indisponivel_catalogo = True
+        self.brinquedo.save(update_fields=["indisponivel_catalogo"])
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("indisponivel", str(response.data).lower())
+        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertEqual(Carrinho.objects.get().status, Carrinho.Status.ATIVO)
 
     def test_anonimo_nao_consegue_converter_carrinho_em_pedido(self):
         self.adicionar_brinquedo()
@@ -2931,6 +2953,19 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
         self.assertEqual(response.data["status"], Pedido.Status.CONFIRMADO)
         self.assertIsNotNone(response.data["confirmado_em"])
         self.assertEqual(response.data["confirmado_por"], self.admin.id)
+
+    def test_nao_confirma_pedido_se_brinquedo_ficou_indisponivel(self):
+        self.autenticar_admin()
+        self.preparar_pedido_confirmavel()
+        self.brinquedo.indisponivel_catalogo = True
+        self.brinquedo.save(update_fields=["indisponivel_catalogo"])
+
+        response = self.client.post(self.confirmar_url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("indisponivel", str(response.data).lower())
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, Pedido.Status.RESERVADO)
 
     def test_confirmacao_nao_altera_reservas_unidades_itens_ou_valores(self):
         self.autenticar_admin()

@@ -127,8 +127,16 @@ class Brinquedo(models.Model):
     )
     ativo = models.BooleanField(
         default=True,
-        verbose_name="Ativo no catálogo",
+        verbose_name="Exibir no catálogo",
         help_text="Indica se o produto está habilitado para publicação no catálogo; não representa estoque físico disponível.",
+    )
+    indisponivel_catalogo = models.BooleanField(
+        default=False,
+        verbose_name="Marcar como indisponível no catálogo",
+        help_text=(
+            "Mantém o brinquedo visível no catálogo, mas impede sua adição "
+            "ao carrinho. Não altera o status das unidades físicas."
+        ),
     )
     permite_diaria = models.BooleanField(
         default=False,
