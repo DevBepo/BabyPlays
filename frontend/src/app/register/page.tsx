@@ -1,20 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 
+import { AuthPageShell } from "@/components/client/AuthPageShell";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { apiPost } from "@/lib/api";
 import type { ApiError } from "@/types/api";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 
 function getErrorMessage(error: unknown): string {
   const apiError = error as ApiError;
-  
-  // Se o backend devolver erros específicos de campos (ex: E-mail já cadastrado)
+
   if (apiError.fieldErrors) {
     const firstErrorKey = Object.keys(apiError.fieldErrors)[0];
     return apiError.fieldErrors[firstErrorKey]?.[0] || "Verifique os dados enviados.";
@@ -24,14 +21,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 function Register() {
-  const router = useRouter();
-  
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +35,6 @@ function Register() {
     setLoading(true);
     setError(null);
 
-    // Validação extra no frontend para garantir que as senhas são iguais
     if (senha !== confirmacaoSenha) {
       setError("As senhas não coincidem. Tente novamente.");
       setLoading(false);
@@ -48,7 +42,6 @@ function Register() {
     }
 
     try {
-      // Usando os recursos do bakc pois ele já faz o login automatico 
       await apiPost("/api/auth/cadastro/", {
         nome,
         email,
@@ -56,11 +49,8 @@ function Register() {
         senha,
         confirmacao_senha: confirmacaoSenha,
       });
-      
-      // Força um reload redirecionando para a Home, 
-      // para que o AuthContext perceba que o cookie de sessão foi criado.
+
       window.location.href = "/";
-      
     } catch (err) {
       setSenha("");
       setConfirmacaoSenha("");
@@ -71,110 +61,101 @@ function Register() {
   };
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-12 text-zinc-900">
-      <div className="w-full max-w-md flex flex-col gap-6">
-        <div className="flex flex-col items-center text-center">
+    <AuthPageShell
+      eyebrow="Sua diversão começa aqui"
+      title="Criar conta na BabyPlays"
+      description="Cadastre-se para acompanhar seus pedidos e solicitações de um jeito simples e organizado."
+      wide
+      footer={
+        <>
+          Já tem uma conta?{" "}
           <Link
-            href="/"
-            className="inline-block transition-opacity hover:opacity-80"
+            href="/login"
+            className="font-bold text-[#AB2E97] underline decoration-[#AB2E97]/25 underline-offset-4 transition-colors hover:text-[#803233]"
           >
-            <Image
-              src="/assets/logo.jpg"
-              alt="Logo BabyPlays"
-              width={150}
-              height={50}
-              priority
-              className="object-contain"
-            />
+            Entrar
           </Link>
-          <h1 className="mt-4 text-2xl font-bold text-zinc-950">
-            Criar nova conta
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Preencha os dados abaixo para se registar na loja.
-          </p>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-5 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:border-[#803233]/20 [&_input]:focus:border-[#AB2E97] [&_input]:focus:ring-[#AB2E97] [&_label]:font-semibold [&_label]:text-[#2C1615]"
+        onSubmit={handleSubmit}
+      >
+        {error && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold leading-5 text-[#803233]"
+          >
+            {error}
+          </div>
+        )}
+
+        <Input
+          label="Nome Completo"
+          name="nome"
+          type="text"
+          autoComplete="name"
+          placeholder="Ex: Maria Silva"
+          value={nome}
+          onChange={(event) => setNome(event.target.value)}
+          required
+        />
+
+        <Input
+          label="E-mail"
+          name="email"
+          type="email"
+          autoComplete="email"
+          placeholder="maria@exemplo.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+
+        <Input
+          label="Telefone (WhatsApp)"
+          name="telefone"
+          type="tel"
+          autoComplete="tel"
+          placeholder="(51) 99999-9999"
+          value={telefone}
+          onChange={(event) => setTelefone(event.target.value)}
+          required
+        />
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Input
+            label="Senha"
+            name="senha"
+            type="password"
+            autoComplete="new-password"
+            value={senha}
+            onChange={(event) => setSenha(event.target.value)}
+            required
+          />
+
+          <Input
+            label="Confirmar Senha"
+            name="confirmacao_senha"
+            type="password"
+            autoComplete="new-password"
+            value={confirmacaoSenha}
+            onChange={(event) => setConfirmacaoSenha(event.target.value)}
+            required
+          />
         </div>
 
-        <Card padding="lg">
-          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
-              >
-                {error}
-              </div>
-            )}
-
-            <Input
-              label="Nome Completo"
-              name="nome"
-              type="text"
-              autoComplete="name"
-              placeholder="Ex: Maria Silva"
-              value={nome}
-              onChange={(event) => setNome(event.target.value)}
-              required
-            />
-
-            <Input
-              label="E-mail"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="maria@exemplo.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-            
-            <Input
-              label="Telefone (WhatsApp)"
-              name="telefone"
-              type="tel"
-              autoComplete="tel"
-              placeholder="(51) 99999-9999"
-              value={telefone}
-              onChange={(event) => setTelefone(event.target.value)}
-              required
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Senha"
-                name="senha"
-                type="password"
-                autoComplete="new-password"
-                value={senha}
-                onChange={(event) => setSenha(event.target.value)}
-                required
-              />
-
-              <Input
-                label="Confirmar Senha"
-                name="confirmacao_senha"
-                type="password"
-                autoComplete="new-password"
-                value={confirmacaoSenha}
-                onChange={(event) => setConfirmacaoSenha(event.target.value)}
-                required
-              />
-            </div>
-
-            <Button type="submit" fullWidth loading={loading} className="mt-2">
-              Criar Conta
-            </Button>
-          </form>
-        </Card>
-
-        <p className="text-center text-sm text-zinc-600">
-          Já tem uma conta?{" "}
-          <Link href="/login" className="font-semibold text-teal-600 hover:text-teal-700">
-            Entre aqui
-          </Link>
-        </p>
-      </div>
-    </main>
+        <Button
+          type="submit"
+          fullWidth
+          loading={loading}
+          className="mt-1 !min-h-12 !rounded-xl !bg-[#AB2E97] !text-white shadow-sm shadow-[#AB2E97]/20 hover:!bg-[#803233] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97]"
+        >
+          Criar Conta
+        </Button>
+      </form>
+    </AuthPageShell>
   );
 }
 
