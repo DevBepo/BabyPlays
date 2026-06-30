@@ -23,6 +23,7 @@ from .models import (
     Brinquedo,
     Categoria,
     ConfiguracaoKitPersonalizavel,
+    DedicacaoUnidadeKit,
     ImagemBrinquedo,
     ItemKitFesta,
     KitFesta,
@@ -293,12 +294,13 @@ class DisponibilidadePeriodoAPITests(APITestCase):
         self.assertIn("quantidade", response.data)
 
     def test_kit_festa_indisponivel_se_faltar_unidade_de_qualquer_item(self):
-        ItemKitFesta.objects.create(
+        item_kit = ItemKitFesta.objects.create(
             kit=self.kit,
             brinquedo=self.brinquedo,
             quantidade=2,
         )
-        self.criar_unidade(brinquedo=self.brinquedo)
+        unidade = self.criar_unidade(brinquedo=self.brinquedo)
+        DedicacaoUnidadeKit.objects.create(item_kit=item_kit, unidade=unidade)
 
         response = self.client.get(
             self.disponibilidade_kit_url(),
@@ -311,19 +313,50 @@ class DisponibilidadePeriodoAPITests(APITestCase):
         self.assertEqual(response.data["itens"][0]["quantidade_necessaria"], 2)
         self.assertEqual(response.data["itens"][0]["quantidade_disponivel"], 1)
 
-    def test_kit_festa_disponivel_quando_todos_itens_tem_unidades_suficientes(self):
+    def test_kit_festa_sem_unidade_dedicada_retorna_indisponivel_sem_erro(self):
         ItemKitFesta.objects.create(
             kit=self.kit,
             brinquedo=self.brinquedo,
             quantidade=1,
         )
-        ItemKitFesta.objects.create(
+        self.criar_unidade(brinquedo=self.brinquedo)
+
+        response = self.client.get(
+            self.disponibilidade_kit_url(),
+            self.parametros_periodo(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["disponivel"])
+        self.assertEqual(response.data["itens"][0]["quantidade_disponivel"], 0)
+
+    def test_kit_festa_disponivel_quando_todos_itens_tem_unidades_suficientes(self):
+        primeiro_item = ItemKitFesta.objects.create(
+            kit=self.kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        segundo_item = ItemKitFesta.objects.create(
             kit=self.kit,
             brinquedo=self.outro_brinquedo,
             quantidade=1,
         )
-        self.criar_unidade(brinquedo=self.brinquedo, codigo="PISCINA-001")
-        self.criar_unidade(brinquedo=self.outro_brinquedo, codigo="CAMA-001")
+        primeira_unidade = self.criar_unidade(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-001",
+        )
+        segunda_unidade = self.criar_unidade(
+            brinquedo=self.outro_brinquedo,
+            codigo="CAMA-001",
+        )
+        DedicacaoUnidadeKit.objects.create(
+            item_kit=primeiro_item,
+            unidade=primeira_unidade,
+        )
+        DedicacaoUnidadeKit.objects.create(
+            item_kit=segundo_item,
+            unidade=segunda_unidade,
+        )
 
         response = self.client.get(
             self.disponibilidade_kit_url(),
@@ -955,6 +988,67 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(response.data[0]["status_catalogo"], "disponivel")
+
+    def test_catalogo_e_admin_retornam_mesmo_estado_disponivel(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-CONSISTENTE-001",
+        )
+
+        public_response = self.client.get(self.brinquedos_url)
+        self.client.force_authenticate(user=self.usuario_admin)
+        admin_response = self.client.get(self.brinquedos_url)
+
+        self.assertTrue(public_response.data[0]["disponivel_para_carrinho"])
+        self.assertTrue(admin_response.data[0]["disponivel_para_carrinho"])
+        self.assertEqual(public_response.data[0]["status_catalogo"], "disponivel")
+        self.assertEqual(admin_response.data[0]["status_catalogo"], "disponivel")
+
+    def test_catalogo_e_admin_retornam_mesmo_estado_sem_estoque_avulso(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ALUGADA-001",
+            status=UnidadeBrinquedo.Status.EM_LOCACAO,
+        )
+
+        public_response = self.client.get(self.brinquedos_url)
+        self.client.force_authenticate(user=self.usuario_admin)
+        admin_response = self.client.get(self.brinquedos_url)
+
+        self.assertFalse(public_response.data[0]["disponivel_para_carrinho"])
+        self.assertFalse(admin_response.data[0]["disponivel_para_carrinho"])
+        self.assertEqual(public_response.data[0]["status_catalogo"], "alugado")
+        self.assertEqual(admin_response.data[0]["status_catalogo"], "alugado")
+
+    def test_unidade_dedicada_a_kit_nao_disponibiliza_brinquedo_avulso(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-KIT-001",
+        )
+        kit = KitFesta.objects.create(
+            nome="Kit piscina",
+            descricao="Kit com unidade dedicada.",
+            preco_aluguel="250.00",
+            preco_15_dias="250.00",
+        )
+        item_kit = ItemKitFesta.objects.create(
+            kit=kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        DedicacaoUnidadeKit.objects.create(item_kit=item_kit, unidade=unidade)
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.data[0]["quantidade_disponivel"], 0)
+        self.assertFalse(response.data[0]["disponivel_para_carrinho"])
+        self.assertEqual(response.data[0]["status_catalogo"], "alugado")
 
     def test_api_publica_listagem_nao_retorna_ativo(self):
         response = self.client.get(self.brinquedos_url)
@@ -1595,6 +1689,20 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["nome"], self.kit.nome)
+
+    def test_listagem_publica_tolera_kit_incompleto_e_campos_opcionais_nulos(self):
+        response = self.client.get(self.kits_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertIsNone(response.data[0]["imagem_url"])
+        self.assertIsNone(response.data[0]["preco_diaria"])
+        self.assertIsNone(response.data[0]["preco_30_dias"])
+        self.assertEqual(response.data[0]["itens"], [])
+        self.assertEqual(
+            response.data[0]["periodos_disponiveis"],
+            [{"tipo": "15_dias", "label": "15 dias", "dias": 15, "preco": "350.00"}],
+        )
 
     def test_usuario_anonimo_ve_detalhe_de_kit_ativo(self):
         response = self.client.get(f"{self.kits_url}{self.kit.id}/")

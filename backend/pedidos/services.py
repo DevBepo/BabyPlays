@@ -15,7 +15,7 @@ from catalogo.models import (
     UnidadeBrinquedo,
 )
 from catalogo.serializers import ValidarSelecaoKitPersonalizavelSerializer
-from catalogo.services import KitPersonalizavelService
+from catalogo.services import BrinquedoService, KitPersonalizavelService
 from entregas.providers import (
     CepInvalidoError,
     CepNaoEncontradoError,
@@ -251,6 +251,18 @@ class CarrinhoService:
                     )
                 }
             )
+        if not BrinquedoService.disponivel_para_locacao_avulsa(
+            brinquedo,
+            quantidade,
+        ):
+            raise serializers.ValidationError(
+                {
+                    "brinquedo_id": (
+                        f'O brinquedo "{brinquedo.nome}" nao possui unidades '
+                        "disponiveis para locacao avulsa."
+                    )
+                }
+            )
         
         # Ao invés de ficar adicionando item a item na lista do carrinho,
         # É adicionado mais um na quantidade.
@@ -423,6 +435,18 @@ class CarrinhoService:
                         )
                     }
                 )
+            if not BrinquedoService.disponivel_para_locacao_avulsa(
+                item.brinquedo,
+                quantidade,
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "brinquedo_id": (
+                            f'O brinquedo "{item.brinquedo.nome}" nao possui '
+                            "unidades disponiveis para locacao avulsa."
+                        )
+                    }
+                )
             periodo_locacao = item.snapshot.get("periodo_locacao", {}).get(
                 "tipo",
                 "15_dias",
@@ -587,6 +611,19 @@ class PedidoService:
                         "carrinho": (
                             f'O brinquedo "{item.brinquedo.nome}" esta indisponivel '
                             "no catalogo. Remova-o para continuar."
+                        )
+                    }
+                )
+            if not BrinquedoService.disponivel_para_locacao_avulsa(
+                item.brinquedo,
+                item.quantidade,
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O brinquedo "{item.brinquedo.nome}" nao possui '
+                            "unidades disponiveis para locacao avulsa. "
+                            "Remova-o para continuar."
                         )
                     }
                 )

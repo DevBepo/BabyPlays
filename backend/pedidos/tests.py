@@ -213,6 +213,12 @@ class CarrinhoAPITests(APITestCase):
             username="outro-cliente",
             password="senha-segura-123",
         )
+        for indice in range(1, 4):
+            UnidadeBrinquedo.objects.create(
+                brinquedo=self.brinquedo,
+                codigo=f"CAMA-BASE-{indice:03d}",
+                status=UnidadeBrinquedo.Status.DISPONIVEL,
+            )
 
     def adicionar_brinquedo(self, client=None, quantidade=1, **extra):
         client = client or self.client
@@ -401,6 +407,15 @@ class CarrinhoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("indisponivel", str(response.data).lower())
+        self.assertEqual(ItemCarrinho.objects.count(), 0)
+
+    def test_brinquedo_sem_unidade_avulsa_nao_pode_ser_adicionado(self):
+        self.brinquedo.unidades.update(status=UnidadeBrinquedo.Status.EM_LOCACAO)
+
+        response = self.adicionar_brinquedo()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unidades disponiveis", str(response.data).lower())
         self.assertEqual(ItemCarrinho.objects.count(), 0)
 
     def test_kit_festa_inativo_nao_pode_ser_adicionado(self):
@@ -678,6 +693,17 @@ class CarrinhoAPITests(APITestCase):
         self.assertIn("indisponivel", str(response.data).lower())
         self.assertEqual(Pedido.objects.count(), 0)
         self.assertEqual(Carrinho.objects.get().status, Carrinho.Status.ATIVO)
+
+    def test_brinquedo_sem_estoque_avulso_nao_converte_carrinho(self):
+        self.adicionar_brinquedo()
+        self.brinquedo.unidades.update(status=UnidadeBrinquedo.Status.EM_LOCACAO)
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unidades disponiveis", str(response.data).lower())
+        self.assertIn("remova-o", str(response.data).lower())
+        self.assertEqual(Pedido.objects.count(), 0)
 
     def test_anonimo_nao_consegue_converter_carrinho_em_pedido(self):
         self.adicionar_brinquedo()
