@@ -9,7 +9,7 @@ from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from catalogo.models import Brinquedo, Categoria
+from catalogo.models import Brinquedo, Categoria, UnidadeBrinquedo
 from pedidos.models import Carrinho, Contrato, Pedido
 from .admin import ClienteAdmin
 from .models import Cliente
@@ -179,13 +179,19 @@ class ClienteAuthAPITests(APITestCase):
             nome="Brinquedos grandes",
             slug="brinquedos-grandes",
         )
-        return Brinquedo.objects.create(
+        brinquedo = Brinquedo.objects.create(
             nome="Cama elastica",
             descricao="Brinquedo para festas maiores.",
             categoria=categoria,
             preco_aluguel=Decimal("220.00"),
             preco_15_dias=Decimal("220.00"),
         )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=brinquedo,
+            codigo="CAMA-CLIENTE-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        return brinquedo
 
     def adicionar_brinquedo_ao_carrinho(self, brinquedo):
         return self.client.post(
