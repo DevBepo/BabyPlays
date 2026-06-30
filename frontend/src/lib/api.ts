@@ -93,6 +93,13 @@ function getMessageFromData(data: ApiErrorData): string | undefined {
     return message;
   }
 
+  for (const value of Object.values(data)) {
+    const messages = toStringList(value);
+    if (messages?.[0]) {
+      return messages[0];
+    }
+  }
+
   return undefined;
 }
 

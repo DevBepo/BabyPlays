@@ -18,6 +18,7 @@ class Carrinho(models.Model):
         null=True,
         blank=True,
         db_index=True,
+        editable=False,
         verbose_name="Chave da sessao",
     )
     usuario = models.ForeignKey(
@@ -40,11 +41,17 @@ class Carrinho(models.Model):
 
     class Meta:
         ordering = ("-atualizado_em", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(usuario__isnull=True) | Q(session_key__isnull=True),
+                name="pedidos_carrinho_autenticado_sem_session_key",
+            )
+        ]
         verbose_name = "Carrinho"
         verbose_name_plural = "Carrinhos"
 
     def __str__(self):
-        dono = self.usuario_id or self.session_key or "sem dono"
+        dono = f"usuario {self.usuario_id}" if self.usuario_id else "anonimo"
         return f"Carrinho {self.id} - {dono}"
 
 
@@ -178,13 +185,6 @@ class Pedido(models.Model):
         on_delete=models.SET_NULL,
         related_name="pedidos",
         verbose_name="Cliente",
-    )
-    session_key_snapshot = models.CharField(
-        max_length=40,
-        null=True,
-        blank=True,
-        db_index=True,
-        verbose_name="Chave da sessao snapshot",
     )
     status = models.CharField(
         max_length=30,

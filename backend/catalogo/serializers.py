@@ -143,18 +143,10 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         return BrinquedoService.quantidade_disponivel(obj)
 
     def get_disponivel_para_carrinho(self, obj):
-        return (
-            not obj.indisponivel_catalogo
-            and self.get_quantidade_disponivel(obj) > 0
-            and bool(periodos_locacao_disponiveis(obj))
-        )
+        return BrinquedoService.disponivel_para_locacao_avulsa(obj)
 
     def get_status_catalogo(self, obj):
-        if obj.indisponivel_catalogo:
-            return "indisponivel"
-        if self.get_disponivel_para_carrinho(obj):
-            return "disponivel"
-        return "alugado"
+        return BrinquedoService.status_catalogo(obj)
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
@@ -190,6 +182,8 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
 class BrinquedoAdminSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
+    disponivel_para_carrinho = serializers.SerializerMethodField()
+    status_catalogo = serializers.SerializerMethodField()
     imagem_principal = serializers.SerializerMethodField()
     imagens = serializers.SerializerMethodField()
     periodos_disponiveis = serializers.SerializerMethodField()
@@ -214,6 +208,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "periodos_disponiveis",
             "ativo",
             "indisponivel_catalogo",
+            "disponivel_para_carrinho",
+            "status_catalogo",
             "data_cadastro",
             "quantidade_disponivel",
             "imagem_principal",
@@ -223,6 +219,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "id",
             "data_cadastro",
             "quantidade_disponivel",
+            "disponivel_para_carrinho",
+            "status_catalogo",
             "imagem_principal",
             "imagens",
         )
@@ -238,6 +236,12 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
         if quantidade_anotada is not None:
             return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_disponivel_para_carrinho(self, obj):
+        return BrinquedoService.disponivel_para_locacao_avulsa(obj)
+
+    def get_status_catalogo(self, obj):
+        return BrinquedoService.status_catalogo(obj)
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)

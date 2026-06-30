@@ -73,14 +73,14 @@ class CarrinhoAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "usuario",
-        "session_key",
         "status",
         "quantidade_itens",
         "criado_em",
         "atualizado_em",
     )
     list_filter = ("status", "criado_em", "atualizado_em")
-    search_fields = ("=id", "session_key", "usuario__username", "usuario__email")
+    search_fields = ("=id", "usuario__username", "usuario__email")
+    exclude = ("session_key",)
     readonly_fields = ("criado_em", "atualizado_em")
     date_hierarchy = "atualizado_em"
     inlines = (ItemCarrinhoInline,)
@@ -107,7 +107,6 @@ class ItemCarrinhoAdmin(admin.ModelAdmin):
         "=id",
         "=carrinho__id",
         "nome_snapshot",
-        "carrinho__session_key",
         "carrinho__usuario__username",
         "carrinho__usuario__email",
     )
@@ -173,7 +172,6 @@ class PedidoAdmin(admin.ModelAdmin):
         "nome_cliente_snapshot",
         "telefone_cliente_snapshot",
         "email_cliente_snapshot",
-        "session_key_snapshot",
         "cliente__nome",
         "cliente__telefone",
         "usuario__username",
@@ -184,7 +182,6 @@ class PedidoAdmin(admin.ModelAdmin):
         "carrinho_origem",
         "usuario",
         "cliente",
-        "session_key_snapshot",
         "nome_cliente_snapshot",
         "telefone_cliente_snapshot",
         "email_cliente_snapshot",

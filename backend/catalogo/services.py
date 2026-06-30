@@ -79,6 +79,24 @@ class BrinquedoService:
         return BrinquedoService.unidades_disponiveis(brinquedo).count()
 
     @staticmethod
+    def disponivel_para_locacao_avulsa(brinquedo, quantidade=1):
+        """Fonte unica do estado de disponibilidade para locacao avulsa."""
+        return (
+            brinquedo.ativo
+            and not brinquedo.indisponivel_catalogo
+            and bool(brinquedo.periodos_locacao_disponiveis())
+            and BrinquedoService.quantidade_disponivel(brinquedo) >= quantidade
+        )
+
+    @staticmethod
+    def status_catalogo(brinquedo):
+        if brinquedo.indisponivel_catalogo:
+            return "indisponivel"
+        if BrinquedoService.disponivel_para_locacao_avulsa(brinquedo):
+            return "disponivel"
+        return "alugado"
+
+    @staticmethod
     def possui_vinculos_importantes(brinquedo):
         from pedidos.models import ItemCarrinho, ItemPedido
 

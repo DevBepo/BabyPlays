@@ -44,7 +44,7 @@ def vincular_carrinho_anonimo_da_sessao(request, user, session_key_anterior):
         return
 
     carrinho.usuario = user
-    carrinho.session_key = request.session.session_key
+    carrinho.session_key = None
     carrinho.save(update_fields=["usuario", "session_key", "atualizado_em"])
 
 
