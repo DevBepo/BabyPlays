@@ -76,7 +76,6 @@ class CarrinhoService:
     @staticmethod
     def carrinho_atual(request):
         usuario = request.user if request.user.is_authenticated else None
-        session_key = CarrinhoService.garantir_session_key(request)
 
         if usuario:
             carrinho = (
@@ -88,26 +87,33 @@ class CarrinhoService:
                 .first()
             )
             if carrinho:
-                if not carrinho.session_key:
-                    carrinho.session_key = session_key
+                if carrinho.session_key:
+                    carrinho.session_key = None
                     carrinho.save(update_fields=["session_key", "atualizado_em"])
                 return carrinho
 
-            carrinho_sessao = (
-                Carrinho.objects.filter(
-                    usuario__isnull=True,
-                    session_key=session_key,
-                    status=Carrinho.Status.ATIVO,
+            session_key = request.session.session_key
+            if session_key:
+                carrinho_sessao = (
+                    Carrinho.objects.filter(
+                        usuario__isnull=True,
+                        session_key=session_key,
+                        status=Carrinho.Status.ATIVO,
+                    )
+                    .order_by("-atualizado_em", "-id")
+                    .first()
                 )
-                .order_by("-atualizado_em", "-id")
-                .first()
-            )
-            if carrinho_sessao:
-                carrinho_sessao.usuario = usuario
-                carrinho_sessao.save(update_fields=["usuario", "atualizado_em"])
-                return carrinho_sessao
+                if carrinho_sessao:
+                    carrinho_sessao.usuario = usuario
+                    carrinho_sessao.session_key = None
+                    carrinho_sessao.save(
+                        update_fields=["usuario", "session_key", "atualizado_em"]
+                    )
+                    return carrinho_sessao
 
-            return Carrinho.objects.create(usuario=usuario, session_key=session_key)
+            return Carrinho.objects.create(usuario=usuario)
+
+        session_key = CarrinhoService.garantir_session_key(request)
 
         carrinho = (
             Carrinho.objects.filter(
@@ -649,7 +655,6 @@ class PedidoService:
             carrinho_origem=carrinho,
             usuario=usuario,
             cliente=cliente,
-            session_key_snapshot=carrinho.session_key,
             nome_cliente_snapshot=dados_cliente["nome_cliente_snapshot"],
             telefone_cliente_snapshot=dados_cliente["telefone_cliente_snapshot"],
             email_cliente_snapshot=dados_cliente["email_cliente_snapshot"],

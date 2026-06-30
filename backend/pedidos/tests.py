@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -93,6 +93,28 @@ class PedidoAdminActionTests(APITestCase):
 
         self.assertIn("status", self.model_admin.readonly_fields)
         self.assertIn("status", reserva_admin.readonly_fields)
+
+    def test_admin_nao_expoe_nem_pesquisa_session_key(self):
+        carrinho_admin = admin.site._registry[Carrinho]
+        item_carrinho_admin = admin.site._registry[ItemCarrinho]
+
+        configuracoes_admin = (
+            carrinho_admin.list_display,
+            carrinho_admin.search_fields,
+            carrinho_admin.readonly_fields,
+            item_carrinho_admin.search_fields,
+            self.model_admin.search_fields,
+            self.model_admin.readonly_fields,
+        )
+        for configuracao in configuracoes_admin:
+            self.assertFalse(
+                any("session_key" in campo for campo in configuracao),
+                configuracao,
+            )
+        self.assertIn("session_key", carrinho_admin.exclude)
+
+        carrinho = Carrinho.objects.create(session_key="sessao-sensivel-teste")
+        self.assertNotIn("sessao-sensivel-teste", str(carrinho))
 
     @patch("pedidos.admin.ReservaPedidoService.reservar_unidades")
     def test_action_reservar_unidades_chama_service_e_reporta_falha_por_status(
@@ -388,6 +410,7 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(segunda_response.status_code, status.HTTP_201_CREATED)
         carrinho = Carrinho.objects.get(id=primeira_response.data["id"])
         self.assertEqual(carrinho.usuario, self.usuario)
+        self.assertIsNone(carrinho.session_key)
         self.assertEqual(carrinho.itens.count(), 1)
 
     def test_brinquedo_inativo_nao_pode_ser_adicionado(self):
@@ -724,8 +747,13 @@ class CarrinhoAPITests(APITestCase):
         carrinho.refresh_from_db()
         pedido = Pedido.objects.get()
         self.assertEqual(carrinho.usuario, self.usuario)
+        self.assertIsNone(carrinho.session_key)
         self.assertEqual(pedido.carrinho_origem, carrinho)
         self.assertEqual(pedido.usuario, self.usuario)
+        self.assertNotIn(
+            "session_key_snapshot",
+            {field.name for field in Pedido._meta.get_fields()},
+        )
 
     def test_cria_cliente_automaticamente_na_conversao_quando_user_nao_tem_cliente(self):
         self.adicionar_brinquedo()
@@ -3364,6 +3392,19 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
 
 
 class ItemCarrinhoModelTests(APITestCase):
+    def test_carrinho_autenticado_rejeita_session_key_persistida(self):
+        usuario = get_user_model().objects.create_user(
+            username="cliente-sem-session-key",
+            password="senha-segura-123",
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Carrinho.objects.create(
+                    usuario=usuario,
+                    session_key="sessao-que-nao-deve-ser-persistida",
+                )
+
     def test_item_carrinho_rejeita_combinacao_invalida_de_fks(self):
         carrinho = Carrinho.objects.create(session_key="sessao-teste")
         brinquedo = Brinquedo.objects.create(
@@ -3395,7 +3436,6 @@ class ItemCarrinhoModelTests(APITestCase):
         carrinho = Carrinho.objects.create(session_key="sessao-teste")
         pedido = Pedido.objects.create(
             carrinho_origem=carrinho,
-            session_key_snapshot=carrinho.session_key,
             nome_cliente_snapshot="Cliente Teste",
             telefone_cliente_snapshot="11999999999",
             email_cliente_snapshot="cliente@email.com",

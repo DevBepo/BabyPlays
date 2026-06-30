@@ -10,7 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from catalogo.models import Brinquedo, Categoria
-from pedidos.models import Carrinho, Pedido
+from pedidos.models import Carrinho, Contrato, Pedido
 from .admin import ClienteAdmin
 from .models import Cliente
 
@@ -533,6 +533,7 @@ class ClienteAuthAPITests(APITestCase):
         carrinho.refresh_from_db()
         self.assertEqual(carrinho_response.data["id"], carrinho.id)
         self.assertEqual(carrinho.usuario.email, "cliente@email.com")
+        self.assertIsNone(carrinho.session_key)
         self.assertEqual(carrinho.itens.count(), 1)
         self.assertEqual(carrinho.itens.get().brinquedo, brinquedo)
 
@@ -541,6 +542,20 @@ class ClienteAuthAPITests(APITestCase):
         user, cliente = self.criar_usuario_cliente()
         self.login_cliente()
         item_response = self.adicionar_brinquedo_ao_carrinho(brinquedo)
+        contrato = Contrato.objects.create(
+            titulo="Contrato de locacao",
+            versao="teste-session-key-v1",
+            texto="Contrato usado no teste do checkout autenticado.",
+            ativo=True,
+        )
+        payload = self.payload_pedido()
+        payload.update(
+            {
+                "contrato_aceito": True,
+                "contrato_id": contrato.id,
+                "contrato_versao": contrato.versao,
+            }
+        )
 
         with patch(
             "pedidos.services.TaxaEntregaRetiradaService",
@@ -548,7 +563,7 @@ class ClienteAuthAPITests(APITestCase):
         ):
             response = self.client.post(
                 self.converter_pedido_url,
-                self.payload_pedido(),
+                payload,
                 format="json",
             )
 
@@ -560,6 +575,7 @@ class ClienteAuthAPITests(APITestCase):
         self.assertEqual(pedido.cliente, cliente)
         self.assertEqual(pedido.carrinho_origem, carrinho)
         self.assertEqual(carrinho.status, Carrinho.Status.CONVERTIDO)
+        self.assertIsNone(carrinho.session_key)
 
     def test_anonimo_continua_bloqueado_no_fechamento_do_pedido(self):
         brinquedo = self.criar_brinquedo()
