@@ -23,6 +23,7 @@ from catalogo.models import (
     UnidadeBrinquedo,
 )
 from entregas.providers import RotaProviderError
+from entregas.services import ConfiguracaoTaxaAusenteError
 from clientes.models import Cliente
 
 from .models import (
@@ -1001,9 +1002,37 @@ class CarrinhoAPITests(APITestCase):
                 format="json",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertEqual(Pedido.objects.count(), 0)
         self.assertIn("taxa_entrega", response.data)
+
+    def test_configuracao_de_taxa_ausente_retorna_erro_claro_sem_criar_pedido(self):
+        self.adicionar_brinquedo()
+        self.client.force_authenticate(user=self.usuario)
+
+        with patch(
+            "pedidos.services.TaxaEntregaRetiradaService",
+            return_value=FakeTaxaEntregaRetiradaService(
+                erro=ConfiguracaoTaxaAusenteError()
+            ),
+        ):
+            response = self.client.post(
+                self.converter_pedido_url,
+                self.payload_pedido_com_contrato(),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertEqual(
+            response.data,
+            {
+                "taxa_entrega": (
+                    "O calculo da taxa de entrega e retirada esta "
+                    "temporariamente indisponivel."
+                )
+            },
+        )
 
     def test_falha_no_calculo_da_taxa_nao_converte_o_carrinho(self):
         self.adicionar_brinquedo()
@@ -1020,7 +1049,7 @@ class CarrinhoAPITests(APITestCase):
                 format="json",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         carrinho.refresh_from_db()
         self.assertEqual(carrinho.status, Carrinho.Status.ATIVO)
 

@@ -20,11 +20,8 @@ from entregas.providers import (
     CepInvalidoError,
     CepNaoEncontradoError,
     EnderecoIncompletoError,
-    RotaProviderError,
 )
 from entregas.services import (
-    ConfiguracaoTaxaAusenteError,
-    DistanciaInvalidaError,
     TaxaEntregaRetiradaService,
     quantizar_decimal,
 )
@@ -538,14 +535,6 @@ class PedidoService:
         except EnderecoIncompletoError as exc:
             raise serializers.ValidationError(
                 {"endereco": "Endereco incompleto para calcular a taxa."}
-            ) from exc
-        except ConfiguracaoTaxaAusenteError as exc:
-            raise serializers.ValidationError(
-                {"taxa_entrega": "Taxa de entrega e retirada indisponivel."}
-            ) from exc
-        except (RotaProviderError, DistanciaInvalidaError) as exc:
-            raise serializers.ValidationError(
-                {"taxa_entrega": "Nao foi possivel calcular a taxa de entrega."}
             ) from exc
 
     @staticmethod

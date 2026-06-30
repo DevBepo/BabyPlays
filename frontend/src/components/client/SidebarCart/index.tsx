@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,54 @@ import type { ContratoLocacao } from "@/types/contrato"; // Importando a tipagem
 type SidebarCartProps = {
   variant?: "catalog" | "drawer";
 };
+
+type CheckoutError = {
+  message: string;
+  canRetry?: boolean;
+};
+
+const SHIPPING_ERROR_MESSAGE =
+  "Não conseguimos calcular a taxa de entrega e retirada para esse endereço. Verifique o CEP, bairro e cidade informados ou fale com a BabyPlays pelo WhatsApp para confirmar a disponibilidade.";
+
+function getCheckoutApiError(error: unknown): CheckoutError {
+  const fallback =
+    "Não foi possível finalizar sua solicitação agora. Tente novamente ou fale com a BabyPlays pelo WhatsApp.";
+
+  if (typeof error !== "object" || error === null) {
+    return { message: fallback, canRetry: true };
+  }
+
+  const apiError = error as {
+    status?: unknown;
+    message?: unknown;
+    data?: unknown;
+  };
+  const data = apiError.data;
+
+  if (data && typeof data === "object" && !Array.isArray(data) && "taxa_entrega" in data) {
+    const shippingMessage =
+      typeof data.taxa_entrega === "string" ? data.taxa_entrega.trim() : "";
+    const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(shippingMessage);
+
+    return {
+      message:
+        shippingMessage && !looksLikeHtml
+          ? shippingMessage
+          : SHIPPING_ERROR_MESSAGE,
+      canRetry: true,
+    };
+  }
+
+  const status = Number(apiError.status);
+  const message = typeof apiError.message === "string" ? apiError.message.trim() : "";
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(message);
+
+  if (status >= 400 && status < 500 && message && !looksLikeHtml) {
+    return { message };
+  }
+
+  return { message: fallback, canRetry: true };
+}
 
 export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const router = useRouter();
@@ -35,6 +83,9 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
   const [loadingPedido, setLoadingPedido] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<CheckoutError | null>(null);
+  const [whatsappManualUrl, setWhatsappManualUrl] = useState<string | null>(null);
+  const finalizacaoEmAndamento = useRef(false);
 
   // Carregar os dados do usuário logado E o contrato vigente
   useEffect(() => {
@@ -71,6 +122,11 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   };
 
   const handleFinalizarReserva = async () => {
+    if (finalizacaoEmAndamento.current) return;
+
+    setCheckoutError(null);
+    setWhatsappManualUrl(null);
+
     if (!isAuthenticated) {
       router.push("/login?redirect=/");
       return;
@@ -78,20 +134,28 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
 
     if (!cep || !numero || !nome || !telefone) {
       setExpandirDados(true);
-      alert("Por favor, preencha todos os campos obrigatórios na secção de Entrega e Contato.");
+      setCheckoutError({
+        message: "Preencha todos os campos obrigatórios em Dados de Entrega e Contato.",
+      });
       return;
     }
 
     if (!contratoAceito) {
-      alert("Para continuar, é necessário aceitar o contrato de locação.");
+      setCheckoutError({
+        message: "Para continuar, é necessário aceitar o contrato de locação.",
+      });
       return;
     }
 
     if (!contratoVigente) {
-      alert("Erro ao obter a versão atual do contrato. Tente atualizar a página.");
+      setCheckoutError({
+        message: "Não foi possível obter a versão atual do contrato. Atualize a página e tente novamente.",
+        canRetry: true,
+      });
       return;
     }
 
+    finalizacaoEmAndamento.current = true;
     setLoadingPedido(true);
     try {
       const pedido = await converterCarrinhoEmPedido({
@@ -110,25 +174,21 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
 
       await refreshCart();
       setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false); setExpandirDados(false);
-      window.location.href = getWhatsAppUrl(pedido.whatsapp_resumo);
+      const whatsappUrl = getWhatsAppUrl(pedido.whatsapp_resumo);
+      setWhatsappManualUrl(whatsappUrl);
+
+      try {
+        window.location.assign(whatsappUrl);
+      } catch {
+        setCheckoutError({
+          message: "Seu pedido foi criado, mas o WhatsApp não abriu automaticamente. Use o link abaixo para continuar.",
+        });
+      }
     } catch (err: unknown) {
       console.error("Erro ao converter pedido:", err);
-      const mensagemPadrao =
-        "Não foi possível finalizar sua solicitação agora. Tente novamente ou fale com a BabyPlays pelo WhatsApp.";
-      const apiError =
-        typeof err === "object" && err !== null
-          ? (err as { status?: unknown; message?: unknown })
-          : null;
-      const statusErro =
-        apiError?.status !== undefined
-          ? Number(apiError.status)
-          : null;
-      const mensagem =
-        statusErro !== null && statusErro < 500 && apiError?.message
-          ? String(apiError.message)
-          : mensagemPadrao;
-      alert(mensagem);
+      setCheckoutError(getCheckoutApiError(err));
     } finally {
+      finalizacaoEmAndamento.current = false;
       setLoadingPedido(false);
     }
   };
@@ -266,6 +326,35 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
         </div>
 
         <div className="flex flex-col gap-4 mt-2">
+          {checkoutError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+            >
+              <p className="leading-5">{checkoutError.message}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {checkoutError.canRetry && (
+                  <button
+                    type="button"
+                    onClick={handleFinalizarReserva}
+                    disabled={loadingPedido}
+                    className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 font-bold text-amber-950 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Tentar novamente
+                  </button>
+                )}
+                <a
+                  href={whatsappManualUrl || getWhatsAppUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-10 items-center rounded-lg bg-teal-600 px-3 font-bold text-white transition-colors hover:bg-teal-700"
+                >
+                  {whatsappManualUrl ? "Abrir WhatsApp" : "Falar com a BabyPlays"}
+                </a>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input 

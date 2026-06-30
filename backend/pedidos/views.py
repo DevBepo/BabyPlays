@@ -8,6 +8,9 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from entregas.providers import RotaProviderError
+from entregas.services import ConfiguracaoTaxaAusenteError, DistanciaInvalidaError
+
 from .models import AceiteContrato, Contrato, ItemCarrinho, Pedido, ReservaUnidade
 from .serializers import (
     AceitarContratoSerializer,
@@ -108,12 +111,33 @@ class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
         carrinho = self.get_carrinho()
         serializer = ConverterCarrinhoPedidoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        pedido = PedidoService.converter_carrinho(
-            carrinho,
-            serializer.dados_para_pedido(),
-            request.user,
-            request=request,
-        )
+        try:
+            pedido = PedidoService.converter_carrinho(
+                carrinho,
+                serializer.dados_para_pedido(),
+                request.user,
+                request=request,
+            )
+        except ConfiguracaoTaxaAusenteError:
+            return Response(
+                {
+                    "taxa_entrega": (
+                        "O calculo da taxa de entrega e retirada esta "
+                        "temporariamente indisponivel."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except (RotaProviderError, DistanciaInvalidaError):
+            return Response(
+                {
+                    "taxa_entrega": (
+                        "Nao foi possivel calcular a rota para este endereco "
+                        "agora. Verifique o CEP e o numero ou tente novamente."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
 
 
