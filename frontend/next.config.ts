@@ -25,7 +25,9 @@ const contentSecurityPolicy = [
   }`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "img-src 'self' data: blob: https:",
+  `img-src 'self' data: blob: https:${
+    process.env.NODE_ENV === "development" && apiOrigin ? ` ${apiOrigin}` : ""
+  }`,
   "media-src 'self' blob: https:",
   `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""} https://viacep.com.br${
     process.env.NODE_ENV === "development" ? " ws: wss:" : ""

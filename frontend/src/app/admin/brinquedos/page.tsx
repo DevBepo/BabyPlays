@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { Table, Tbody, Td, Th, Thead, Tr } from "@/components/admin/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -41,6 +40,17 @@ const STATUS_UNIDADE_OPTIONS = [
   { value: "standby", label: "Standby" },
   { value: "baixada", label: "Baixada" },
 ];
+
+const STATUS_CATALOGO_OPTIONS = [
+  { value: "todos", label: "Todos" },
+  { value: "disponivel", label: "Disponiveis" },
+  { value: "alugado", label: "Alugados" },
+  { value: "oculto", label: "Ocultos / desativados" },
+];
+
+const QUANTIDADE_INICIAL = 12;
+
+type StatusCatalogoFiltro = "todos" | "disponivel" | "alugado" | "oculto";
 
 type BrinquedoFormState = {
   nome: string;
@@ -103,23 +113,22 @@ function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
   };
 }
 
-function periodoResumo(brinquedo: BrinquedoCatalogo) {
-  if (!brinquedo.periodos_disponiveis.length) {
-    return "Sem periodo";
-  }
-
-  return brinquedo.periodos_disponiveis
-    .map((periodo) => `${periodo.label}: ${formatarMoeda(periodo.preco)}`)
-    .join(" | ");
+function normalizarBusca(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
 }
 
-function resumirComposicao(brinquedo: BrinquedoCatalogo): string {
-  const categoria = brinquedo.categoria?.nome ?? "Sem categoria";
-  const unidades = `${brinquedo.quantidade_disponivel} unid. disponivel${
-    brinquedo.quantidade_disponivel === 1 ? "" : "s"
-  }`;
-
-  return `${categoria} | ${unidades}`;
+function statusAdministrativo(brinquedo: BrinquedoCatalogo) {
+  if (brinquedo.ativo === false) {
+    return "oculto";
+  }
+  if (brinquedo.status_catalogo === "disponivel") {
+    return "disponivel";
+  }
+  return "alugado";
 }
 
 export default function ListaBrinquedosAdmin() {
@@ -144,6 +153,10 @@ export default function ListaBrinquedosAdmin() {
   const [unidadeErro, setUnidadeErro] = useState<string | null>(null);
   const [unidadeSucesso, setUnidadeSucesso] = useState<string | null>(null);
   const [unidadesFieldErrors, setUnidadesFieldErrors] = useState<ApiFieldErrors | undefined>();
+  const [busca, setBusca] = useState("");
+  const [categoriaFiltro, setCategoriaFiltro] = useState("todas");
+  const [statusFiltro, setStatusFiltro] = useState<StatusCatalogoFiltro>("todos");
+  const [quantidadeVisivel, setQuantidadeVisivel] = useState(QUANTIDADE_INICIAL);
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
@@ -161,6 +174,25 @@ export default function ListaBrinquedosAdmin() {
     () => [...brinquedos].sort((a, b) => a.nome.localeCompare(b.nome)),
     [brinquedos],
   );
+  const brinquedosFiltrados = useMemo(() => {
+    const termo = normalizarBusca(busca);
+
+    return brinquedosOrdenados.filter((brinquedo) => {
+      const correspondeBusca =
+        !termo || normalizarBusca(brinquedo.nome).includes(termo);
+      const correspondeCategoria =
+        categoriaFiltro === "todas" ||
+        String(brinquedo.categoria?.id ?? "") === categoriaFiltro;
+      const correspondeStatus =
+        statusFiltro === "todos" ||
+        statusAdministrativo(brinquedo) === statusFiltro;
+
+      return correspondeBusca && correspondeCategoria && correspondeStatus;
+    });
+  }, [brinquedosOrdenados, busca, categoriaFiltro, statusFiltro]);
+  const brinquedosVisiveis = brinquedosFiltrados.slice(0, quantidadeVisivel);
+  const temFiltros =
+    busca.trim().length > 0 || categoriaFiltro !== "todas" || statusFiltro !== "todos";
   const brinquedoAtual = useMemo(
     () =>
       brinquedoEmEdicao
@@ -174,6 +206,14 @@ export default function ListaBrinquedosAdmin() {
     value: String(categoria.id),
     label: categoria.nome,
   }));
+  const categoriasFiltroOptions = [
+    { value: "todas", label: "Todas as categorias" },
+    ...categoriasOptions,
+  ];
+
+  useEffect(() => {
+    setQuantidadeVisivel(QUANTIDADE_INICIAL);
+  }, [busca, categoriaFiltro, statusFiltro]);
 
   async function carregarBrinquedos() {
     setLoading(true);
@@ -325,6 +365,12 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
+  function rolarParaFormulario(destino = "formulario-brinquedo") {
+    window.setTimeout(() => {
+      document.getElementById(destino)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
   function abrirNovoBrinquedo() {
     setForm({
       ...initialForm,
@@ -341,9 +387,13 @@ export default function ListaBrinquedosAdmin() {
     setUnidadeSucesso(null);
     setUnidadesFieldErrors(undefined);
     setFormAberto(true);
+    rolarParaFormulario();
   }
 
-  function abrirEdicao(brinquedo: BrinquedoCatalogo) {
+  function abrirEdicao(
+    brinquedo: BrinquedoCatalogo,
+    destino = "formulario-brinquedo",
+  ) {
     setForm(formFromBrinquedo(brinquedo));
     setBrinquedoEmEdicao(brinquedo.id);
     setImagemArquivo(null);
@@ -351,6 +401,13 @@ export default function ListaBrinquedosAdmin() {
     setErro(null);
     setSucesso(null);
     setFormAberto(true);
+    rolarParaFormulario(destino);
+  }
+
+  function limparFiltros() {
+    setBusca("");
+    setCategoriaFiltro("todas");
+    setStatusFiltro("todos");
   }
 
   function fecharFormulario() {
@@ -510,7 +567,7 @@ export default function ListaBrinquedosAdmin() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Brinquedos</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Gerencie o catalogo de brinquedos disponiveis para aluguel.
+            Gerencie o catálogo, preços, unidades e disponibilidade.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -533,6 +590,7 @@ export default function ListaBrinquedosAdmin() {
       ) : null}
 
       {formAberto ? (
+        <div id="formulario-brinquedo" className="scroll-mt-6">
         <Card padding="lg">
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div>
@@ -675,7 +733,10 @@ export default function ListaBrinquedosAdmin() {
             </div>
 
             {brinquedoEmEdicao ? (
-              <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
+              <div
+                id="unidades-brinquedo"
+                className="scroll-mt-6 rounded-lg border border-zinc-100 bg-zinc-50 p-4"
+              >
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-zinc-900">Unidades fisicas</p>
@@ -803,157 +864,263 @@ export default function ListaBrinquedosAdmin() {
             </div>
           </form>
         </Card>
+        </div>
       ) : null}
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-900">
-            Brinquedos cadastrados
-          </h2>
-          <span className="text-sm text-zinc-500">
-            {brinquedosOrdenados.length} brinquedo(s)
-          </span>
+      <section className="flex flex-col gap-5" aria-labelledby="lista-brinquedos-titulo">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(260px,1.4fr)_minmax(200px,0.8fr)_minmax(200px,0.8fr)_auto] lg:items-end">
+            <Input
+              label="Buscar brinquedo"
+              type="search"
+              value={busca}
+              placeholder="Digite o nome do brinquedo"
+              onChange={(event) => setBusca(event.target.value)}
+            />
+            <Select
+              label="Categoria"
+              value={categoriaFiltro}
+              options={categoriasFiltroOptions}
+              onChange={(event) => setCategoriaFiltro(event.target.value)}
+            />
+            <Select
+              label="Status"
+              value={statusFiltro}
+              options={STATUS_CATALOGO_OPTIONS}
+              onChange={(event) =>
+                setStatusFiltro(event.target.value as StatusCatalogoFiltro)
+              }
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!temFiltros}
+              onClick={limparFiltros}
+              className="h-[46px] whitespace-nowrap"
+            >
+              Limpar filtros
+            </Button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-4">
+            <div>
+              <h2 id="lista-brinquedos-titulo" className="text-base font-semibold text-zinc-900">
+                Catálogo administrativo
+              </h2>
+              <p className="mt-0.5 text-sm text-zinc-500" aria-live="polite">
+                {brinquedosFiltrados.length} de {brinquedosOrdenados.length} brinquedo(s)
+              </p>
+            </div>
+            {temFiltros ? (
+              <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+                Filtros ativos
+              </span>
+            ) : null}
+          </div>
         </div>
 
         {loading ? (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
-            Carregando catalogo de brinquedos...
+          <div className="grid gap-4" aria-label="Carregando catálogo de brinquedos">
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                className="h-52 animate-pulse rounded-2xl border border-zinc-200 bg-white p-4"
+              >
+                <div className="h-full rounded-xl bg-zinc-100" />
+              </div>
+            ))}
           </div>
         ) : brinquedosOrdenados.length === 0 ? (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
-            Nenhum brinquedo cadastrado ainda.
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+            <p className="text-base font-semibold text-zinc-800">Nenhum brinquedo cadastrado</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Crie o primeiro brinquedo para começar a organizar o catálogo.
+            </p>
+            <Button type="button" size="sm" className="mt-5" onClick={abrirNovoBrinquedo}>
+              Novo Brinquedo
+            </Button>
+          </div>
+        ) : brinquedosFiltrados.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+            <p className="text-base font-semibold text-zinc-800">Nenhum resultado encontrado</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Tente outro nome, categoria ou status.
+            </p>
+            <Button type="button" size="sm" variant="outline" className="mt-5" onClick={limparFiltros}>
+              Limpar filtros
+            </Button>
           </div>
         ) : (
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Nome do brinquedo</Th>
-                <Th>Imagem</Th>
-                <Th>Composicao</Th>
-                <Th>Periodos e precos</Th>
-                <Th>Status</Th>
-                <Th className="text-right">Acoes</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {brinquedosOrdenados.map((brinquedo) => {
-                const imagemUrl = resolveMediaUrl(brinquedo.imagem_principal?.url);
+          <div className="grid gap-4">
+            {brinquedosVisiveis.map((brinquedo) => {
+              const imagemUrl = resolveMediaUrl(brinquedo.imagem_principal?.url);
+              const statusAtual = statusAdministrativo(brinquedo);
+              const estaAlterando = brinquedoAlterandoStatus === brinquedo.id;
 
-                return (
-                  <Tr key={brinquedo.id}>
-                    <Td>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-zinc-900">
-                          {brinquedo.nome}
-                        </span>
-                        <span className="mt-0.5 max-w-md truncate text-xs text-zinc-400">
-                          {brinquedo.descricao}
-                        </span>
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="relative h-14 w-20 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
-                        {imagemUrl ? (
-                          <Image
-                            src={imagemUrl}
-                            alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
-                            fill
-                            className="object-cover"
-                            sizes="80px"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[11px] font-medium text-zinc-400">
-                            Sem imagem
-                          </div>
-                        )}
-                      </div>
-                    </Td>
-                    <Td className="whitespace-normal">
-                      <span className="text-sm text-zinc-600">
-                        {resumirComposicao(brinquedo)}
-                      </span>
-                    </Td>
-                    <Td className="whitespace-normal font-medium text-zinc-900">
-                      {periodoResumo(brinquedo)}
-                    </Td>
-                    <Td>
-                      <div className="flex flex-wrap gap-1.5">
-                        {brinquedo.ativo !== false ? (
-                          <Badge variant="success">Exibido</Badge>
-                        ) : (
+              return (
+                <article
+                  key={brinquedo.id}
+                  className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="grid gap-0 md:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_250px]">
+                    <div className="relative min-h-48 overflow-hidden border-b border-zinc-100 bg-zinc-50 md:min-h-full md:border-b-0 md:border-r">
+                      {imagemUrl ? (
+                        <Image
+                          src={imagemUrl}
+                          alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
+                          fill
+                          className="object-contain p-3"
+                          sizes="(max-width: 768px) 100vw, 210px"
+                        />
+                      ) : (
+                        <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-zinc-400">
+                          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl shadow-sm" aria-hidden="true">
+                            ◇
+                          </span>
+                          <span className="text-xs font-medium">Sem imagem</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
+                            {brinquedo.categoria?.nome ?? "Sem categoria"}
+                          </p>
+                          <h3 className="mt-1 text-xl font-bold leading-tight text-zinc-900">
+                            {brinquedo.nome}
+                          </h3>
+                        </div>
+                        {statusAtual === "disponivel" ? (
+                          <Badge variant="success">Disponível</Badge>
+                        ) : statusAtual === "oculto" ? (
                           <Badge variant="default">Oculto</Badge>
+                        ) : (
+                          <Badge variant="warning">Alugado</Badge>
                         )}
-                        {brinquedo.status_catalogo !== "disponivel" ? (
-                          <Badge variant="default">
-                            {brinquedo.status_catalogo_label ?? "Alugado"}
-                          </Badge>
-                        ) : null}
                       </div>
-                    </Td>
-                    <Td className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => abrirEdicao(brinquedo)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={brinquedo.ativo !== false ? "outline" : "secondary"}
-                          loading={brinquedoAlterandoStatus === brinquedo.id}
-                          disabled={brinquedoRemovendo === brinquedo.id}
-                          onClick={() => void handleAlternarStatusBrinquedo(brinquedo)}
-                        >
-                          {brinquedo.ativo !== false
-                            ? "Ocultar do catalogo"
-                            : "Exibir no catalogo"}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={brinquedo.indisponivel_catalogo === true ? "secondary" : "outline"}
-                          loading={brinquedoAlterandoStatus === brinquedo.id}
-                          disabled={brinquedoRemovendo === brinquedo.id}
-                          onClick={() => void handleAlternarAlugado(brinquedo)}
-                        >
-                          {brinquedo.indisponivel_catalogo === true
-                            ? "Remover alugado manual"
-                            : "Marcar inteiro alugado"}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          loading={brinquedoRemovendo === brinquedo.id}
-                          disabled={brinquedoAlterandoStatus === brinquedo.id}
-                          onClick={() => void handleRemoverBrinquedo(brinquedo)}
-                        >
-                          Remover
-                        </Button>
+
+                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">
+                        {brinquedo.descricao || "Sem descrição cadastrada."}
+                      </p>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
+                        <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Unidades disponíveis</p>
+                          <p className="mt-1 text-base font-bold text-zinc-900">
+                            {brinquedo.quantidade_disponivel}
+                          </p>
+                        </div>
+                        {[
+                          ["Diária", brinquedo.preco_diaria],
+                          ["15 dias", brinquedo.preco_15_dias],
+                          ["30 dias", brinquedo.preco_30_dias],
+                        ].map(([label, valor]) => (
+                          <div key={label} className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
+                            <p className="mt-1 whitespace-nowrap text-sm font-bold text-zinc-900">
+                              {valor ? formatarMoeda(valor) : "—"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col justify-between gap-4 border-t border-zinc-100 bg-zinc-50/60 p-4 md:col-start-2 xl:col-start-auto xl:border-l xl:border-t-0">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Ações</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1">
+                          <Button type="button" size="sm" variant="outline" onClick={() => abrirEdicao(brinquedo)}>
+                            Editar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirEdicao(brinquedo, "unidades-brinquedo")}
+                          >
+                            Unidades
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={statusAtual === "disponivel" ? "secondary" : "outline"}
+                            loading={estaAlterando}
+                            disabled={brinquedoRemovendo === brinquedo.id}
+                            onClick={() => {
+                              if (brinquedo.ativo === false) {
+                                void handleAlternarStatusBrinquedo(brinquedo);
+                              } else if (brinquedo.indisponivel_catalogo === true) {
+                                void handleAlternarAlugado(brinquedo);
+                              } else if (statusAtual === "alugado") {
+                                abrirEdicao(brinquedo, "unidades-brinquedo");
+                              } else {
+                                void handleAlternarAlugado(brinquedo);
+                              }
+                            }}
+                            className="col-span-2 xl:col-span-1"
+                          >
+                            {brinquedo.ativo === false || brinquedo.indisponivel_catalogo === true
+                              ? "Reativar"
+                              : statusAtual === "alugado"
+                                ? "Gerenciar unidades"
+                                : "Marcar como Alugado"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-200 pt-3 text-xs font-semibold">
+                        {brinquedo.ativo !== false ? (
+                          <button
+                            type="button"
+                            disabled={estaAlterando}
+                            onClick={() => void handleAlternarStatusBrinquedo(brinquedo)}
+                            className="text-zinc-500 transition-colors hover:text-zinc-900 disabled:opacity-50"
+                          >
+                            Ocultar
+                          </button>
+                        ) : null}
                         {brinquedo.ativo !== false ? (
                           <Link
                             href={`/brinquedos/${brinquedo.id}`}
                             target="_blank"
-                            className="inline-flex items-center text-xs font-medium text-zinc-400 underline transition-colors hover:text-teal-600"
+                            className="text-teal-700 transition-colors hover:text-teal-900"
                           >
                             Ver na loja
                           </Link>
-                        ) : (
-                          <span className="inline-flex items-center text-xs font-medium text-zinc-400">
-                            Oculto na loja
-                          </span>
-                        )}
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={estaAlterando || brinquedoRemovendo === brinquedo.id}
+                          onClick={() => void handleRemoverBrinquedo(brinquedo)}
+                          className="text-red-600 transition-colors hover:text-red-800 disabled:opacity-50"
+                        >
+                          {brinquedoRemovendo === brinquedo.id ? "Removendo..." : "Remover"}
+                        </button>
                       </div>
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </Tbody>
-          </Table>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+
+            {quantidadeVisivel < brinquedosFiltrados.length ? (
+              <div className="flex flex-col items-center gap-2 py-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setQuantidadeVisivel((atual) => atual + QUANTIDADE_INICIAL)}
+                >
+                  Carregar mais
+                </Button>
+                <span className="text-xs text-zinc-500">
+                  Exibindo {brinquedosVisiveis.length} de {brinquedosFiltrados.length}
+                </span>
+              </div>
+            ) : null}
+          </div>
         )}
       </section>
     </div>
