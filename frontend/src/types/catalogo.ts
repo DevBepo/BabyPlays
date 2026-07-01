@@ -23,8 +23,18 @@ export type ImagemBrinquedo = {
 export type UnidadeBrinquedoAdmin = {
   id: number;
   codigo: string;
-  status: string;
+  status: UnidadeBrinquedoStatus;
+  status_label: string;
 };
+
+export type UnidadeBrinquedoStatus =
+  | "disponivel"
+  | "reservada"
+  | "em_locacao"
+  | "higienizacao"
+  | "manutencao"
+  | "standby"
+  | "baixada";
 
 export type PeriodoLocacao = "15_dias" | "30_dias" | "diaria";
 
@@ -50,6 +60,7 @@ export type BrinquedoCatalogo = {
   exibir_no_catalogo?: boolean;
   disponivel_para_carrinho?: boolean;
   status_catalogo?: "disponivel" | "indisponivel" | "alugado";
+  status_catalogo_label?: "Disponivel" | "Alugado";
   categoria: CategoriaResumo | null;
   quantidade_disponivel: number;
   imagem_principal: ImagemBrinquedo | null;

@@ -130,7 +130,7 @@ export function ProductCard({
           </Badge>
         ) : (
           <Badge variant="default" className="normal-case tracking-normal bg-[#FDECEB] text-[#803233]">
-            {isManuallyUnavailable ? "Indisponivel" : "Alugado"}
+            Alugado
           </Badge>
         )}
       </div>
@@ -197,7 +197,7 @@ export function ProductCard({
             </div>
           ) : (
             <p className="mb-2 text-xs font-semibold text-zinc-500">
-              {isManuallyUnavailable ? "Indisponivel no momento" : "Alugado"}
+              Alugado
             </p>
           )}
 
@@ -216,7 +216,7 @@ export function ProductCard({
               disabled
               className="inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 px-4 text-sm font-bold text-zinc-500 sm:h-10 [font-family:var(--font-fredoka)]"
             >
-              Indisponivel no momento
+              Alugado
             </button>
           ) : (
             <button

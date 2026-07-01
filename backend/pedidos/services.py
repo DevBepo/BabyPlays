@@ -250,7 +250,7 @@ class CarrinhoService:
             raise serializers.ValidationError(
                 {
                     "brinquedo_id": (
-                        "Brinquedo indisponivel no catalogo nao pode ser adicionado."
+                        "Brinquedo alugado no catalogo nao pode ser adicionado."
                     )
                 }
             )
@@ -434,7 +434,7 @@ class CarrinhoService:
                 raise serializers.ValidationError(
                     {
                         "brinquedo_id": (
-                            "Brinquedo indisponivel no catalogo nao pode ser alterado."
+                            "Brinquedo alugado no catalogo nao pode ser alterado."
                         )
                     }
                 )
@@ -604,7 +604,7 @@ class PedidoService:
                 raise serializers.ValidationError(
                     {
                         "carrinho": (
-                            f'O brinquedo "{item.brinquedo.nome}" esta indisponivel '
+                            f'O brinquedo "{item.brinquedo.nome}" esta alugado '
                             "no catalogo. Remova-o para continuar."
                         )
                     }
@@ -1667,7 +1667,7 @@ class ConfirmacaoPedidoService:
                     {
                         "itens": (
                             f'O brinquedo "{item.brinquedo.nome}" esta '
-                            "indisponivel no catalogo."
+                            "alugado no catalogo."
                         )
                     }
                 )

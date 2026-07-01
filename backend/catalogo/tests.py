@@ -499,6 +499,7 @@ class LiberarDisponibilidadeUnidadeAdminTests(APITestCase):
                 "id": unidade.id,
                 "codigo": unidade.codigo,
                 "status": UnidadeBrinquedo.Status.DISPONIVEL,
+                "status_label": "Disponivel",
             },
         )
 
@@ -974,6 +975,27 @@ class BrinquedoAPITests(APITestCase):
         self.assertTrue(response.data[0]["exibir_no_catalogo"])
         self.assertFalse(response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(response.data[0]["status_catalogo"], "indisponivel")
+        self.assertEqual(response.data[0]["status_catalogo_label"], "Alugado")
+
+    def test_uma_unidade_alugada_e_uma_disponivel_mantem_brinquedo_disponivel(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-DISPONIVEL-001",
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ALUGADA-001",
+            status=UnidadeBrinquedo.Status.EM_LOCACAO,
+        )
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.data[0]["quantidade_disponivel"], 1)
+        self.assertTrue(response.data[0]["disponivel_para_carrinho"])
+        self.assertEqual(response.data[0]["status_catalogo"], "disponivel")
+        self.assertEqual(response.data[0]["status_catalogo_label"], "Disponivel")
 
     def test_brinquedo_disponivel_retorna_estado_para_carrinho(self):
         self.brinquedo.preco_15_dias = "150.00"
@@ -1023,6 +1045,8 @@ class BrinquedoAPITests(APITestCase):
         self.assertFalse(admin_response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(public_response.data[0]["status_catalogo"], "alugado")
         self.assertEqual(admin_response.data[0]["status_catalogo"], "alugado")
+        self.assertEqual(public_response.data[0]["status_catalogo_label"], "Alugado")
+        self.assertEqual(admin_response.data[0]["status_catalogo_label"], "Alugado")
 
     def test_unidade_dedicada_a_kit_nao_disponibiliza_brinquedo_avulso(self):
         self.brinquedo.preco_15_dias = "150.00"
@@ -1169,6 +1193,10 @@ class BrinquedoAPITests(APITestCase):
     def test_usuario_admin_marca_brinquedo_como_indisponivel_no_catalogo(self):
         self.brinquedo.preco_15_dias = "150.00"
         self.brinquedo.save(update_fields=["preco_15_dias"])
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-BLOQUEIO-MANUAL",
+        )
         self.client.force_authenticate(user=self.usuario_admin)
 
         response = self.client.patch(
@@ -1182,6 +1210,8 @@ class BrinquedoAPITests(APITestCase):
         self.assertTrue(self.brinquedo.ativo)
         self.assertTrue(self.brinquedo.indisponivel_catalogo)
         self.assertTrue(response.data["indisponivel_catalogo"])
+        self.assertFalse(response.data["disponivel_para_carrinho"])
+        self.assertEqual(response.data["status_catalogo_label"], "Alugado")
 
     def test_usuario_comum_nao_consegue_alterar_status_do_brinquedo(self):
         self.client.force_authenticate(user=self.usuario_comum)
@@ -1423,6 +1453,54 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.data[0]["id"], unidade.id)
         self.assertEqual(response.data[0]["codigo"], "PISCINA-ADM-001")
         self.assertEqual(response.data[0]["status"], UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(response.data[0]["status_label"], "Disponivel")
+
+    def test_usuario_admin_marca_apenas_uma_unidade_como_alugada(self):
+        self.brinquedo.preco_15_dias = "150.00"
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+        unidade_alugada = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ADM-ALUGADA",
+        )
+        unidade_disponivel = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-ADM-DISPONIVEL",
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.patch(
+            f"/api/admin/unidades/{unidade_alugada.id}/status/",
+            {"status": UnidadeBrinquedo.Status.EM_LOCACAO},
+            format="json",
+        )
+
+        unidade_alugada.refresh_from_db()
+        unidade_disponivel.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(unidade_alugada.status, UnidadeBrinquedo.Status.EM_LOCACAO)
+        self.assertEqual(unidade_disponivel.status, UnidadeBrinquedo.Status.DISPONIVEL)
+        self.assertEqual(response.data["status_label"], "Alugado")
+
+        catalogo_response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertTrue(catalogo_response.data["disponivel_para_carrinho"])
+        self.assertEqual(catalogo_response.data["quantidade_disponivel"], 1)
+
+    def test_usuario_comum_nao_altera_status_de_unidade(self):
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-SEM-PERMISSAO",
+        )
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        response = self.client.patch(
+            f"/api/admin/unidades/{unidade.id}/status/",
+            {"status": UnidadeBrinquedo.Status.EM_LOCACAO},
+            format="json",
+        )
+
+        unidade.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
 
     def test_usuario_admin_cria_unidade_disponivel_para_brinquedo(self):
         self.client.force_authenticate(user=self.usuario_admin)

@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     AdminLiberarDisponibilidadeUnidadeView,
+    AdminAtualizarStatusUnidadeView,
     BrinquedoViewSet,
     CategoriaViewSet,
     KitFestaViewSet,
@@ -23,6 +24,11 @@ router.register(
 )
 
 urlpatterns = [
+    path(
+        'admin/unidades/<int:unidade_id>/status/',
+        AdminAtualizarStatusUnidadeView.as_view(),
+        name='admin-unidade-atualizar-status',
+    ),
     path('interesses-disponibilidade/', InteresseDisponibilidadeView.as_view(), name='interesses-disponibilidade'),
     path('interesses-disponibilidade/<int:interesse_id>/', InteresseDisponibilidadeDetailView.as_view(), name='interesse-disponibilidade-detalhe'),
     path('admin/interesses-disponibilidade/', AdminInteresseDisponibilidadeView.as_view(), name='admin-interesses-disponibilidade'),

@@ -430,7 +430,7 @@ class CarrinhoAPITests(APITestCase):
         response = self.adicionar_brinquedo()
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("indisponivel", str(response.data).lower())
+        self.assertIn("alugado", str(response.data).lower())
         self.assertEqual(ItemCarrinho.objects.count(), 0)
 
     def test_brinquedo_sem_unidade_avulsa_nao_pode_ser_adicionado(self):
@@ -714,7 +714,7 @@ class CarrinhoAPITests(APITestCase):
         response = self.converter_carrinho_em_pedido()
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("indisponivel", str(response.data).lower())
+        self.assertIn("alugado", str(response.data).lower())
         self.assertEqual(Pedido.objects.count(), 0)
         self.assertEqual(Carrinho.objects.get().status, Carrinho.Status.ATIVO)
 
@@ -3046,7 +3046,7 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
         response = self.client.post(self.confirmar_url(), {}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("indisponivel", str(response.data).lower())
+        self.assertIn("alugado", str(response.data).lower())
         self.pedido.refresh_from_db()
         self.assertEqual(self.pedido.status, Pedido.Status.RESERVADO)
 

@@ -1,5 +1,10 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
-import type { BrinquedoCatalogo, CategoriaCatalogo, KitFestaCatalogo } from "@/types/catalogo";
+import type {
+  BrinquedoCatalogo,
+  CategoriaCatalogo,
+  KitFestaCatalogo,
+  UnidadeBrinquedoStatus,
+} from "@/types/catalogo";
 import { getCsrfToken } from "@/lib/csrf";
 
 const CATALOGO_ENDPOINTS = {
@@ -105,7 +110,8 @@ export type RemoverCatalogoResponse = {
 export type UnidadeBrinquedoAdmin = {
   id: number;
   codigo: string;
-  status: string;
+  status: UnidadeBrinquedoStatus;
+  status_label: string;
 };
 
 type CriarBrinquedoResponse = {
@@ -138,6 +144,16 @@ export function criarUnidadeBrinquedo(
   return apiPost<UnidadeBrinquedoAdmin>(
     `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/unidades/`,
     dados,
+  );
+}
+
+export function atualizarStatusUnidadeBrinquedo(
+  unidadeId: number,
+  status: UnidadeBrinquedoStatus,
+): Promise<UnidadeBrinquedoAdmin> {
+  return apiPatch<UnidadeBrinquedoAdmin>(
+    `/api/admin/unidades/${unidadeId}/status/`,
+    { status },
   );
 }
 

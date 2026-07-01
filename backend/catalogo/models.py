@@ -132,9 +132,9 @@ class Brinquedo(models.Model):
     )
     indisponivel_catalogo = models.BooleanField(
         default=False,
-        verbose_name="Marcar como indisponível no catálogo",
+        verbose_name="Marcar brinquedo inteiro como alugado",
         help_text=(
-            "Mantém o brinquedo visível no catálogo, mas impede sua adição "
+            "Mantém o brinquedo visível como alugado e impede sua adição "
             "ao carrinho. Não altera o status das unidades físicas."
         ),
     )
@@ -202,7 +202,7 @@ class UnidadeBrinquedo(models.Model):
     class Status(models.TextChoices):
         DISPONIVEL = "disponivel", "Disponivel"
         RESERVADA = "reservada", "Reservada"
-        EM_LOCACAO = "em_locacao", "Em locacao"
+        EM_LOCACAO = "em_locacao", "Alugado"
         HIGIENIZACAO = "higienizacao", "Higienizacao"
         MANUTENCAO = "manutencao", "Manutencao"
         STANDBY = "standby", "Standby"

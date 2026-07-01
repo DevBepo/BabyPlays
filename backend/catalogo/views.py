@@ -21,6 +21,7 @@ from .serializers import (
     KitFestaPublicSerializer,
     InteresseDisponibilidadeSerializer,
     AtualizarInteresseAdminSerializer,
+    AtualizarStatusUnidadeAdminSerializer,
     UnidadeBrinquedoAdminSerializer,
     UnidadeBrinquedoOperacaoSerializer,
     ValidarSelecaoKitPersonalizavelSerializer,
@@ -205,6 +206,24 @@ class AdminLiberarDisponibilidadeUnidadeView(APIView):
         unidade = get_object_or_404(UnidadeBrinquedo, id=unidade_id)
         unidade = UnidadeBrinquedoOperacaoService.liberar_disponibilidade(
             unidade,
+            request.user,
+        )
+        return Response(UnidadeBrinquedoOperacaoSerializer(unidade).data)
+
+
+class AdminAtualizarStatusUnidadeView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, unidade_id):
+        unidade = get_object_or_404(UnidadeBrinquedo, id=unidade_id)
+        serializer = AtualizarStatusUnidadeAdminSerializer(
+            unidade,
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+        unidade = UnidadeBrinquedoOperacaoService.alterar_status(
+            unidade,
+            serializer.validated_data["status"],
             request.user,
         )
         return Response(UnidadeBrinquedoOperacaoSerializer(unidade).data)

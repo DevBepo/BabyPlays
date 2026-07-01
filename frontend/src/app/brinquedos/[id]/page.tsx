@@ -211,7 +211,7 @@ function BrinquedoDetalheContent() {
                   <Badge variant="success">Disponivel</Badge>
                 ) : (
                   <Badge variant="default">
-                    {isManuallyUnavailable ? "Indisponivel" : "Alugado"}
+                    Alugado
                   </Badge>
                 )}
                 <span className="text-xs font-medium text-zinc-500">
@@ -265,7 +265,7 @@ function BrinquedoDetalheContent() {
                     </div>
                   ) : (
                     <p className="text-sm font-medium text-zinc-500">
-                      {isManuallyUnavailable ? "Indisponivel no momento" : "Alugado"}
+                      Alugado
                     </p>
                   )}
                 </div>
@@ -294,7 +294,7 @@ function BrinquedoDetalheContent() {
                 disabled
                 className="h-12 w-full cursor-not-allowed rounded-lg border border-zinc-200 bg-zinc-100 text-sm font-bold text-zinc-500"
               >
-                Indisponivel no momento
+                Alugado
               </button>
             ) : (
               <button

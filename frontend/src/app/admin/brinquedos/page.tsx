@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/TextArea";
 import {
   atualizarBrinquedo,
+  atualizarStatusUnidadeBrinquedo,
   criarBrinquedo,
   criarUnidadeBrinquedo,
   excluirBrinquedo,
@@ -28,7 +29,18 @@ import type {
   BrinquedoCatalogo,
   CategoriaCatalogo,
   UnidadeBrinquedoAdmin,
+  UnidadeBrinquedoStatus,
 } from "@/types/catalogo";
+
+const STATUS_UNIDADE_OPTIONS = [
+  { value: "disponivel", label: "Disponivel" },
+  { value: "reservada", label: "Reservada" },
+  { value: "em_locacao", label: "Alugado" },
+  { value: "higienizacao", label: "Higienizacao" },
+  { value: "manutencao", label: "Manutencao" },
+  { value: "standby", label: "Standby" },
+  { value: "baixada", label: "Baixada" },
+];
 
 type BrinquedoFormState = {
   nome: string;
@@ -127,6 +139,7 @@ export default function ListaBrinquedosAdmin() {
   const [unidades, setUnidades] = useState<UnidadeBrinquedoAdmin[]>([]);
   const [unidadesLoading, setUnidadesLoading] = useState(false);
   const [criandoUnidade, setCriandoUnidade] = useState(false);
+  const [unidadeAlterandoStatus, setUnidadeAlterandoStatus] = useState<number | null>(null);
   const [unidadeCodigo, setUnidadeCodigo] = useState("");
   const [unidadeErro, setUnidadeErro] = useState<string | null>(null);
   const [unidadeSucesso, setUnidadeSucesso] = useState<string | null>(null);
@@ -282,6 +295,36 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
+  async function alterarStatusUnidade(
+    unidade: UnidadeBrinquedoAdmin,
+    novoStatus: UnidadeBrinquedoStatus,
+  ) {
+    if (novoStatus === unidade.status) {
+      return;
+    }
+
+    setUnidadeAlterandoStatus(unidade.id);
+    setUnidadeErro(null);
+    setUnidadeSucesso(null);
+
+    try {
+      await atualizarStatusUnidadeBrinquedo(unidade.id, novoStatus);
+      setUnidadeSucesso(`Status da unidade ${unidade.codigo} atualizado.`);
+      if (brinquedoEmEdicao) {
+        await carregarUnidades(brinquedoEmEdicao);
+      }
+      await carregarBrinquedos();
+    } catch (error) {
+      setUnidadeErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel atualizar o status da unidade.",
+      );
+    } finally {
+      setUnidadeAlterandoStatus(null);
+    }
+  }
+
   function abrirNovoBrinquedo() {
     setForm({
       ...initialForm,
@@ -433,7 +476,7 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
-  async function handleAlternarIndisponibilidade(brinquedo: BrinquedoCatalogo) {
+  async function handleAlternarAlugado(brinquedo: BrinquedoCatalogo) {
     const novoStatus = brinquedo.indisponivel_catalogo !== true;
 
     setBrinquedoAlterandoStatus(brinquedo.id);
@@ -446,15 +489,15 @@ export default function ListaBrinquedosAdmin() {
       });
       setSucesso(
         novoStatus
-          ? "Brinquedo marcado como indisponivel no catalogo."
-          : "Brinquedo liberado para o carrinho.",
+          ? "Brinquedo inteiro marcado como alugado no catalogo."
+          : "Bloqueio manual removido. A disponibilidade continua dependendo das unidades.",
       );
       await carregarBrinquedos();
     } catch (error) {
       setErro(
         isApiError(error)
           ? error.message
-          : "Nao foi possivel atualizar a disponibilidade do brinquedo.",
+          : "Nao foi possivel atualizar o status de aluguel do brinquedo.",
       );
     } finally {
       setBrinquedoAlterandoStatus(null);
@@ -682,14 +725,27 @@ export default function ListaBrinquedosAdmin() {
                         <thead>
                           <tr className="border-b border-zinc-200 bg-zinc-100 text-xs uppercase tracking-wide text-zinc-500">
                             <th className="px-3 py-2">Codigo</th>
-                            <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Status da unidade</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
                           {unidades.map((unidade) => (
                             <tr key={unidade.id}>
                               <td className="px-3 py-2">{unidade.codigo}</td>
-                              <td className="px-3 py-2 text-zinc-600">{unidade.status}</td>
+                              <td className="px-3 py-2 text-zinc-600">
+                                <Select
+                                  aria-label={`Status da unidade ${unidade.codigo}`}
+                                  value={unidade.status}
+                                  options={STATUS_UNIDADE_OPTIONS}
+                                  disabled={unidadeAlterandoStatus === unidade.id}
+                                  onChange={(event) =>
+                                    void alterarStatusUnidade(
+                                      unidade,
+                                      event.target.value as UnidadeBrinquedoStatus,
+                                    )
+                                  }
+                                />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -717,7 +773,7 @@ export default function ListaBrinquedosAdmin() {
                   }
                 />
                 <Checkbox
-                  label="Marcar como indisponivel no catalogo"
+                  label="Marcar brinquedo inteiro como alugado"
                   checked={form.indisponivel_catalogo}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -727,7 +783,7 @@ export default function ListaBrinquedosAdmin() {
                   }
                 />
                 <p className="text-xs text-zinc-500">
-                  O brinquedo continua visivel, mas nao pode ser adicionado ao carrinho.
+                  Afeta o produto inteiro no catalogo, sem alterar as unidades fisicas.
                 </p>
               </div>
             </div>
@@ -827,8 +883,10 @@ export default function ListaBrinquedosAdmin() {
                         ) : (
                           <Badge variant="default">Oculto</Badge>
                         )}
-                        {brinquedo.indisponivel_catalogo === true ? (
-                          <Badge variant="default">Indisponivel</Badge>
+                        {brinquedo.status_catalogo !== "disponivel" ? (
+                          <Badge variant="default">
+                            {brinquedo.status_catalogo_label ?? "Alugado"}
+                          </Badge>
                         ) : null}
                       </div>
                     </Td>
@@ -860,11 +918,11 @@ export default function ListaBrinquedosAdmin() {
                           variant={brinquedo.indisponivel_catalogo === true ? "secondary" : "outline"}
                           loading={brinquedoAlterandoStatus === brinquedo.id}
                           disabled={brinquedoRemovendo === brinquedo.id}
-                          onClick={() => void handleAlternarIndisponibilidade(brinquedo)}
+                          onClick={() => void handleAlternarAlugado(brinquedo)}
                         >
                           {brinquedo.indisponivel_catalogo === true
-                            ? "Marcar disponivel"
-                            : "Marcar indisponivel"}
+                            ? "Remover alugado manual"
+                            : "Marcar inteiro alugado"}
                         </Button>
                         <Button
                           type="button"

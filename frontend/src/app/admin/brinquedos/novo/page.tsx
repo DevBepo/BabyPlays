@@ -280,7 +280,7 @@ export default function NovoBrinquedo() {
             />
             <div className="mt-3">
               <Checkbox
-                label="Marcar como indisponivel no catalogo"
+                label="Marcar brinquedo inteiro como alugado"
                 checked={indisponivelCatalogo}
                 onChange={(event) => setIndisponivelCatalogo(event.target.checked)}
               />

@@ -109,6 +109,7 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
     exibir_no_catalogo = serializers.BooleanField(source="ativo", read_only=True)
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
+    status_catalogo_label = serializers.SerializerMethodField()
     categoria = CategoriaResumoSerializer(read_only=True)
     imagem_principal = serializers.SerializerMethodField()
     imagens = serializers.SerializerMethodField()
@@ -130,6 +131,7 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "exibir_no_catalogo",
             "disponivel_para_carrinho",
             "status_catalogo",
+            "status_catalogo_label",
             "quantidade_disponivel",
             "imagem_principal",
             "imagens",
@@ -147,6 +149,9 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
     def get_status_catalogo(self, obj):
         return BrinquedoService.status_catalogo(obj)
+
+    def get_status_catalogo_label(self, obj):
+        return BrinquedoService.status_catalogo_label(obj)
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
@@ -184,6 +189,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
     quantidade_disponivel = serializers.SerializerMethodField()
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
+    status_catalogo_label = serializers.SerializerMethodField()
     imagem_principal = serializers.SerializerMethodField()
     imagens = serializers.SerializerMethodField()
     periodos_disponiveis = serializers.SerializerMethodField()
@@ -210,6 +216,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "indisponivel_catalogo",
             "disponivel_para_carrinho",
             "status_catalogo",
+            "status_catalogo_label",
             "data_cadastro",
             "quantidade_disponivel",
             "imagem_principal",
@@ -221,6 +228,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "quantidade_disponivel",
             "disponivel_para_carrinho",
             "status_catalogo",
+            "status_catalogo_label",
             "imagem_principal",
             "imagens",
         )
@@ -242,6 +250,9 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
 
     def get_status_catalogo(self, obj):
         return BrinquedoService.status_catalogo(obj)
+
+    def get_status_catalogo_label(self, obj):
+        return BrinquedoService.status_catalogo_label(obj)
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
@@ -279,17 +290,27 @@ BrinquedoSerializer = BrinquedoAdminSerializer
 
 
 class UnidadeBrinquedoOperacaoSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = UnidadeBrinquedo
-        fields = ("id", "codigo", "status")
+        fields = ("id", "codigo", "status", "status_label")
         read_only_fields = fields
 
 
 class UnidadeBrinquedoAdminSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = UnidadeBrinquedo
-        fields = ("id", "codigo", "status")
-        read_only_fields = ("id", "status")
+        fields = ("id", "codigo", "status", "status_label")
+        read_only_fields = ("id", "status", "status_label")
+
+
+class AtualizarStatusUnidadeAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UnidadeBrinquedo
+        fields = ("status",)
 
 
 class BrinquedoKitResumoSerializer(serializers.ModelSerializer):

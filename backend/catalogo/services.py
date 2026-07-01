@@ -97,6 +97,14 @@ class BrinquedoService:
         return "alugado"
 
     @staticmethod
+    def status_catalogo_label(brinquedo):
+        return {
+            "disponivel": "Disponivel",
+            "indisponivel": "Alugado",
+            "alugado": "Alugado",
+        }[BrinquedoService.status_catalogo(brinquedo)]
+
+    @staticmethod
     def possui_vinculos_importantes(brinquedo):
         from pedidos.models import ItemCarrinho, ItemPedido
 
@@ -128,6 +136,19 @@ class UnidadeBrinquedoOperacaoService:
         UnidadeBrinquedo.Status.HIGIENIZACAO,
         UnidadeBrinquedo.Status.STANDBY,
     }
+
+    @staticmethod
+    @transaction.atomic
+    def alterar_status(unidade, novo_status, usuario_admin):
+        if novo_status == UnidadeBrinquedo.Status.DISPONIVEL:
+            return UnidadeBrinquedoOperacaoService.liberar_disponibilidade(
+                unidade,
+                usuario_admin,
+            )
+        unidade = UnidadeBrinquedo.objects.select_for_update().get(id=unidade.id)
+        unidade.status = novo_status
+        unidade.save(update_fields=["status", "atualizado_em"])
+        return unidade
 
     @staticmethod
     @transaction.atomic
