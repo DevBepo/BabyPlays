@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from decimal import Decimal
 from urllib.error import HTTPError
 from unittest.mock import patch
@@ -205,6 +206,42 @@ class GoogleRoutesRotaProviderTests(TestCase):
             str(contexto.exception),
             "Nao foi possivel calcular a rota para este endereco.",
         )
+
+    @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
+    def test_provider_registra_erro_google_sem_expor_chave(self):
+        provider = GoogleRoutesRotaProvider()
+        corpo = json.dumps(
+            {
+                "error": {
+                    "code": 403,
+                    "status": "PERMISSION_DENIED",
+                    "message": "API key google-test-key does not have permission",
+                    "details": [{"reason": "API_KEY_SERVICE_BLOCKED"}],
+                }
+            }
+        ).encode("utf-8")
+        erro_http = HTTPError(
+            url=provider.api_url,
+            code=403,
+            msg="Forbidden",
+            hdrs=None,
+            fp=BytesIO(corpo),
+        )
+
+        with self.assertLogs("entregas.providers", level="WARNING") as logs:
+            with patch("entregas.providers.urlopen", side_effect=erro_http):
+                with self.assertRaises(RotaProviderError):
+                    provider.calcular_distancia_ida_km(
+                        ORIGEM_INTERPRETADA,
+                        DESTINO_INTERPRETADO,
+                    )
+
+        registro = " ".join(logs.output)
+        self.assertIn("http_status=403", registro)
+        self.assertIn("google_status=PERMISSION_DENIED", registro)
+        self.assertIn("reason=API_KEY_SERVICE_BLOCKED", registro)
+        self.assertIn("message=API key [REDACTED] does not have permission", registro)
+        self.assertNotIn("google-test-key", registro)
 
     @override_settings(GOOGLE_ROUTES_API_KEY="google-test-key")
     def test_provider_falha_se_api_retornar_resposta_sem_rota(self):
