@@ -108,10 +108,6 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const quantidadeTotal = itens.reduce((acc, item) => acc + item.quantidade, 0);
   const subtotal = itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0);
   
-  // Frete fixo/simulado provisório
-  const valorFrete = 18.50; 
-  const total = subtotal > 0 ? subtotal + valorFrete : 0;
-
   const handleRemoverItem = async (id: number) => {
     try {
       await removerItemCarrinho(id);
@@ -316,13 +312,16 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
             <span>R$ {subtotal.toFixed(2).replace(".", ",")}</span>
           </div>
           <div className="flex justify-between text-sm text-zinc-600">
-            <span>Frete estimado</span>
-            <span>R$ {valorFrete.toFixed(2).replace(".", ",")}</span>
+            <span>Taxa de entrega e retirada</span>
+            <span>A confirmar pelo endereço</span>
           </div>
           <div className="flex justify-between items-center mt-2">
-            <span className="text-base font-bold text-zinc-900">Total</span>
-            <span className="text-lg font-black text-teal-600">R$ {total.toFixed(2).replace(".", ",")}</span>
+            <span className="text-base font-bold text-zinc-900">Subtotal dos itens</span>
+            <span className="text-lg font-black text-teal-600">R$ {subtotal.toFixed(2).replace(".", ",")}</span>
           </div>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            O total final será confirmado pela BabyPlays após a análise do endereço.
+          </p>
         </div>
 
         <div className="flex flex-col gap-4 mt-2">

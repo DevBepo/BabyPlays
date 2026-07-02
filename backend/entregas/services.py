@@ -1,16 +1,10 @@
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP
 
-from django.core.exceptions import ObjectDoesNotExist
-
-from .models import ConfiguracaoTaxaEntregaRetirada
+from .models import RegraFreteBairro, normalizar_localidade
 from .providers import (
-    CepInvalidoError,
-    CepNaoEncontradoError,
     CepProvider,
     EnderecoIncompletoError,
     EnderecoInterpretado,
-    RotaProvider,
-    RotaProviderError,
 )
 
 
@@ -31,36 +25,45 @@ def quantizar_decimal(valor):
 
 class TaxaEntregaRetiradaService:
     nome_taxa = "Taxa de entrega e retirada"
+    STATUS_CALCULADA = "calculada"
+    STATUS_A_CONFIRMAR = "a_confirmar"
+    STATUS_SUJEITA_ANALISE = "sujeita_analise"
 
     def __init__(self, cep_provider=None, rota_provider=None):
         self.cep_provider = cep_provider or CepProvider()
-        self.rota_provider = rota_provider or RotaProvider()
+        self.rota_provider = rota_provider
 
     def calcular(self, cep, numero, complemento=""):
-        configuracao = self._obter_configuracao_ativa()
         destino = self._interpretar_destino(cep, numero, complemento)
-        origem = self._montar_origem(configuracao)
-        distancia_ida_km = self._calcular_distancia_ida(origem, destino)
-        distancia_total_km = quantizar_decimal(distancia_ida_km * Decimal("2"))
-        valor_por_km = quantizar_decimal(configuracao.valor_por_km)
-        taxa = quantizar_decimal(distancia_total_km * valor_por_km)
+        regra = self._buscar_regra(destino)
+
+        if regra is None:
+            status = self.STATUS_SUJEITA_ANALISE
+            taxa = None
+        elif regra.valor_taxa is None or regra.valor_taxa <= 0:
+            status = self.STATUS_A_CONFIRMAR
+            taxa = None
+        else:
+            status = self.STATUS_CALCULADA
+            taxa = quantizar_decimal(regra.valor_taxa)
 
         return {
             "nome": self.nome_taxa,
             "endereco_interpretado": destino.as_dict(),
-            "distancia_ida_km": quantizar_decimal(distancia_ida_km),
-            "distancia_total_km": distancia_total_km,
-            "valor_por_km": valor_por_km,
+            "status": status,
+            "distancia_ida_km": None,
+            "distancia_total_km": None,
+            "valor_por_km": None,
             "taxa": taxa,
         }
 
-    def _obter_configuracao_ativa(self):
-        try:
-            return ConfiguracaoTaxaEntregaRetirada.objects.get(ativo=True)
-        except ObjectDoesNotExist as exc:
-            raise ConfiguracaoTaxaAusenteError(
-                "Configuracao ativa da taxa de entrega e retirada ausente."
-            ) from exc
+    def _buscar_regra(self, destino):
+        return RegraFreteBairro.objects.filter(
+            ativo=True,
+            uf=destino.uf,
+            cidade_normalizada=normalizar_localidade(destino.cidade),
+            bairro_normalizado=normalizar_localidade(destino.bairro),
+        ).first()
 
     def _interpretar_destino(self, cep, numero, complemento):
         dados_cep = self.cep_provider.buscar(cep)
@@ -89,33 +92,3 @@ class TaxaEntregaRetiradaService:
             raise EnderecoIncompletoError("Endereco incompleto para calcular a taxa.")
 
         return endereco
-
-    def _montar_origem(self, configuracao):
-        return EnderecoInterpretado(
-            cep=configuracao.origem_cep,
-            logradouro=configuracao.origem_logradouro,
-            numero=configuracao.origem_numero,
-            complemento=configuracao.origem_complemento,
-            bairro=configuracao.origem_bairro,
-            cidade=configuracao.origem_cidade,
-            uf=configuracao.origem_uf,
-        )
-
-    def _calcular_distancia_ida(self, origem, destino):
-        try:
-            distancia = Decimal(
-                str(self.rota_provider.calcular_distancia_ida_km(origem, destino))
-            )
-        except (InvalidOperation, TypeError, ValueError) as exc:
-            raise DistanciaInvalidaError(
-                "Distancia retornada pelo provider de rota e invalida."
-            ) from exc
-        except RotaProviderError:
-            raise
-
-        if distancia <= 0:
-            raise DistanciaInvalidaError(
-                "Distancia de entrega deve ser maior que zero."
-            )
-
-        return distancia

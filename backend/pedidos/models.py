@@ -162,6 +162,11 @@ class Pedido(models.Model):
         RETIRADO = "retirado", "Retirado"
         CANCELADO = "cancelado", "Cancelado"
 
+    class StatusTaxaEntrega(models.TextChoices):
+        CALCULADA = "calculada", "Calculada"
+        A_CONFIRMAR = "a_confirmar", "A confirmar"
+        SUJEITA_ANALISE = "sujeita_analise", "Sujeita a analise"
+
     carrinho_origem = models.ForeignKey(
         Carrinho,
         null=True,
@@ -237,26 +242,40 @@ class Pedido(models.Model):
     distancia_ida_km_snapshot = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal("0.00"),
+        null=True,
+        blank=True,
+        default=None,
         verbose_name="Distancia de ida em km snapshot",
     )
     distancia_total_km_snapshot = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal("0.00"),
+        null=True,
+        blank=True,
+        default=None,
         verbose_name="Distancia total em km snapshot",
     )
     valor_por_km_snapshot = models.DecimalField(
         max_digits=8,
         decimal_places=2,
-        default=Decimal("0.00"),
+        null=True,
+        blank=True,
+        default=None,
         verbose_name="Valor por km snapshot",
     )
     taxa_entrega_retirada_snapshot = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal("0.00"),
+        null=True,
+        blank=True,
+        default=None,
         verbose_name="Taxa de entrega e retirada snapshot",
+    )
+    taxa_entrega_status_snapshot = models.CharField(
+        max_length=30,
+        choices=StatusTaxaEntrega.choices,
+        default=StatusTaxaEntrega.CALCULADA,
+        verbose_name="Status da taxa de entrega snapshot",
     )
     total_estimado_snapshot = models.DecimalField(
         max_digits=10,

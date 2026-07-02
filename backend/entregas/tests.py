@@ -10,7 +10,7 @@ from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import ConfiguracaoTaxaEntregaRetirada
+from .models import ConfiguracaoTaxaEntregaRetirada, RegraFreteBairro
 from .providers import (
     CepNaoEncontradoError,
     EnderecoInterpretado,
@@ -20,11 +20,7 @@ from .providers import (
     GoogleRoutesRotaProvider,
     RotaProviderError,
 )
-from .services import (
-    ConfiguracaoTaxaAusenteError,
-    DistanciaInvalidaError,
-    TaxaEntregaRetiradaService,
-)
+from .services import TaxaEntregaRetiradaService
 
 
 ENDERECO_DESTINO = {
@@ -283,143 +279,136 @@ class GoogleRoutesRotaProviderTests(TestCase):
                         )
 
 
+
+class RegraFreteBairroModelTests(TestCase):
+    def test_normaliza_cidade_bairro_e_uf_ao_salvar(self):
+        regra = RegraFreteBairro.objects.create(
+            uf="rs",
+            cidade="  Guaíba ",
+            bairro="Parque 35",
+            valor_taxa=Decimal("25.00"),
+        )
+
+        self.assertEqual(regra.uf, "RS")
+        self.assertEqual(regra.cidade_normalizada, "guaiba")
+        self.assertEqual(regra.bairro_normalizado, "parque 35")
+
+    def test_valor_zero_e_salvo_como_nulo(self):
+        regra = RegraFreteBairro.objects.create(
+            uf="RS",
+            cidade="Guaiba",
+            bairro="Centro",
+            valor_taxa=Decimal("0.00"),
+        )
+
+        self.assertIsNone(regra.valor_taxa)
+
+
 class TaxaEntregaRetiradaServiceTests(TestCase):
-    def test_service_usa_decimal_e_arredonda_corretamente(self):
-        criar_configuracao(valor_por_km=Decimal("2.55"))
-        service = TaxaEntregaRetiradaService(
-            cep_provider=FakeCepProvider(ENDERECO_DESTINO),
-            rota_provider=FakeRotaProvider(Decimal("1.005")),
-        )
-
-        resultado = service.calcular("01001-000", "123")
-
-        self.assertEqual(resultado["distancia_ida_km"], Decimal("1.01"))
-        self.assertEqual(resultado["distancia_total_km"], Decimal("2.01"))
-        self.assertEqual(resultado["valor_por_km"], Decimal("2.55"))
-        self.assertEqual(resultado["taxa"], Decimal("5.13"))
-
-    def test_service_erro_se_nao_existir_configuracao_ativa(self):
-        service = TaxaEntregaRetiradaService(
-            cep_provider=FakeCepProvider(ENDERECO_DESTINO),
-            rota_provider=FakeRotaProvider(Decimal("8.00")),
-        )
-
-        with self.assertRaises(ConfiguracaoTaxaAusenteError):
-            service.calcular("01001000", "123")
-
-    def test_service_erro_para_endereco_incompleto(self):
-        criar_configuracao()
-        endereco_incompleto = {
-            "cep": "01001000",
-            "logradouro": "",
-            "bairro": "Se",
-            "cidade": "Sao Paulo",
+    def criar_regra(self, valor_taxa=Decimal("25.00"), **extra):
+        dados = {
             "uf": "SP",
+            "cidade": "São Paulo",
+            "bairro": "Sé",
+            "valor_taxa": valor_taxa,
+            "ativo": True,
         }
-        service = TaxaEntregaRetiradaService(
-            cep_provider=FakeCepProvider(endereco_incompleto),
-            rota_provider=FakeRotaProvider(Decimal("8.00")),
+        dados.update(extra)
+        return RegraFreteBairro.objects.create(**dados)
+
+    def criar_service(self, endereco=None, rota_provider=None):
+        return TaxaEntregaRetiradaService(
+            cep_provider=FakeCepProvider(endereco or ENDERECO_DESTINO),
+            rota_provider=rota_provider,
         )
+
+    def test_bairro_com_valor_retorna_taxa_sem_consultar_google_routes(self):
+        self.criar_regra()
+        rota_provider = FakeRotaProvider(erro=AssertionError("Google nao deve ser chamado"))
+
+        resultado = self.criar_service(rota_provider=rota_provider).calcular(
+            "01001000", "123"
+        )
+
+        self.assertEqual(resultado["status"], "calculada")
+        self.assertEqual(resultado["taxa"], Decimal("25.00"))
+        self.assertIsNone(resultado["distancia_ida_km"])
+        self.assertIsNone(resultado["valor_por_km"])
+
+    def test_normaliza_acentos_e_maiusculas_na_busca(self):
+        self.criar_regra(cidade="SÃO PAULO", bairro="SÉ")
+
+        resultado = self.criar_service().calcular("01001000", "123")
+
+        self.assertEqual(resultado["status"], "calculada")
+        self.assertEqual(resultado["taxa"], Decimal("25.00"))
+
+    def test_bairro_sem_valor_retorna_frete_a_confirmar(self):
+        self.criar_regra(valor_taxa=None)
+
+        resultado = self.criar_service().calcular("01001000", "123")
+
+        self.assertEqual(resultado["status"], "a_confirmar")
+        self.assertIsNone(resultado["taxa"])
+
+    def test_bairro_nao_cadastrado_retorna_sujeito_a_analise(self):
+        resultado = self.criar_service().calcular("01001000", "123")
+
+        self.assertEqual(resultado["status"], "sujeita_analise")
+        self.assertIsNone(resultado["taxa"])
+
+    def test_regra_inativa_nao_e_usada(self):
+        self.criar_regra(ativo=False)
+
+        resultado = self.criar_service().calcular("01001000", "123")
+
+        self.assertEqual(resultado["status"], "sujeita_analise")
+        self.assertIsNone(resultado["taxa"])
+
+    def test_endereco_incompleto_continua_bloqueando(self):
+        endereco = {**ENDERECO_DESTINO, "logradouro": ""}
 
         with self.assertRaises(EnderecoIncompletoError):
-            service.calcular("01001000", "123")
-
-    def test_service_erro_para_distancia_zero_negativa_ou_inconsistente(self):
-        criar_configuracao()
-        distancias_invalidas = [Decimal("0.00"), Decimal("-1.00"), "abc"]
-
-        for distancia in distancias_invalidas:
-            with self.subTest(distancia=distancia):
-                service = TaxaEntregaRetiradaService(
-                    cep_provider=FakeCepProvider(ENDERECO_DESTINO),
-                    rota_provider=FakeRotaProvider(distancia),
-                )
-
-                with self.assertRaises(DistanciaInvalidaError):
-                    service.calcular("01001000", "123")
+            self.criar_service(endereco=endereco).calcular("01001000", "123")
 
 
 class CalcularTaxaEntregaRetiradaAPITests(APITestCase):
     url = "/api/taxa-entrega-retirada/calcular/"
 
-    def setUp(self):
-        criar_configuracao(valor_por_km=Decimal("3.00"))
-
-    def mockar_providers(self, cep_provider=None, rota_provider=None):
-        cep_provider = cep_provider or FakeCepProvider(ENDERECO_DESTINO)
-        rota_provider = rota_provider or FakeRotaProvider(Decimal("8.00"))
-        patch_cep = patch("entregas.services.CepProvider", return_value=cep_provider)
-        patch_rota = patch("entregas.services.RotaProvider", return_value=rota_provider)
-        return patch_cep, patch_rota
-
-    def test_endpoint_calcula_taxa_com_ida_e_volta(self):
-        patch_cep, patch_rota = self.mockar_providers()
-        with patch_cep, patch_rota:
-            response = self.client.post(
+    def postar(self, cep="01001000", numero="123"):
+        with patch(
+            "entregas.services.CepProvider",
+            return_value=FakeCepProvider(ENDERECO_DESTINO),
+        ):
+            return self.client.post(
                 self.url,
-                {
-                    "cep": "01001-000",
-                    "numero": "123",
-                    "complemento": "Apto 45",
-                },
+                {"cep": cep, "numero": numero},
                 format="json",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["nome"], "Taxa de entrega e retirada")
-        self.assertEqual(response.data["distancia_ida_km"], "8.00")
-        self.assertEqual(response.data["distancia_total_km"], "16.00")
-        self.assertEqual(response.data["valor_por_km"], "3.00")
-        self.assertEqual(response.data["taxa"], "48.00")
-        self.assertEqual(
-            response.data["endereco_interpretado"],
-            {
-                "cep": "01001000",
-                "logradouro": "Praca da Se",
-                "numero": "123",
-                "complemento": "Apto 45",
-                "bairro": "Se",
-                "cidade": "Sao Paulo",
-                "uf": "SP",
-            },
+    def test_endpoint_retorna_taxa_do_bairro(self):
+        RegraFreteBairro.objects.create(
+            uf="SP",
+            cidade="Sao Paulo",
+            bairro="Se",
+            valor_taxa=Decimal("31.50"),
         )
 
-    def test_frontend_nao_consegue_forjar_distancia_taxa_ou_valor_por_km(self):
-        patch_cep, patch_rota = self.mockar_providers()
-        with patch_cep, patch_rota:
-            response = self.client.post(
-                self.url,
-                {
-                    "cep": "01001000",
-                    "numero": "123",
-                    "distancia_ida_km": "1.00",
-                    "distancia_total_km": "2.00",
-                    "valor_por_km": "0.01",
-                    "taxa": "0.02",
-                    "frete": "0.02",
-                    "preco": "0.02",
-                },
-                format="json",
-            )
+        response = self.postar()
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("detail", response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "calculada")
+        self.assertEqual(response.data["taxa"], "31.50")
+        self.assertIsNone(response.data["distancia_ida_km"])
 
-    def test_endpoint_erro_se_nao_existir_configuracao_ativa(self):
-        ConfiguracaoTaxaEntregaRetirada.objects.all().delete()
-        patch_cep, patch_rota = self.mockar_providers()
+    def test_endpoint_sem_regra_nao_bloqueia(self):
+        response = self.postar()
 
-        with patch_cep, patch_rota:
-            response = self.client.post(
-                self.url,
-                {"cep": "01001000", "numero": "123"},
-                format="json",
-            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "sujeita_analise")
+        self.assertIsNone(response.data["taxa"])
 
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertIn("Configuracao ativa", response.data["detail"])
-
-    def test_endpoint_erro_para_cep_invalido(self):
+    def test_endpoint_rejeita_cep_invalido(self):
         response = self.client.post(
             self.url,
             {"cep": "123", "numero": "123"},
@@ -429,12 +418,11 @@ class CalcularTaxaEntregaRetiradaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("cep", response.data)
 
-    def test_endpoint_erro_para_cep_nao_encontrado(self):
-        patch_cep, patch_rota = self.mockar_providers(
-            cep_provider=FakeCepProvider(erro=CepNaoEncontradoError())
-        )
-
-        with patch_cep, patch_rota:
+    def test_endpoint_rejeita_cep_nao_encontrado(self):
+        with patch(
+            "entregas.services.CepProvider",
+            return_value=FakeCepProvider(erro=CepNaoEncontradoError()),
+        ):
             response = self.client.post(
                 self.url,
                 {"cep": "01001000", "numero": "123"},
@@ -444,63 +432,17 @@ class CalcularTaxaEntregaRetiradaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["detail"], "CEP nao encontrado.")
 
-    def test_endpoint_erro_para_endereco_incompleto(self):
-        patch_cep, patch_rota = self.mockar_providers(
-            cep_provider=FakeCepProvider(
-                {
-                    "cep": "01001000",
-                    "logradouro": "",
-                    "bairro": "Se",
-                    "cidade": "Sao Paulo",
-                    "uf": "SP",
-                }
-            )
+    def test_frontend_nao_consegue_forjar_taxa(self):
+        response = self.client.post(
+            self.url,
+            {
+                "cep": "01001000",
+                "numero": "123",
+                "taxa": "0.01",
+                "frete": "0.01",
+            },
+            format="json",
         )
-
-        with patch_cep, patch_rota:
-            response = self.client.post(
-                self.url,
-                {"cep": "01001000", "numero": "123"},
-                format="json",
-            )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["detail"],
-            "Endereco incompleto para calcular a taxa.",
-        )
-
-    def test_endpoint_erro_quando_provider_de_rota_falha(self):
-        patch_cep, patch_rota = self.mockar_providers(
-            rota_provider=FakeRotaProvider(erro=RotaProviderError())
-        )
-
-        with patch_cep, patch_rota:
-            response = self.client.post(
-                self.url,
-                {"cep": "01001000", "numero": "123"},
-                format="json",
-            )
-
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertEqual(
-            response.data["detail"],
-            "Nao foi possivel calcular a rota para este endereco.",
-        )
-
-    def test_endpoint_erro_para_distancia_zero_negativa_ou_inconsistente(self):
-        for distancia in [Decimal("0.00"), Decimal("-1.00"), "abc"]:
-            with self.subTest(distancia=distancia):
-                patch_cep, patch_rota = self.mockar_providers(
-                    rota_provider=FakeRotaProvider(distancia)
-                )
-
-                with patch_cep, patch_rota:
-                    response = self.client.post(
-                        self.url,
-                        {"cep": "01001000", "numero": "123"},
-                        format="json",
-                    )
-
-                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-                self.assertEqual(response.data["detail"], "Distancia de entrega invalida.")
+        self.assertIn("detail", response.data)

@@ -46,7 +46,18 @@ class CalcularTaxaEntregaRetiradaSerializer(serializers.Serializer):
 class ResultadoTaxaEntregaRetiradaSerializer(serializers.Serializer):
     nome = serializers.CharField()
     endereco_interpretado = serializers.DictField()
-    distancia_ida_km = serializers.DecimalField(max_digits=10, decimal_places=2)
-    distancia_total_km = serializers.DecimalField(max_digits=10, decimal_places=2)
-    valor_por_km = serializers.DecimalField(max_digits=8, decimal_places=2)
-    taxa = serializers.DecimalField(max_digits=10, decimal_places=2)
+    status = serializers.ChoiceField(
+        choices=("calculada", "a_confirmar", "sujeita_analise")
+    )
+    distancia_ida_km = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    distancia_total_km = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    valor_por_km = serializers.DecimalField(
+        max_digits=8, decimal_places=2, allow_null=True
+    )
+    taxa = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )

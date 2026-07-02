@@ -7,17 +7,12 @@ from .providers import (
     CepInvalidoError,
     CepNaoEncontradoError,
     EnderecoIncompletoError,
-    RotaProviderError,
 )
 from .serializers import (
     CalcularTaxaEntregaRetiradaSerializer,
     ResultadoTaxaEntregaRetiradaSerializer,
 )
-from .services import (
-    ConfiguracaoTaxaAusenteError,
-    DistanciaInvalidaError,
-    TaxaEntregaRetiradaService,
-)
+from .services import TaxaEntregaRetiradaService
 
 
 class CalcularTaxaEntregaRetiradaView(APIView):
@@ -36,19 +31,6 @@ class CalcularTaxaEntregaRetiradaView(APIView):
             return self._erro("CEP nao encontrado.")
         except EnderecoIncompletoError:
             return self._erro("Endereco incompleto para calcular a taxa.")
-        except ConfiguracaoTaxaAusenteError:
-            return self._erro(
-                "Configuracao ativa da taxa de entrega e retirada ausente.",
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except RotaProviderError:
-            return self._erro(
-                "Nao foi possivel calcular a rota para este endereco.",
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except DistanciaInvalidaError:
-            return self._erro("Distancia de entrega invalida.")
-
         response_serializer = ResultadoTaxaEntregaRetiradaSerializer(resultado)
         return Response(response_serializer.data)
 
