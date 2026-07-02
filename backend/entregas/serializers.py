@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from .models import RegraFreteBairro, normalizar_localidade
+
 
 class CalcularTaxaEntregaRetiradaSerializer(serializers.Serializer):
     cep = serializers.CharField(max_length=9)
@@ -61,3 +63,67 @@ class ResultadoTaxaEntregaRetiradaSerializer(serializers.Serializer):
     taxa = serializers.DecimalField(
         max_digits=10, decimal_places=2, allow_null=True
     )
+
+
+class RegraFreteBairroAdminSerializer(serializers.ModelSerializer):
+    status_taxa = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RegraFreteBairro
+        fields = (
+            "id",
+            "uf",
+            "cidade",
+            "bairro",
+            "valor_taxa",
+            "status_taxa",
+            "ativo",
+            "observacao",
+            "criado_em",
+            "atualizado_em",
+        )
+        read_only_fields = ("id", "status_taxa", "criado_em", "atualizado_em")
+
+    def get_status_taxa(self, obj):
+        return "calculada" if obj.valor_taxa is not None and obj.valor_taxa > 0 else "a_confirmar"
+
+    def validate_uf(self, value):
+        uf = str(value or "").strip().upper()
+        if len(uf) != 2 or not uf.isalpha():
+            raise serializers.ValidationError("Informe uma UF valida com 2 letras.")
+        return uf
+
+    def validate_cidade(self, value):
+        cidade = " ".join(str(value or "").strip().split())
+        if not cidade:
+            raise serializers.ValidationError("Cidade e obrigatoria.")
+        return cidade
+
+    def validate_bairro(self, value):
+        bairro = " ".join(str(value or "").strip().split())
+        if not bairro:
+            raise serializers.ValidationError("Bairro e obrigatorio.")
+        return bairro
+
+    def validate_valor_taxa(self, value):
+        if value is None or value <= 0:
+            return None
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        uf = attrs.get("uf", getattr(self.instance, "uf", ""))
+        cidade = attrs.get("cidade", getattr(self.instance, "cidade", ""))
+        bairro = attrs.get("bairro", getattr(self.instance, "bairro", ""))
+        regras_iguais = RegraFreteBairro.objects.filter(
+            uf=str(uf).strip().upper(),
+            cidade_normalizada=normalizar_localidade(cidade),
+            bairro_normalizado=normalizar_localidade(bairro),
+        )
+        if self.instance:
+            regras_iguais = regras_iguais.exclude(pk=self.instance.pk)
+        if regras_iguais.exists():
+            raise serializers.ValidationError(
+                {"bairro": "Ja existe uma regra para esta UF, cidade e bairro."}
+            )
+        return attrs

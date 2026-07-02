@@ -5,6 +5,7 @@ from urllib.error import HTTPError
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from rest_framework import status
@@ -446,3 +447,143 @@ class CalcularTaxaEntregaRetiradaAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("detail", response.data)
+
+
+class RegraFreteBairroAdminAPITests(APITestCase):
+    url = "/api/admin/regras-frete-bairro/"
+
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_user(
+            username="admin-frete",
+            password="senha-segura",
+            is_staff=True,
+        )
+        self.usuario = User.objects.create_user(
+            username="cliente-frete",
+            password="senha-segura",
+        )
+
+    def autenticar_admin(self):
+        self.client.force_authenticate(user=self.admin)
+
+    def payload(self, **extra):
+        dados = {
+            "uf": "RS",
+            "cidade": "Guaiba",
+            "bairro": "Centro",
+            "valor_taxa": Decimal("25.00"),
+            "ativo": True,
+            "observacao": "Entrega em horario comercial",
+        }
+        dados.update(extra)
+        return dados
+
+    def test_admin_lista_regras(self):
+        regra = RegraFreteBairro.objects.create(**self.payload())
+        self.autenticar_admin()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["id"], regra.id)
+        self.assertEqual(response.data[0]["status_taxa"], "calculada")
+
+    def test_admin_cria_regra(self):
+        self.autenticar_admin()
+
+        response = self.client.post(self.url, self.payload(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        regra = RegraFreteBairro.objects.get(pk=response.data["id"])
+        self.assertEqual(regra.uf, "RS")
+        self.assertEqual(regra.valor_taxa, Decimal("25.00"))
+
+    def test_admin_edita_regra(self):
+        regra = RegraFreteBairro.objects.create(**self.payload())
+        self.autenticar_admin()
+
+        response = self.client.patch(
+            f"{self.url}{regra.id}/",
+            {"cidade": "Porto Alegre", "bairro": "Menino Deus", "observacao": "Nova rota"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        regra.refresh_from_db()
+        self.assertEqual(regra.cidade, "Porto Alegre")
+        self.assertEqual(regra.bairro, "Menino Deus")
+        self.assertEqual(regra.observacao, "Nova rota")
+
+    def test_admin_ativa_e_desativa_regra(self):
+        regra = RegraFreteBairro.objects.create(**self.payload())
+        self.autenticar_admin()
+
+        response = self.client.patch(
+            f"{self.url}{regra.id}/", {"ativo": False}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ativo"])
+
+        response = self.client.patch(
+            f"{self.url}{regra.id}/", {"ativo": True}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ativo"])
+
+    def test_admin_remove_regra(self):
+        regra = RegraFreteBairro.objects.create(**self.payload())
+        self.autenticar_admin()
+
+        response = self.client.delete(f"{self.url}{regra.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(RegraFreteBairro.objects.filter(pk=regra.id).exists())
+
+    def test_usuario_nao_admin_nao_consegue_listar_criar_ou_editar(self):
+        regra = RegraFreteBairro.objects.create(**self.payload())
+        self.client.force_authenticate(user=self.usuario)
+
+        respostas = (
+            self.client.get(self.url),
+            self.client.post(self.url, self.payload(bairro="Outro"), format="json"),
+            self.client.patch(f"{self.url}{regra.id}/", {"ativo": False}, format="json"),
+        )
+
+        for response in respostas:
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_valor_zero_ou_vazio_e_tratado_como_a_confirmar(self):
+        self.autenticar_admin()
+
+        resposta_zero = self.client.post(
+            self.url, self.payload(valor_taxa="0.00"), format="json"
+        )
+        resposta_vazia = self.client.post(
+            self.url,
+            self.payload(cidade="Porto Alegre", bairro="Centro Historico", valor_taxa=None),
+            format="json",
+        )
+
+        self.assertEqual(resposta_zero.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(resposta_zero.data["valor_taxa"])
+        self.assertEqual(resposta_zero.data["status_taxa"], "a_confirmar")
+        self.assertEqual(resposta_vazia.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(resposta_vazia.data["valor_taxa"])
+
+    def test_regra_criada_no_admin_e_usada_no_calculo(self):
+        self.autenticar_admin()
+        response = self.client.post(
+            self.url,
+            self.payload(uf="SP", cidade="Sao Paulo", bairro="Se", valor_taxa="31.50"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        resultado = TaxaEntregaRetiradaService(
+            cep_provider=FakeCepProvider(ENDERECO_DESTINO)
+        ).calcular("01001000", "123")
+
+        self.assertEqual(resultado["status"], "calculada")
+        self.assertEqual(resultado["taxa"], Decimal("31.50"))
