@@ -208,16 +208,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <AdminSidebar />
 
       <div className="pl-64 flex flex-col min-h-screen">
-        <header className="h-14 bg-white border-b border-zinc-200 px-6 flex items-center justify-between sticky top-0 z-20">
-        <div className="relative h-8 w-40">
-          <Image
-            src="/logo-babyplays-header.png"
-            alt="Logo BabyPlays"
-            fill
-            className="object-contain"
-            priority
-          />
-        </div>
+        <header className="h-20 bg-white border-b border-zinc-200 px-6 flex items-center justify-between sticky top-0 z-20">
+          <span className="relative block h-16 w-12 overflow-hidden">
+            <Image
+              src="/assets/LogoComEscrita.jpg"
+              alt="BabyPlays - Locação de brinquedos"
+              width={1275}
+              height={990}
+              sizes="97px"
+              className="absolute left-1/2 top-1/2 h-[75px] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+              priority
+            />
+          </span>
 
           <div className="flex items-center gap-3">
             <div className="flex flex-col text-right">
