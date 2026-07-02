@@ -992,7 +992,7 @@ class BrinquedoAPITests(APITestCase):
 
         response = self.client.get(self.brinquedos_url)
 
-        self.assertEqual(response.data[0]["quantidade_disponivel"], 1)
+        self.assertNotIn("quantidade_disponivel", response.data[0])
         self.assertTrue(response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(response.data[0]["status_catalogo"], "disponivel")
         self.assertEqual(response.data[0]["status_catalogo_label"], "Disponivel")
@@ -1070,7 +1070,7 @@ class BrinquedoAPITests(APITestCase):
 
         response = self.client.get(self.brinquedos_url)
 
-        self.assertEqual(response.data[0]["quantidade_disponivel"], 0)
+        self.assertNotIn("quantidade_disponivel", response.data[0])
         self.assertFalse(response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(response.data[0]["status_catalogo"], "alugado")
 
@@ -1354,12 +1354,11 @@ class BrinquedoAPITests(APITestCase):
         )
         self.assertEqual(response.data["quantidade_disponivel"], 0)
 
-    def test_brinquedo_sem_unidades_disponiveis_retorna_quantidade_zero(self):
+    def test_api_publica_detalhe_nao_expoe_quantidade_disponivel(self):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 0)
-        self.assertIn("quantidade_disponivel", response.data)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
     def test_brinquedo_com_multiplas_unidades_disponiveis_conta_corretamente(self):
         UnidadeBrinquedo.objects.create(
@@ -1376,7 +1375,7 @@ class BrinquedoAPITests(APITestCase):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 2)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
     def test_unidades_indisponiveis_nao_contam_como_disponiveis(self):
         status_indisponiveis = [
@@ -1397,9 +1396,9 @@ class BrinquedoAPITests(APITestCase):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 0)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
-    def test_quantidade_disponivel_continua_sendo_exibida_para_brinquedo_ativo(self):
+    def test_quantidade_disponivel_nao_e_exibida_para_brinquedo_ativo(self):
         UnidadeBrinquedo.objects.create(
             brinquedo=self.brinquedo,
             codigo="PISCINA-ATIVO-001",
@@ -1409,7 +1408,7 @@ class BrinquedoAPITests(APITestCase):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 1)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
     def test_quantidade_disponivel_nao_depende_de_brinquedo_ativo(self):
         self.brinquedo.ativo = False
@@ -2346,7 +2345,7 @@ class KitPersonalizavelAPITests(APITestCase):
         self.assertEqual(brinquedos[0]["id"], self.brinquedo_grande.id)
         self.assertEqual(brinquedos[0]["preco_aluguel"], "220.00")
         self.assertTrue(brinquedos[0]["permite_diaria"])
-        self.assertIn("quantidade_disponivel", brinquedos[0])
+        self.assertNotIn("quantidade_disponivel", brinquedos[0])
 
     def test_api_publica_retorna_brinquedos_elegiveis_no_modo_brinquedos(self):
         self.configuracao.modo_elegibilidade = (

@@ -62,7 +62,7 @@ export type BrinquedoCatalogo = {
   status_catalogo?: "disponivel" | "indisponivel" | "alugado";
   status_catalogo_label?: "Disponivel" | "Alugado";
   categoria: CategoriaResumo | null;
-  quantidade_disponivel: number;
+  quantidade_disponivel?: number;
   imagem_principal: ImagemBrinquedo | null;
   imagens: ImagemBrinquedo[];
 };

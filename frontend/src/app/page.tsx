@@ -274,7 +274,7 @@ export default function Home() {
   const [errors, setErrors] = useState<CatalogoError>(initialErrors);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("todos");
-  const [onlyAvailable, setOnlyAvailable] = useState(true);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   
   const [brinquedoScrollState, setBrinquedoScrollState] = useState(initialCarouselScrollState);
   const [kitsScrollState, setKitsScrollState] = useState(initialCarouselScrollState);
@@ -436,7 +436,6 @@ export default function Home() {
                               descricao={brinquedo.descricao}
                               periodosDisponiveis={brinquedo.periodos_disponiveis}
                               categoriaNome={brinquedo.categoria?.nome}
-                              quantidadeDisponivel={brinquedo.quantidade_disponivel}
                               disponivelParaCarrinho={brinquedo.disponivel_para_carrinho === true}
                               statusCatalogo={brinquedo.status_catalogo ?? "alugado"}
                               imagemUrl={resolveMediaUrl(imagem?.url)}

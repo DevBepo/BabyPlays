@@ -17,7 +17,6 @@ interface ProductCardProps {
   descricao: string;
   periodosDisponiveis: PeriodoLocacaoDisponivel[];
   categoriaNome?: string;
-  quantidadeDisponivel: number;
   disponivelParaCarrinho: boolean;
   statusCatalogo: "disponivel" | "indisponivel" | "alugado";
   imagemUrl?: string | null;
@@ -53,7 +52,6 @@ export function ProductCard({
   descricao,
   periodosDisponiveis,
   categoriaNome,
-  quantidadeDisponivel,
   disponivelParaCarrinho,
   statusCatalogo,
   imagemUrl,
@@ -75,8 +73,7 @@ export function ProductCard({
   );
   const hasPeriodOptions = periodosDisponiveis.length > 0;
   const periodoEfetivo = periodoAtual?.tipo;
-  const hasStock = quantidadeDisponivel > 0;
-  const isAvailable = disponivelParaCarrinho && hasStock && hasPeriodOptions;
+  const isAvailable = disponivelParaCarrinho && hasPeriodOptions;
   const isManuallyUnavailable = statusCatalogo === "indisponivel";
 
   const handleAddToCart = async () => {
@@ -158,7 +155,7 @@ export function ProductCard({
           {categoriaNome || descricao}
         </p>
 
-        <div className="mt-3 flex items-end justify-between gap-3">
+        <div className="mt-3 flex items-end gap-3">
           <div>
             <p className="text-lg font-black leading-none text-[#2C1615]">
               {periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}
@@ -167,9 +164,6 @@ export function ProductCard({
               por periodo
             </p>
           </div>
-          <p className="text-right text-[11px] font-medium leading-4 text-zinc-500">
-            {quantidadeDisponivel} unid.
-          </p>
         </div>
 
         <div className="mt-auto pt-3">

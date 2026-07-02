@@ -105,7 +105,6 @@ class ImagemBrinquedoPublicSerializer(serializers.ModelSerializer):
 
 
 class BrinquedoPublicSerializer(serializers.ModelSerializer):
-    quantidade_disponivel = serializers.SerializerMethodField()
     exibir_no_catalogo = serializers.BooleanField(source="ativo", read_only=True)
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
@@ -132,17 +131,10 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "disponivel_para_carrinho",
             "status_catalogo",
             "status_catalogo_label",
-            "quantidade_disponivel",
             "imagem_principal",
             "imagens",
         )
         read_only_fields = fields
-
-    def get_quantidade_disponivel(self, obj):
-        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
-        if quantidade_anotada is not None:
-            return quantidade_anotada
-        return BrinquedoService.quantidade_disponivel(obj)
 
     def get_disponivel_para_carrinho(self, obj):
         return BrinquedoService.disponivel_para_locacao_avulsa(obj)
@@ -337,8 +329,6 @@ class BrinquedoKitResumoSerializer(serializers.ModelSerializer):
 
 
 class BrinquedoElegivelKitPersonalizavelSerializer(BrinquedoKitResumoSerializer):
-    quantidade_disponivel = serializers.SerializerMethodField()
-
     class Meta:
         model = Brinquedo
         fields = (
@@ -351,15 +341,8 @@ class BrinquedoElegivelKitPersonalizavelSerializer(BrinquedoKitResumoSerializer)
             "preco_30_dias",
             "permite_diaria",
             "imagem_principal",
-            "quantidade_disponivel",
         )
         read_only_fields = fields
-
-    def get_quantidade_disponivel(self, obj):
-        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
-        if quantidade_anotada is not None:
-            return quantidade_anotada
-        return BrinquedoService.quantidade_disponivel(obj)
 
 
 class ItemKitFestaPublicSerializer(serializers.ModelSerializer):

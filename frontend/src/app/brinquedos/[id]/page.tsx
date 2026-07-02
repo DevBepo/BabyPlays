@@ -49,6 +49,7 @@ function BrinquedoDetalheContent() {
   const [periodoSelecionado, setPeriodoSelecionado] = useState<PeriodoLocacao>("15_dias");
   const [adicionando, setAdicionando] = useState(false);
   const [registrandoInteresse, setRegistrandoInteresse] = useState(false);
+  const [imagemSelecionadaId, setImagemSelecionadaId] = useState<number | null>(null);
 
   useEffect(() => {
     async function carregarBrinquedo() {
@@ -66,6 +67,7 @@ function BrinquedoDetalheContent() {
           setNotFound(true);
         } else {
           setBrinquedo(encontrado);
+          setImagemSelecionadaId(encontrado.imagem_principal?.id ?? encontrado.imagens[0]?.id ?? null);
           // Se houver períodos disponíveis, usar o primeiro; caso contrário, usar o padrão
           if (encontrado.periodos_disponiveis.length > 0) {
             const tipoPrimeiro = encontrado.periodos_disponiveis[0].tipo as PeriodoLocacao;
@@ -87,14 +89,15 @@ function BrinquedoDetalheContent() {
     (p) => p.tipo === periodoSelecionado,
   ) ?? brinquedo?.periodos_disponiveis[0];
 
+  const imagens = brinquedo?.imagens.filter((item) => item.url) ?? [];
   const imagem =
+    imagens.find((item) => item.id === imagemSelecionadaId) ??
     brinquedo?.imagem_principal ??
-    brinquedo?.imagens.find((item) => item.url) ??
+    imagens[0] ??
     null;
   const imagemUrl = resolveMediaUrl(imagem?.url);
   const hasPeriodOptions = (brinquedo?.periodos_disponiveis.length ?? 0) > 0;
-  const hasStock = (brinquedo?.quantidade_disponivel ?? 0) > 0;
-  const isAvailable = brinquedo?.disponivel_para_carrinho === true && hasStock && hasPeriodOptions;
+  const isAvailable = brinquedo?.disponivel_para_carrinho === true && hasPeriodOptions;
   const isManuallyUnavailable = brinquedo?.status_catalogo === "indisponivel";
 
   const handleAddToCart = async () => {
@@ -169,7 +172,7 @@ function BrinquedoDetalheContent() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FA] px-4 py-8">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-6xl">
         <Button
           type="button"
           variant="ghost"
@@ -185,20 +188,53 @@ function BrinquedoDetalheContent() {
           </div>
         )}
 
-        <div className="grid gap-8 md:grid-cols-2">
-          {/* Imagem */}
-          <div className="flex items-center justify-center rounded-lg bg-white p-6 shadow-sm">
-            {imagemUrl ? (
-              <Image
-                src={imagemUrl}
-                alt={imagem?.alt_text || brinquedo.nome}
-                width={400}
-                height={400}
-                className="max-h-96 w-full object-contain"
-              />
-            ) : (
-              <div className="flex h-96 w-full items-center justify-center border-2 border-dashed border-zinc-200 bg-zinc-50 text-sm text-zinc-400">
-                Sem imagem disponivel
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+          <div>
+            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-8">
+              {imagemUrl ? (
+                <Image
+                  src={imagemUrl}
+                  alt={imagem?.alt_text || brinquedo.nome}
+                  width={720}
+                  height={720}
+                  className="h-full w-full object-contain"
+                  priority
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-dashed border-[#FAB555]/50 bg-[#FFF8EC] text-sm font-medium text-zinc-400">
+                  Sem imagem disponivel
+                </div>
+              )}
+            </div>
+
+            {imagens.length > 1 && (
+              <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-5" aria-label="Galeria de imagens">
+                {imagens.map((item) => {
+                  const itemUrl = resolveMediaUrl(item.url);
+                  const selecionada = item.id === imagem?.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setImagemSelecionadaId(item.id)}
+                      aria-label={`Ver imagem: ${item.alt_text || brinquedo.nome}`}
+                      aria-pressed={selecionada}
+                      className={`aspect-square overflow-hidden rounded-xl border-2 bg-white p-1 transition-colors ${
+                        selecionada ? "border-[#AB2E97]" : "border-transparent hover:border-[#76CFC8]"
+                      }`}
+                    >
+                      {itemUrl && (
+                        <Image
+                          src={itemUrl}
+                          alt={item.alt_text || brinquedo.nome}
+                          width={144}
+                          height={144}
+                          className="h-full w-full object-contain"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -214,9 +250,6 @@ function BrinquedoDetalheContent() {
                     Alugado
                   </Badge>
                 )}
-                <span className="text-xs font-medium text-zinc-500">
-                  {brinquedo.quantidade_disponivel} unidade{brinquedo.quantidade_disponivel === 1 ? "" : "s"}
-                </span>
               </div>
 
               <h1 className="text-3xl font-bold text-zinc-900">{brinquedo.nome}</h1>
