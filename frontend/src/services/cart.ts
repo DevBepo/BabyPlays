@@ -10,7 +10,7 @@ export interface ItemCarrinho {
   subtotal_snapshot: string;
   snapshot: {
     periodo_locacao?: {
-      tipo: "15_dias" | "30_dias" | "diaria";
+      tipo: "3_dias" | "15_dias" | "30_dias" | "diaria";
       label: string;
       dias: number;
       preco?: string;
@@ -35,7 +35,7 @@ export function adicionarAoCarrinho(dados: {
   kit_festa_id?: number;
   configuracao_id?: number;
   quantidade: number;
-  periodo_locacao?: "15_dias" | "30_dias" | "diaria";
+  periodo_locacao?: "3_dias" | "15_dias" | "30_dias" | "diaria";
 }): Promise<ItemCarrinho> {
   return apiPost<ItemCarrinho>("/api/carrinho/itens/", dados);
 }

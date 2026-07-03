@@ -92,11 +92,13 @@ class ItemSelecaoKitPersonalizadoCarrinhoSerializer(serializers.Serializer):
 
 class AdicionarItemCarrinhoSerializer(serializers.Serializer):
     class PeriodoLocacao:
+        TRES_DIAS = "3_dias"
         QUINZE_DIAS = "15_dias"
         TRINTA_DIAS = "30_dias"
         DIARIA = "diaria"
 
         choices = (
+            (TRES_DIAS, "3 dias"),
             (QUINZE_DIAS, "15 dias"),
             (TRINTA_DIAS, "30 dias"),
             (DIARIA, "Diaria"),

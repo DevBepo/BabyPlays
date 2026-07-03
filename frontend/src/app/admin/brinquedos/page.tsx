@@ -57,6 +57,7 @@ type BrinquedoFormState = {
   descricao: string;
   categoria: string;
   preco_diaria: string;
+  preco_3_dias: string;
   preco_15_dias: string;
   preco_30_dias: string;
   ativo: boolean;
@@ -68,6 +69,7 @@ const initialForm: BrinquedoFormState = {
   descricao: "",
   categoria: "",
   preco_diaria: "",
+  preco_3_dias: "",
   preco_15_dias: "",
   preco_30_dias: "",
   ativo: true,
@@ -106,6 +108,7 @@ function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
     descricao: brinquedo.descricao,
     categoria: brinquedo.categoria ? String(brinquedo.categoria.id) : "",
     preco_diaria: brinquedo.preco_diaria ?? "",
+    preco_3_dias: brinquedo.preco_3_dias ?? "",
     preco_15_dias: brinquedo.preco_15_dias ?? "",
     preco_30_dias: brinquedo.preco_30_dias ?? "",
     ativo: brinquedo.ativo !== false,
@@ -444,6 +447,7 @@ export default function ListaBrinquedosAdmin() {
       descricao: form.descricao,
       categoria: Number(form.categoria),
       preco_diaria: form.preco_diaria || null,
+      preco_3_dias: form.preco_3_dias || null,
       preco_15_dias: form.preco_15_dias || null,
       preco_30_dias: form.preco_30_dias || null,
       ativo: form.ativo,
@@ -654,6 +658,20 @@ export default function ListaBrinquedosAdmin() {
                   }))
                 }
                 error={erroCampo(fieldErrors, "preco_diaria")}
+              />
+              <Input
+                label="3 dias (R$)"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.preco_3_dias}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    preco_3_dias: event.target.value,
+                  }))
+                }
+                error={erroCampo(fieldErrors, "preco_3_dias")}
               />
               <Input
                 label="15 dias (R$)"
@@ -1015,6 +1033,7 @@ export default function ListaBrinquedosAdmin() {
                         </div>
                         {[
                           ["Diária", brinquedo.preco_diaria],
+                          ["3 dias", brinquedo.preco_3_dias],
                           ["15 dias", brinquedo.preco_15_dias],
                           ["30 dias", brinquedo.preco_30_dias],
                         ].map(([label, valor]) => (

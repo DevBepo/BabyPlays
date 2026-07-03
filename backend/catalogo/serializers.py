@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -18,7 +20,16 @@ from .models import (
 from .services import BrinquedoService, KitPersonalizavelService
 
 
-PRECO_PERIODO_FIELDS = ("preco_diaria", "preco_15_dias", "preco_30_dias")
+PRECO_PERIODO_FIELDS = ("preco_diaria", "preco_3_dias", "preco_15_dias", "preco_30_dias")
+
+
+class PrecoPeriodoField(serializers.DecimalField):
+    def __init__(self, **kwargs):
+        super().__init__(max_digits=8, decimal_places=2, allow_null=True, required=False, **kwargs)
+
+    def to_internal_value(self, data):
+        valor = super().to_internal_value(data)
+        return None if valor is not None and not preco_periodo_valido(valor) else valor
 
 
 def primeiro_preco_disponivel(attrs, instance=None):
@@ -52,6 +63,14 @@ def sincronizar_preco_legado(attrs, instance=None):
     if preco is not None:
         attrs["preco_aluguel"] = preco
     return attrs
+
+
+def ocultar_precos_invalidos(data):
+    for campo in PRECO_PERIODO_FIELDS:
+        valor = data.get(campo)
+        if valor is not None and not preco_periodo_valido(Decimal(valor)):
+            data[campo] = None
+    return data
 
 
 class CategoriaResumoSerializer(serializers.ModelSerializer):
@@ -122,6 +141,7 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "descricao",
             "preco_aluguel",
             "preco_diaria",
+            "preco_3_dias",
             "preco_15_dias",
             "preco_30_dias",
             "permite_diaria",
@@ -147,6 +167,9 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
+
+    def to_representation(self, instance):
+        return ocultar_precos_invalidos(super().to_representation(instance))
 
     def get_imagens_ativas(self, obj):
         imagens = getattr(obj, "imagens_publicas", None)
@@ -178,6 +201,10 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
 
 class BrinquedoAdminSerializer(serializers.ModelSerializer):
+    preco_diaria = PrecoPeriodoField()
+    preco_3_dias = PrecoPeriodoField()
+    preco_15_dias = PrecoPeriodoField()
+    preco_30_dias = PrecoPeriodoField()
     quantidade_disponivel = serializers.SerializerMethodField()
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
@@ -200,6 +227,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "categoria",
             "preco_aluguel",
             "preco_diaria",
+            "preco_3_dias",
             "preco_15_dias",
             "preco_30_dias",
             "permite_diaria",
@@ -230,6 +258,9 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         validar_precos_por_periodo(attrs, self.instance)
         return sincronizar_preco_legado(attrs, self.instance)
+
+    def to_representation(self, instance):
+        return ocultar_precos_invalidos(super().to_representation(instance))
 
     def get_quantidade_disponivel(self, obj):
         quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)

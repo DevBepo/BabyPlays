@@ -36,7 +36,7 @@ export type UnidadeBrinquedoStatus =
   | "standby"
   | "baixada";
 
-export type PeriodoLocacao = "15_dias" | "30_dias" | "diaria";
+export type PeriodoLocacao = "3_dias" | "15_dias" | "30_dias" | "diaria";
 
 export type PeriodoLocacaoDisponivel = {
   tipo: PeriodoLocacao;
@@ -51,6 +51,7 @@ export type BrinquedoCatalogo = {
   descricao: string;
   preco_aluguel: string;
   preco_diaria: string | null;
+  preco_3_dias: string | null;
   preco_15_dias: string | null;
   preco_30_dias: string | null;
   permite_diaria: boolean;

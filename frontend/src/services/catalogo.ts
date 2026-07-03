@@ -88,6 +88,7 @@ export type CriarBrinquedoPayload = {
   descricao: string;
   categoria?: number;
   preco_diaria?: string | number | null;
+  preco_3_dias?: string | number | null;
   preco_15_dias?: string | number | null;
   preco_30_dias?: string | number | null;
   ativo: boolean;
@@ -121,6 +122,7 @@ type CriarBrinquedoResponse = {
   categoria: CategoriaCatalogo | null;
   preco_aluguel: string;
   preco_diaria: string | null;
+  preco_3_dias: string | null;
   preco_15_dias: string | null;
   preco_30_dias: string | null;
   ativo: boolean;

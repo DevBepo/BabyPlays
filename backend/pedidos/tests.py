@@ -257,6 +257,46 @@ class CarrinhoAPITests(APITestCase):
         payload.update(extra)
         return client.post(self.itens_url, payload, format="json")
 
+    def test_carrinho_aceita_tres_dias_quando_preco_esta_configurado(self):
+        self.brinquedo.preco_3_dias = Decimal("90.00")
+        self.brinquedo.save(update_fields=["preco_3_dias"])
+
+        response = self.adicionar_brinquedo(periodo_locacao="3_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemCarrinho.objects.get(id=response.data["id"])
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "3_dias")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 3)
+        self.assertEqual(item.snapshot["periodo_locacao"]["preco"], "90.00")
+        self.assertEqual(item.preco_unitario_snapshot, Decimal("90.00"))
+
+        pedido_response = self.converter_carrinho_em_pedido()
+        self.assertEqual(pedido_response.status_code, status.HTTP_201_CREATED)
+        item_pedido = ItemPedido.objects.get(pedido_id=pedido_response.data["id"])
+        self.assertEqual(item_pedido.snapshot["periodo_locacao"]["tipo"], "3_dias")
+        self.assertEqual(item_pedido.preco_unitario_snapshot, Decimal("90.00"))
+
+    def test_carrinho_rejeita_tres_dias_sem_preco_configurado(self):
+        response = self.adicionar_brinquedo(periodo_locacao="3_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo_locacao", response.data)
+
+    def test_carrinho_rejeita_tres_dias_com_preco_zero(self):
+        self.brinquedo.preco_3_dias = Decimal("0.00")
+        self.brinquedo.save(update_fields=["preco_3_dias"])
+
+        response = self.adicionar_brinquedo(periodo_locacao="3_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo_locacao", response.data)
+
+    def test_carrinho_rejeita_periodo_invalido(self):
+        response = self.adicionar_brinquedo(periodo_locacao="7_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo_locacao", response.data)
+
     def adicionar_kit_festa(self, client=None, quantidade=1, **extra):
         client = client or self.client
         payload = {

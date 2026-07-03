@@ -37,6 +37,7 @@ export default function NovoBrinquedo() {
   const [nome, setNome] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [precoDiaria, setPrecoDiaria] = useState("");
+  const [preco3Dias, setPreco3Dias] = useState("");
   const [preco15Dias, setPreco15Dias] = useState("");
   const [preco30Dias, setPreco30Dias] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -98,6 +99,7 @@ export default function NovoBrinquedo() {
         descricao,
         categoria: Number(categoriaId),
         preco_diaria: precoDiaria || null,
+        preco_3_dias: preco3Dias || null,
         preco_15_dias: preco15Dias || null,
         preco_30_dias: preco30Dias || null,
         ativo,
@@ -237,6 +239,17 @@ export default function NovoBrinquedo() {
                 value={precoDiaria}
                 onChange={(event) => setPrecoDiaria(event.target.value)}
                 error={erroCampo(fieldErrors, "preco_diaria")}
+              />
+
+              <Input
+                label="3 dias (R$)"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Deixe vazio se nao oferecer"
+                value={preco3Dias}
+                onChange={(event) => setPreco3Dias(event.target.value)}
+                error={erroCampo(fieldErrors, "preco_3_dias")}
               />
 
               <Input

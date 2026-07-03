@@ -12,6 +12,7 @@ from .validators import validar_imagem_brinquedo
 
 PERIODOS_LOCACAO = {
     "diaria": {"label": "Diaria", "dias": 1, "campo_preco": "preco_diaria"},
+    "3_dias": {"label": "3 dias", "dias": 3, "campo_preco": "preco_3_dias"},
     "15_dias": {"label": "15 dias", "dias": 15, "campo_preco": "preco_15_dias"},
     "30_dias": {"label": "30 dias", "dias": 30, "campo_preco": "preco_30_dias"},
 }
@@ -116,6 +117,14 @@ class Brinquedo(models.Model):
         blank=True,
         validators=[MinValueValidator(Decimal("0.01"))],
         verbose_name="Preco de 15 dias",
+    )
+    preco_3_dias = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name="Preco de 3 dias",
     )
     preco_30_dias = models.DecimalField(
         max_digits=8,

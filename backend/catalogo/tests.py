@@ -1484,6 +1484,58 @@ class BrinquedoAPITests(APITestCase):
         self.assertTrue(catalogo_response.data["disponivel_para_carrinho"])
         self.assertEqual(catalogo_response.data["quantidade_disponivel"], 1)
 
+    def test_admin_pode_alterar_livremente_status_da_unidade(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        for indice, status_inicial in enumerate(
+            (
+                UnidadeBrinquedo.Status.EM_LOCACAO,
+                UnidadeBrinquedo.Status.HIGIENIZACAO,
+                UnidadeBrinquedo.Status.STANDBY,
+            ),
+            start=1,
+        ):
+            unidade = UnidadeBrinquedo.objects.create(
+                brinquedo=self.brinquedo,
+                codigo=f"PISCINA-LIVRE-{indice}",
+                status=status_inicial,
+            )
+            response = self.client.patch(
+                f"/api/admin/unidades/{unidade.id}/status/",
+                {"status": UnidadeBrinquedo.Status.DISPONIVEL},
+                format="json",
+            )
+            unidade.refresh_from_db()
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
+
+    def test_preco_zero_e_salvo_como_vazio_e_nao_aparece_no_publico(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        response = self.client.patch(
+            f"{self.brinquedos_url}{self.brinquedo.id}/",
+            {"preco_diaria": "0", "preco_15_dias": "150.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.brinquedo.refresh_from_db()
+        self.assertIsNone(self.brinquedo.preco_diaria)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertIsNone(response.data["preco_diaria"])
+        self.assertNotIn("diaria", [item["tipo"] for item in response.data["periodos_disponiveis"]])
+
+    def test_periodo_de_tres_dias_aparece_somente_quando_configurado(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertNotIn("3_dias", [item["tipo"] for item in response.data["periodos_disponiveis"]])
+
+        self.brinquedo.preco_3_dias = "90.00"
+        self.brinquedo.save(update_fields=["preco_3_dias"])
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertIn(
+            {"tipo": "3_dias", "label": "3 dias", "dias": 3, "preco": "90.00"},
+            response.data["periodos_disponiveis"],
+        )
+
     def test_usuario_comum_nao_altera_status_de_unidade(self):
         unidade = UnidadeBrinquedo.objects.create(
             brinquedo=self.brinquedo,

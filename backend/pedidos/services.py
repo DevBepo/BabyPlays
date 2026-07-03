@@ -44,6 +44,7 @@ from .models import (
 
 class CarrinhoService:
     PERIODOS_LOCACAO = {
+        "3_dias": {"tipo": "3_dias", "label": "3 dias", "dias": 3},
         "15_dias": {"tipo": "15_dias", "label": "15 dias", "dias": 15},
         "30_dias": {"tipo": "30_dias", "label": "30 dias", "dias": 30},
         "diaria": {"tipo": "diaria", "label": "Diaria", "dias": 1},

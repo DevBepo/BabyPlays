@@ -140,14 +140,21 @@ class UnidadeBrinquedoOperacaoService:
     @staticmethod
     @transaction.atomic
     def alterar_status(unidade, novo_status, usuario_admin):
-        if novo_status == UnidadeBrinquedo.Status.DISPONIVEL:
-            return UnidadeBrinquedoOperacaoService.liberar_disponibilidade(
-                unidade,
-                usuario_admin,
-            )
         unidade = UnidadeBrinquedo.objects.select_for_update().get(id=unidade.id)
+        tinha_disponibilidade_avulsa = BrinquedoService.quantidade_disponivel(
+            unidade.brinquedo
+        ) > 0
         unidade.status = novo_status
         unidade.save(update_fields=["status", "atualizado_em"])
+        if (
+            novo_status == UnidadeBrinquedo.Status.DISPONIVEL
+            and not tinha_disponibilidade_avulsa
+            and not DedicacaoUnidadeKit.objects.filter(unidade=unidade).exists()
+        ):
+            InteresseDisponibilidade.objects.filter(
+                brinquedo=unidade.brinquedo,
+                status=InteresseDisponibilidade.Status.PENDENTE,
+            ).update(disponibilidade_destacada=True)
         return unidade
 
     @staticmethod
