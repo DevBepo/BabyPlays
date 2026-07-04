@@ -340,17 +340,19 @@ export default function GestaoKitsPage() {
             
             <section>
               <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">1. Dados do Kit (Edição)</h2>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Input label="Nome *" value={form.nome} onChange={(e) => setForm((c) => ({ ...c, nome: e.target.value }))} error={erroCampo(fieldErrors, "nome")} required />
                 </div>
+                <div className="grid gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 md:col-span-2 sm:grid-cols-3">
                 <Input label="Diária (R$)" type="number" step="0.01" min="0" value={form.preco_diaria} onChange={(e) => setForm((c) => ({ ...c, preco_diaria: e.target.value }))} error={erroCampo(fieldErrors, "preco_diaria")} />
                 <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={form.preco_15_dias} onChange={(e) => setForm((c) => ({ ...c, preco_15_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_15_dias")} />
                 <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={form.preco_30_dias} onChange={(e) => setForm((c) => ({ ...c, preco_30_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_30_dias")} />
+                </div>
                 <Input label="Ordem" type="number" step="1" min="0" value={form.ordem} onChange={(e) => setForm((c) => ({ ...c, ordem: e.target.value }))} error={erroCampo(fieldErrors, "ordem")} />
               </div>
               <div className="mt-6">
-                <Textarea label="Descrição completa *" value={form.descricao} onChange={(e) => setForm((c) => ({ ...c, descricao: e.target.value }))} error={erroCampo(fieldErrors, "descricao")} required />
+                <Textarea label="Descrição do kit *" rows={5} className="min-h-[132px] leading-6" placeholder="Explique o tema, a ocasião e os principais itens do kit." value={form.descricao} onChange={(e) => setForm((c) => ({ ...c, descricao: e.target.value }))} error={erroCampo(fieldErrors, "descricao")} required />
               </div>
             </section>
 
@@ -403,7 +405,8 @@ export default function GestaoKitsPage() {
                                   disabled={unidade.status !== "disponivel" && !selecionada}
                                   onChange={() => alternarUnidade(brinquedo.id, unidade.id)}
                                 />
-                                {unidade.codigo}
+                                <span>{unidade.codigo}</span>
+                                <span className="text-zinc-400">· {unidade.status_label}</span>
                               </label>
                             );
                           })}

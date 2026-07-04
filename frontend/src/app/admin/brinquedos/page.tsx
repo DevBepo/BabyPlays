@@ -61,7 +61,6 @@ type BrinquedoFormState = {
   preco_15_dias: string;
   preco_30_dias: string;
   ativo: boolean;
-  indisponivel_catalogo: boolean;
 };
 
 const initialForm: BrinquedoFormState = {
@@ -73,7 +72,6 @@ const initialForm: BrinquedoFormState = {
   preco_15_dias: "",
   preco_30_dias: "",
   ativo: true,
-  indisponivel_catalogo: false,
 };
 
 function isApiError(error: unknown): error is ApiError {
@@ -112,7 +110,6 @@ function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
     preco_15_dias: brinquedo.preco_15_dias ?? "",
     preco_30_dias: brinquedo.preco_30_dias ?? "",
     ativo: brinquedo.ativo !== false,
-    indisponivel_catalogo: brinquedo.indisponivel_catalogo === true,
   };
 }
 
@@ -451,7 +448,6 @@ export default function ListaBrinquedosAdmin() {
       preco_15_dias: form.preco_15_dias || null,
       preco_30_dias: form.preco_30_dias || null,
       ativo: form.ativo,
-      indisponivel_catalogo: form.indisponivel_catalogo,
     };
 
     try {
@@ -537,34 +533,6 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
-  async function handleAlternarAlugado(brinquedo: BrinquedoCatalogo) {
-    const novoStatus = brinquedo.indisponivel_catalogo !== true;
-
-    setBrinquedoAlterandoStatus(brinquedo.id);
-    setErro(null);
-    setSucesso(null);
-
-    try {
-      await atualizarBrinquedo(brinquedo.id, {
-        indisponivel_catalogo: novoStatus,
-      });
-      setSucesso(
-        novoStatus
-          ? "Brinquedo inteiro marcado como alugado no catalogo."
-          : "Bloqueio manual removido. A disponibilidade continua dependendo das unidades.",
-      );
-      await carregarBrinquedos();
-    } catch (error) {
-      setErro(
-        isApiError(error)
-          ? error.message
-          : "Nao foi possivel atualizar o status de aluguel do brinquedo.",
-      );
-    } finally {
-      setBrinquedoAlterandoStatus(null);
-    }
-  }
-
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -607,7 +575,7 @@ export default function ListaBrinquedosAdmin() {
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 rounded-xl border border-zinc-200 bg-white p-4">
                 <Input
                   label="Nome *"
                   value={form.nome}
@@ -639,12 +607,13 @@ export default function ListaBrinquedosAdmin() {
               />
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-zinc-700">
-                  Precos por periodo
+                  Precos e periodos
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
                   Preencha apenas os periodos que estarao disponiveis para locacao.
                 </p>
               </div>
+              <div className="grid grid-cols-1 gap-3 md:col-span-2 sm:grid-cols-2 xl:grid-cols-4">
               <Input
                 label="Diaria (R$)"
                 type="number"
@@ -701,10 +670,15 @@ export default function ListaBrinquedosAdmin() {
                 }
                 error={erroCampo(fieldErrors, "preco_30_dias")}
               />
+              </div>
             </div>
 
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
             <Textarea
-              label="Descricao completa *"
+              label="Descricao do brinquedo *"
+              placeholder="Explique o brinquedo, a idade recomendada e seus principais beneficios."
+              rows={5}
+              className="min-h-[132px] leading-6"
               value={form.descricao}
               onChange={(event) =>
                 setForm((current) => ({
@@ -715,6 +689,8 @@ export default function ListaBrinquedosAdmin() {
               error={erroCampo(fieldErrors, "descricao")}
               required
             />
+            <p className="mt-2 text-xs leading-5 text-zinc-500">Use uma descricao curta e clara para explicar o brinquedo, idade recomendada e principais beneficios.</p>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
               <div className="relative h-28 overflow-hidden rounded-md border border-zinc-200 bg-white">
@@ -810,7 +786,18 @@ export default function ListaBrinquedosAdmin() {
                         <tbody className="divide-y divide-zinc-100">
                           {unidades.map((unidade) => (
                             <tr key={unidade.id}>
-                              <td className="px-3 py-2">{unidade.codigo}</td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-medium text-zinc-900">{unidade.codigo}</span>
+                                  {unidade.dedicada_kit_festa ? (
+                                    <Badge variant="warning">
+                                      {unidade.kit_festa_nome
+                                        ? `Reservada para ${unidade.kit_festa_nome}`
+                                        : "Reservada para Kit Festa"}
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                              </td>
                               <td className="px-3 py-2 text-zinc-600">
                                 <Select
                                   aria-label={`Status da unidade ${unidade.codigo}`}
@@ -851,18 +838,8 @@ export default function ListaBrinquedosAdmin() {
                     }))
                   }
                 />
-                <Checkbox
-                  label="Marcar brinquedo inteiro como alugado"
-                  checked={form.indisponivel_catalogo}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      indisponivel_catalogo: event.target.checked,
-                    }))
-                  }
-                />
                 <p className="text-xs text-zinc-500">
-                  Afeta o produto inteiro no catalogo, sem alterar as unidades fisicas.
+                  Para reservar ou alugar, altere o status da unidade fisica correspondente.
                 </p>
               </div>
             </div>
@@ -1024,11 +1001,17 @@ export default function ListaBrinquedosAdmin() {
                         {brinquedo.descricao || "Sem descrição cadastrada."}
                       </p>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
+                      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-5">
                         <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Unidades disponíveis</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Unidades fisicas</p>
                           <p className="mt-1 text-base font-bold text-zinc-900">
-                            {brinquedo.quantidade_disponivel}
+                            {brinquedo.total_unidades ?? brinquedo.quantidade_disponivel ?? 0}
+                          </p>
+                          <p className="text-[11px] text-zinc-500">
+                            {brinquedo.quantidade_disponivel ?? 0} avulsa(s)
+                            {(brinquedo.unidades_dedicadas_kits ?? 0) > 0
+                              ? ` · ${brinquedo.unidades_dedicadas_kits} em kit(s)`
+                              : ""}
                           </p>
                         </div>
                         {[
@@ -1036,7 +1019,7 @@ export default function ListaBrinquedosAdmin() {
                           ["3 dias", brinquedo.preco_3_dias],
                           ["15 dias", brinquedo.preco_15_dias],
                           ["30 dias", brinquedo.preco_30_dias],
-                        ].map(([label, valor]) => (
+                        ].filter(([, valor]) => valor && Number(valor) > 0).map(([label, valor]) => (
                           <div key={label} className="rounded-xl bg-zinc-50 px-3 py-2.5">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
                             <p className="mt-1 whitespace-nowrap text-sm font-bold text-zinc-900">
@@ -1061,31 +1044,6 @@ export default function ListaBrinquedosAdmin() {
                             onClick={() => abrirEdicao(brinquedo, "unidades-brinquedo")}
                           >
                             Unidades
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={statusAtual === "disponivel" ? "secondary" : "outline"}
-                            loading={estaAlterando}
-                            disabled={brinquedoRemovendo === brinquedo.id}
-                            onClick={() => {
-                              if (brinquedo.ativo === false) {
-                                void handleAlternarStatusBrinquedo(brinquedo);
-                              } else if (brinquedo.indisponivel_catalogo === true) {
-                                void handleAlternarAlugado(brinquedo);
-                              } else if (statusAtual === "alugado") {
-                                abrirEdicao(brinquedo, "unidades-brinquedo");
-                              } else {
-                                void handleAlternarAlugado(brinquedo);
-                              }
-                            }}
-                            className="col-span-2 xl:col-span-1"
-                          >
-                            {brinquedo.ativo === false || brinquedo.indisponivel_catalogo === true
-                              ? "Reativar"
-                              : statusAtual === "alugado"
-                                ? "Gerenciar unidades"
-                                : "Marcar como Alugado"}
                           </Button>
                         </div>
                       </div>

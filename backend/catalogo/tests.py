@@ -1354,6 +1354,36 @@ class BrinquedoAPITests(APITestCase):
         )
         self.assertEqual(response.data["quantidade_disponivel"], 0)
 
+    def test_api_admin_distingue_total_avulsas_e_unidades_dedicadas_a_kit(self):
+        unidade_avulsa = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-AVULSA",
+        )
+        unidade_kit = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-KIT",
+        )
+        kit = KitFesta.objects.create(
+            nome="Kit piscina",
+            descricao="Kit de teste",
+            preco_aluguel="100.00",
+        )
+        item = ItemKitFesta.objects.create(
+            kit=kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        DedicacaoUnidadeKit.objects.create(item_kit=item, unidade=unidade_kit)
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_unidades"], 2)
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+        self.assertEqual(response.data["unidades_dedicadas_kits"], 1)
+        self.assertTrue(UnidadeBrinquedo.objects.filter(id=unidade_avulsa.id).exists())
+
     def test_api_publica_detalhe_nao_expoe_quantidade_disponivel(self):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
@@ -1453,6 +1483,30 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.data[0]["codigo"], "PISCINA-ADM-001")
         self.assertEqual(response.data[0]["status"], UnidadeBrinquedo.Status.DISPONIVEL)
         self.assertEqual(response.data[0]["status_label"], "Disponivel")
+
+    def test_usuario_admin_identifica_unidade_dedicada_e_nome_do_kit(self):
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-KIT-001",
+        )
+        kit = KitFesta.objects.create(
+            nome="Kit Festa Aventura",
+            descricao="Kit de teste",
+            preco_aluguel="100.00",
+        )
+        item = ItemKitFesta.objects.create(
+            kit=kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        DedicacaoUnidadeKit.objects.create(item_kit=item, unidade=unidade)
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/unidades/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data[0]["dedicada_kit_festa"])
+        self.assertEqual(response.data[0]["kit_festa_nome"], "Kit Festa Aventura")
 
     def test_usuario_admin_marca_apenas_uma_unidade_como_alugada(self):
         self.brinquedo.preco_15_dias = "150.00"

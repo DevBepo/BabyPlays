@@ -25,6 +25,8 @@ export type UnidadeBrinquedoAdmin = {
   codigo: string;
   status: UnidadeBrinquedoStatus;
   status_label: string;
+  dedicada_kit_festa: boolean;
+  kit_festa_nome: string | null;
 };
 
 export type UnidadeBrinquedoStatus =
@@ -64,6 +66,8 @@ export type BrinquedoCatalogo = {
   status_catalogo_label?: "Disponivel" | "Alugado";
   categoria: CategoriaResumo | null;
   quantidade_disponivel?: number;
+  total_unidades?: number;
+  unidades_dedicadas_kits?: number;
   imagem_principal: ImagemBrinquedo | null;
   imagens: ImagemBrinquedo[];
 };

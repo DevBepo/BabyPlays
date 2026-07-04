@@ -206,6 +206,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
     preco_15_dias = PrecoPeriodoField()
     preco_30_dias = PrecoPeriodoField()
     quantidade_disponivel = serializers.SerializerMethodField()
+    total_unidades = serializers.SerializerMethodField()
+    unidades_dedicadas_kits = serializers.SerializerMethodField()
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
     status_catalogo_label = serializers.SerializerMethodField()
@@ -239,6 +241,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "status_catalogo_label",
             "data_cadastro",
             "quantidade_disponivel",
+            "total_unidades",
+            "unidades_dedicadas_kits",
             "imagem_principal",
             "imagens",
         )
@@ -246,6 +250,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "id",
             "data_cadastro",
             "quantidade_disponivel",
+            "total_unidades",
+            "unidades_dedicadas_kits",
             "disponivel_para_carrinho",
             "status_catalogo",
             "status_catalogo_label",
@@ -267,6 +273,12 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
         if quantidade_anotada is not None:
             return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_total_unidades(self, obj):
+        return obj.unidades.count()
+
+    def get_unidades_dedicadas_kits(self, obj):
+        return obj.unidades.filter(dedicacao_kit__isnull=False).count()
 
     def get_disponivel_para_carrinho(self, obj):
         return BrinquedoService.disponivel_para_locacao_avulsa(obj)
@@ -323,11 +335,26 @@ class UnidadeBrinquedoOperacaoSerializer(serializers.ModelSerializer):
 
 class UnidadeBrinquedoAdminSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+    dedicada_kit_festa = serializers.SerializerMethodField()
+    kit_festa_nome = serializers.SerializerMethodField()
 
     class Meta:
         model = UnidadeBrinquedo
-        fields = ("id", "codigo", "status", "status_label")
-        read_only_fields = ("id", "status", "status_label")
+        fields = (
+            "id", "codigo", "status", "status_label",
+            "dedicada_kit_festa", "kit_festa_nome",
+        )
+        read_only_fields = (
+            "id", "status", "status_label",
+            "dedicada_kit_festa", "kit_festa_nome",
+        )
+
+    def get_dedicada_kit_festa(self, obj):
+        return hasattr(obj, "dedicacao_kit")
+
+    def get_kit_festa_nome(self, obj):
+        dedicacao = getattr(obj, "dedicacao_kit", None)
+        return dedicacao.item_kit.kit.nome if dedicacao else None
 
 
 class AtualizarStatusUnidadeAdminSerializer(serializers.ModelSerializer):

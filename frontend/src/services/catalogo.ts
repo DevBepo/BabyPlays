@@ -113,6 +113,8 @@ export type UnidadeBrinquedoAdmin = {
   codigo: string;
   status: UnidadeBrinquedoStatus;
   status_label: string;
+  dedicada_kit_festa: boolean;
+  kit_festa_nome: string | null;
 };
 
 type CriarBrinquedoResponse = {

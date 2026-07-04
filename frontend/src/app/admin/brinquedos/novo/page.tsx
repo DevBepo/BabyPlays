@@ -145,7 +145,7 @@ export default function NovoBrinquedo() {
 
       <Card padding="lg">
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-          <section>
+          <section className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 sm:p-5">
             <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">
               Foto principal
             </h2>
@@ -190,10 +190,10 @@ export default function NovoBrinquedo() {
 
           <section>
             <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">
-              Dados do brinquedo
+              Informacoes basicas
             </h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 rounded-xl border border-zinc-200 bg-white p-4">
                 <Input
                   label="Nome *"
                   placeholder="Ex: Cadeira de Balanco Fisher Price"
@@ -223,13 +223,14 @@ export default function NovoBrinquedo() {
 
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-zinc-700">
-                  Precos por periodo
+                  Precos e periodos
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
                   Preencha apenas os periodos que estarao disponiveis para locacao.
                 </p>
               </div>
 
+              <div className="grid grid-cols-1 gap-3 md:col-span-2 sm:grid-cols-2 xl:grid-cols-4">
               <Input
                 label="Diaria (R$)"
                 type="number"
@@ -273,17 +274,23 @@ export default function NovoBrinquedo() {
                 onChange={(event) => setPreco30Dias(event.target.value)}
                 error={erroCampo(fieldErrors, "preco_30_dias")}
               />
+              </div>
             </div>
           </section>
 
+          <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
           <Textarea
-            label="Descricao completa *"
-            placeholder="Descreva as caracteristicas do brinquedo..."
+            label="Descricao do brinquedo *"
+            placeholder="Explique o brinquedo, a idade recomendada e seus principais beneficios."
+            rows={5}
+            className="min-h-[132px] leading-6"
             value={descricao}
             onChange={(event) => setDescricao(event.target.value)}
             error={erroCampo(fieldErrors, "descricao")}
             required
           />
+          <p className="mt-2 text-xs leading-5 text-zinc-500">Use uma descricao curta e clara para explicar o brinquedo, idade recomendada e principais beneficios.</p>
+          </section>
 
           <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
             <Checkbox

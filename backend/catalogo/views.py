@@ -100,7 +100,9 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
             serializer.save(brinquedo=brinquedo)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        unidades = UnidadeBrinquedo.objects.filter(brinquedo=brinquedo).order_by("codigo")
+        unidades = UnidadeBrinquedo.objects.filter(brinquedo=brinquedo).select_related(
+            "dedicacao_kit__item_kit__kit"
+        ).order_by("codigo")
         serializer = UnidadeBrinquedoAdminSerializer(unidades, many=True)
         return Response(serializer.data)
 
