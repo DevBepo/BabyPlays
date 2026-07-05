@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import { Table, Tbody, Td, Th, Thead, Tr } from "@/components/admin/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -78,11 +77,6 @@ function formFromKit(kit: AdminKitFesta): KitFormState {
     ativo: kit.ativo,
     ordem: String(kit.ordem),
   };
-}
-
-function periodoResumo(kit: AdminKitFesta): string {
-  if (!kit.periodos_disponiveis.length) return "Sem periodo";
-  return kit.periodos_disponiveis.map((p) => `${p.label}: ${formatarMoeda(p.preco)}`).join(" | ");
 }
 
 export default function GestaoKitsPage() {
@@ -463,53 +457,62 @@ export default function GestaoKitsPage() {
         ) : kitsOrdenados.length === 0 ? (
           <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500">Nenhum kit festa cadastrado ainda.</div>
         ) : (
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Nome do kit</Th>
-                <Th>Imagem</Th>
-                <Th>Composição</Th>
-                <Th>Períodos</Th>
-                <Th>Status</Th>
-                <Th className="text-right">Ações</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {kitsOrdenados.map((kit) => (
-                <Tr key={kit.id}>
-                  <Td>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-zinc-900">{kit.nome}</span>
-                      <span className="mt-0.5 max-w-md truncate text-xs text-zinc-400">{kit.descricao}</span>
+          <div className="grid gap-4">
+            {kitsOrdenados.map((kit) => (
+              <article key={kit.id} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                <div className="grid md:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_230px]">
+                  <div className="relative min-h-48 overflow-hidden border-b border-zinc-100 bg-zinc-50 md:min-h-full md:border-b-0 md:border-r">
+                    {kit.imagem_url ? (
+                      <img src={kit.imagem_url} alt={kit.nome} className="absolute inset-0 h-full w-full object-contain p-3" />
+                    ) : (
+                      <div className="flex h-full min-h-48 items-center justify-center text-xs font-medium text-zinc-400">Sem imagem</div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Kit Festa</p>
+                        <h3 className="mt-1 text-xl font-bold leading-tight text-zinc-900">{kit.nome}</h3>
+                      </div>
+                      {kit.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="default">Inativo</Badge>}
                     </div>
-                  </Td>
-                  <Td>
-                    <div className="h-14 w-20 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
-                      {kit.imagem_url ? (
-                        <img src={kit.imagem_url} alt={kit.nome} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[11px] font-medium text-zinc-400">Sem imagem</div>
-                      )}
+
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">{kit.descricao || "Sem descrição cadastrada."}</p>
+                    <div className="mt-4 rounded-xl bg-zinc-50 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Composição</p>
+                      <p className="mt-1 text-sm leading-5 text-zinc-700">{resumirItens(kit)}</p>
                     </div>
-                  </Td>
-                  <Td><span className="text-sm text-zinc-600">{resumirItens(kit)}</span></Td>
-                  <Td className="font-medium text-zinc-900">{periodoResumo(kit)}</Td>
-                  <Td>
-                    {kit.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="default">Inativo</Badge>}
-                  </Td>
-                  <Td className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" size="sm" variant="ghost" onClick={() => abrirEdicao(kit)}>Editar</Button>
-                      <Button type="button" size="sm" variant={kit.ativo ? "outline" : "secondary"} loading={kitAlterandoStatus === kit.id} disabled={kitRemovendo === kit.id} onClick={() => void handleAlternarStatusKit(kit)}>
-                        {kit.ativo ? "Desativar" : "Ativar"}
-                      </Button>
-                      <Button type="button" size="sm" variant="ghost" loading={kitRemovendo === kit.id} disabled={kitAlterandoStatus === kit.id} onClick={() => void handleRemoverKit(kit)}>Remover</Button>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {kit.periodos_disponiveis.map((periodo) => (
+                        <div key={periodo.tipo} className="min-w-24 rounded-xl bg-zinc-50 px-3 py-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{periodo.label}</p>
+                          <p className="mt-1 whitespace-nowrap text-sm font-bold text-zinc-900">{formatarMoeda(periodo.preco)}</p>
+                        </div>
+                      ))}
                     </div>
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+                  </div>
+
+                  <div className="flex flex-col justify-between gap-4 border-t border-zinc-100 bg-zinc-50/60 p-4 md:col-start-2 xl:col-start-auto xl:border-l xl:border-t-0">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Ações</p>
+                      <div className="mt-3 grid gap-2">
+                        <Button type="button" size="sm" variant="primary" onClick={() => abrirEdicao(kit)}>Editar kit</Button>
+                        <Button type="button" size="sm" variant="outline" loading={kitAlterandoStatus === kit.id} disabled={kitRemovendo === kit.id} onClick={() => void handleAlternarStatusKit(kit)}>
+                          {kit.ativo ? "Ocultar do catálogo" : "Reativar kit"}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="border-t border-zinc-200 pt-3">
+                      <button type="button" disabled={kitAlterandoStatus === kit.id || kitRemovendo === kit.id} onClick={() => void handleRemoverKit(kit)} className="text-xs font-semibold text-red-600 transition-colors hover:text-red-800 disabled:opacity-50">
+                        {kitRemovendo === kit.id ? "Removendo..." : "Remover kit"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </section>
     </div>
