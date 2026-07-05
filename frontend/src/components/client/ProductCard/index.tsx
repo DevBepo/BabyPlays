@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { useCart } from "@/hooks/useCart";
