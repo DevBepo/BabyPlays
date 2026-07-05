@@ -1718,6 +1718,146 @@ class BrinquedoAPITests(APITestCase):
             [imagem_principal.id, imagem_ordem_1.id, imagem_ordem_2.id],
         )
 
+    def test_listagem_publica_retorna_somente_imagem_principal(self):
+        adicional = self.criar_imagem_brinquedo(ordem=1)
+        principal = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("principal.jpg"),
+            principal=True,
+            ordem=2,
+        )
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["imagem_principal"]["id"], principal.id)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data[0]["imagens"]],
+            [principal.id],
+        )
+        self.assertNotEqual(response.data[0]["imagens"][0]["id"], adicional.id)
+
+    def test_admin_envia_varias_fotos_em_uma_operacao(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/",
+            {
+                "imagens": [
+                    self.imagem_upload("principal.jpg"),
+                    self.imagem_upload("adicional.jpg"),
+                ],
+                "principal": "true",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data["imagens"]), 2)
+        self.assertTrue(response.data["imagens"][0]["principal"])
+        self.assertFalse(response.data["imagens"][1]["principal"])
+        self.assertEqual(self.brinquedo.imagens.count(), 2)
+
+    def test_upload_multiplo_invalido_nao_salva_parcialmente(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        invalida = SimpleUploadedFile(
+            "invalida.jpg",
+            b"nao e uma imagem",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/",
+            {"imagens": [self.imagem_upload("valida.jpg"), invalida]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(self.brinquedo.imagens.exists())
+
+    def test_usuario_comum_nao_altera_imagens(self):
+        imagem = self.criar_imagem_brinquedo(principal=True)
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        upload = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/",
+            {"imagem": self.imagem_upload("nova.jpg")},
+            format="multipart",
+        )
+        remover = self.client.delete(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{imagem.id}/"
+        )
+        promover = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{imagem.id}/principal/"
+        )
+
+        self.assertEqual(upload.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(remover.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(promover.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(ImagemBrinquedo.objects.filter(pk=imagem.pk).exists())
+
+    def test_admin_troca_imagem_principal_sem_violar_restricao_unica(self):
+        principal = self.criar_imagem_brinquedo(principal=True)
+        adicional = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("adicional.jpg"),
+            ordem=1,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{adicional.id}/principal/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        principal.refresh_from_db()
+        adicional.refresh_from_db()
+        self.assertFalse(principal.principal)
+        self.assertTrue(adicional.principal)
+        self.assertEqual(self.brinquedo.imagens.filter(principal=True).count(), 1)
+
+    def test_admin_remove_adicional_e_exclui_arquivo_apos_commit(self):
+        adicional = self.criar_imagem_brinquedo()
+        caminho = Path(adicional.imagem.path)
+        self.assertTrue(caminho.exists())
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.delete(
+                f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{adicional.id}/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ImagemBrinquedo.objects.filter(pk=adicional.pk).exists())
+        self.assertFalse(caminho.exists())
+
+    def test_admin_remove_principal_e_promove_proxima(self):
+        principal = self.criar_imagem_brinquedo(principal=True)
+        adicional = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("adicional.jpg"),
+            ordem=1,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.delete(
+                f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{principal.id}/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        adicional.refresh_from_db()
+        self.assertTrue(adicional.principal)
+
+    def test_detalhe_com_uma_imagem_nao_duplica_galeria(self):
+        principal = self.criar_imagem_brinquedo(principal=True)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imagem_principal"]["id"], principal.id)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data["imagens"]],
+            [principal.id],
+        )
+
     def test_api_publica_nao_expoe_caminho_interno_do_arquivo(self):
         self.criar_imagem_brinquedo(principal=True)
 

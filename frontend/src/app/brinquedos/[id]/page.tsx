@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { adicionarAoCarrinho } from "@/services/cart";
-import { criarInteresseDisponibilidade, listarBrinquedos } from "@/services/catalogo";
+import { criarInteresseDisponibilidade, obterBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { BrinquedoCatalogo, PeriodoLocacao } from "@/types/catalogo";
 import Image from "next/image";
@@ -60,12 +60,8 @@ function BrinquedoDetalheContent() {
       }
 
       try {
-        const brinquedos = await listarBrinquedos();
-        const encontrado = brinquedos.find((b) => b.id === id);
-
-        if (!encontrado) {
-          setNotFound(true);
-        } else {
+        const encontrado = await obterBrinquedo(id);
+        if (encontrado) {
           setBrinquedo(encontrado);
           setImagemSelecionadaId(encontrado.imagem_principal?.id ?? encontrado.imagens[0]?.id ?? null);
           // Se houver períodos disponíveis, usar o primeiro; caso contrário, usar o padrão
@@ -75,8 +71,13 @@ function BrinquedoDetalheContent() {
           }
         }
       } catch (err) {
-        console.error("Erro ao carregar brinquedo:", err);
-        setErro("Nao foi possivel carregar o brinquedo.");
+        const apiError = err as Partial<{ status?: number }>;
+        if (apiError?.status === 404) {
+          setNotFound(true);
+        } else {
+          console.error("Erro ao carregar brinquedo:", err);
+          setErro("Nao foi possivel carregar o brinquedo.");
+        }
       } finally {
         setLoading(false);
       }
@@ -89,7 +90,13 @@ function BrinquedoDetalheContent() {
     (p) => p.tipo === periodoSelecionado,
   ) ?? brinquedo?.periodos_disponiveis[0];
 
-  const imagens = brinquedo?.imagens.filter((item) => item.url) ?? [];
+  const imagens = Array.from(
+    new Map(
+      [brinquedo?.imagem_principal, ...(brinquedo?.imagens ?? [])]
+        .filter((item): item is NonNullable<typeof item> => Boolean(item?.url))
+        .map((item) => [item.id, item]),
+    ).values(),
+  );
   const imagem =
     imagens.find((item) => item.id === imagemSelecionadaId) ??
     brinquedo?.imagem_principal ??
@@ -99,6 +106,13 @@ function BrinquedoDetalheContent() {
   const hasPeriodOptions = (brinquedo?.periodos_disponiveis.length ?? 0) > 0;
   const isAvailable = brinquedo?.disponivel_para_carrinho === true && hasPeriodOptions;
   const isManuallyUnavailable = brinquedo?.status_catalogo === "indisponivel";
+
+  const navegarImagem = (direcao: -1 | 1) => {
+    if (imagens.length < 2) return;
+    const indiceAtual = Math.max(0, imagens.findIndex((item) => item.id === imagem?.id));
+    const proximoIndice = (indiceAtual + direcao + imagens.length) % imagens.length;
+    setImagemSelecionadaId(imagens[proximoIndice].id);
+  };
 
   const handleAddToCart = async () => {
     if (!brinquedo || !isAvailable || !periodoSelecionado || adicionando) {
@@ -190,7 +204,7 @@ function BrinquedoDetalheContent() {
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
           <div>
-            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-8">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-8">
               {imagemUrl ? (
                 <Image
                   src={imagemUrl}
@@ -205,6 +219,26 @@ function BrinquedoDetalheContent() {
                   Sem imagem disponivel
                 </div>
               )}
+              {imagens.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navegarImagem(-1)}
+                    aria-label="Imagem anterior"
+                    className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl font-bold text-zinc-700 shadow-md hover:bg-white"
+                  >
+                    &#8249;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navegarImagem(1)}
+                    aria-label="Proxima imagem"
+                    className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl font-bold text-zinc-700 shadow-md hover:bg-white"
+                  >
+                    &#8250;
+                  </button>
+                </>
+              ) : null}
             </div>
 
             {imagens.length > 1 && (

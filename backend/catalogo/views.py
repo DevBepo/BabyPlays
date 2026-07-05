@@ -11,6 +11,7 @@ from .models import Categoria, ImagemBrinquedo, InteresseDisponibilidade, Unidad
 from .serializers import (
     BrinquedoAdminSerializer,
     BrinquedoPublicSerializer,
+    ImagemBrinquedoPublicSerializer,
     CategoriaAdminSerializer,
     CategoriaResumoSerializer,
     ConfiguracaoKitPersonalizavelAdminSerializer,
@@ -29,6 +30,7 @@ from .serializers import (
 from .services import (
     BrinquedoService,
     DisponibilidadeService,
+    ImagemBrinquedoService,
     KitFestaService,
     KitPersonalizavelService,
     UnidadeBrinquedoOperacaoService,
@@ -116,30 +118,60 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
     )
     def upload_imagem(self, request, pk=None):
         brinquedo = self.get_object()
-        imagem_arquivo = request.FILES.get('imagem')
-
-        if not imagem_arquivo:
-            return Response({"erro": "Nenhuma imagem foi enviada."}, status=400)
-
-        # Se for a primeira imagem, marca como principal automaticamente
-        is_principal = not brinquedo.imagens.exists()
-
-        nova_imagem = ImagemBrinquedo(
-            brinquedo=brinquedo,
-            imagem=imagem_arquivo,
-            principal=is_principal
-        )
+        arquivos = request.FILES.getlist("imagens") or request.FILES.getlist("imagem")
+        definir_principal = str(request.data.get("principal", "")).lower() in {
+            "1", "true", "yes", "on",
+        }
         try:
-            nova_imagem.full_clean()
+            imagens = ImagemBrinquedoService.criar_imagens(
+                brinquedo,
+                arquivos,
+                definir_primeira_como_principal=definir_principal,
+            )
         except DjangoValidationError as exc:
             return Response(exc.message_dict if hasattr(exc, "message_dict") else exc.messages, status=400)
-        nova_imagem.save()
 
-        return Response({
-            "mensagem": "Imagem salva com sucesso!",
-            "id": nova_imagem.id,
-            "url": request.build_absolute_uri(nova_imagem.imagem.url)
-        })
+        dados = ImagemBrinquedoPublicSerializer(
+            imagens,
+            many=True,
+            context={"request": request},
+        ).data
+        return Response(
+            {
+                "mensagem": "Imagens salvas com sucesso!",
+                "imagens": dados,
+                "id": dados[0]["id"],
+                "url": dados[0]["url"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"imagens/(?P<imagem_id>[^/.]+)/principal",
+    )
+    def definir_imagem_principal(self, request, pk=None, imagem_id=None):
+        brinquedo = self.get_object()
+        get_object_or_404(ImagemBrinquedo, pk=imagem_id, brinquedo=brinquedo, ativo=True)
+        imagem = ImagemBrinquedoService.definir_principal(brinquedo, imagem_id)
+        return Response(
+            ImagemBrinquedoPublicSerializer(
+                imagem,
+                context={"request": request},
+            ).data
+        )
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"imagens/(?P<imagem_id>[^/.]+)",
+    )
+    def remover_imagem(self, request, pk=None, imagem_id=None):
+        brinquedo = self.get_object()
+        get_object_or_404(ImagemBrinquedo, pk=imagem_id, brinquedo=brinquedo)
+        ImagemBrinquedoService.remover_imagem(brinquedo, imagem_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def destroy(self, request, *args, **kwargs):
         brinquedo = self.get_object()

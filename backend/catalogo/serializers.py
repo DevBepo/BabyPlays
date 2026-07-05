@@ -193,6 +193,10 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         return None
 
     def get_imagens(self, obj):
+        view = self.context.get("view")
+        if getattr(view, "action", None) == "list":
+            principal = self.get_imagem_principal(obj)
+            return [principal] if principal else []
         return ImagemBrinquedoPublicSerializer(
             self.get_imagens_ativas(obj),
             many=True,

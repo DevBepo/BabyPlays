@@ -16,11 +16,13 @@ import {
   atualizarStatusUnidadeBrinquedo,
   criarBrinquedo,
   criarUnidadeBrinquedo,
+  definirImagemPrincipalBrinquedo,
   excluirBrinquedo,
   listarBrinquedos,
   listarCategorias,
   listarUnidadesBrinquedo,
-  uploadImagemBrinquedo,
+  removerImagemBrinquedo,
+  uploadImagensBrinquedo,
 } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { ApiError, ApiFieldErrors } from "@/types/api";
@@ -145,6 +147,8 @@ export default function ListaBrinquedosAdmin() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+  const [imagensAdicionais, setImagensAdicionais] = useState<File[]>([]);
+  const [imagemAlterando, setImagemAlterando] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<UnidadeBrinquedoAdmin[]>([]);
   const [unidadesLoading, setUnidadesLoading] = useState(false);
   const [criandoUnidade, setCriandoUnidade] = useState(false);
@@ -161,6 +165,13 @@ export default function ListaBrinquedosAdmin() {
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
   );
+  const imagensAdicionaisPreview = useMemo(
+    () => imagensAdicionais.map((arquivo) => ({
+      arquivo,
+      url: URL.createObjectURL(arquivo),
+    })),
+    [imagensAdicionais],
+  );
 
   useEffect(() => {
     return () => {
@@ -169,6 +180,14 @@ export default function ListaBrinquedosAdmin() {
       }
     };
   }, [imagemPreviewUrl]);
+
+  useEffect(() => {
+    return () => imagensAdicionaisPreview.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [imagensAdicionaisPreview]);
+
+  function removerFotoAdicionalSelecionada(arquivo: File) {
+    setImagensAdicionais((atuais) => atuais.filter((item) => item !== arquivo));
+  }
 
   const brinquedosOrdenados = useMemo(
     () => [...brinquedos].sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -378,6 +397,7 @@ export default function ListaBrinquedosAdmin() {
     });
     setBrinquedoEmEdicao(null);
     setImagemArquivo(null);
+    setImagensAdicionais([]);
     setFieldErrors(undefined);
     setErro(null);
     setSucesso(null);
@@ -397,6 +417,7 @@ export default function ListaBrinquedosAdmin() {
     setForm(formFromBrinquedo(brinquedo));
     setBrinquedoEmEdicao(brinquedo.id);
     setImagemArquivo(null);
+    setImagensAdicionais([]);
     setFieldErrors(undefined);
     setErro(null);
     setSucesso(null);
@@ -419,6 +440,7 @@ export default function ListaBrinquedosAdmin() {
     });
     setFieldErrors(undefined);
     setImagemArquivo(null);
+    setImagensAdicionais([]);
     setUnidades([]);
     setUnidadeCodigo("");
     setUnidadeErro(null);
@@ -453,14 +475,24 @@ export default function ListaBrinquedosAdmin() {
     try {
       if (brinquedoEmEdicao) {
         await atualizarBrinquedo(brinquedoEmEdicao, payload);
-        if (imagemArquivo) {
-          await uploadImagemBrinquedo(brinquedoEmEdicao, imagemArquivo);
+        const arquivos = imagemArquivo
+          ? [imagemArquivo, ...imagensAdicionais]
+          : imagensAdicionais;
+        if (arquivos.length > 0) {
+          await uploadImagensBrinquedo(
+            brinquedoEmEdicao,
+            arquivos,
+            Boolean(imagemArquivo),
+          );
         }
         setSucesso("Brinquedo atualizado com sucesso.");
       } else {
         const criado = await criarBrinquedo(payload);
-        if (imagemArquivo && criado?.id) {
-          await uploadImagemBrinquedo(criado.id, imagemArquivo);
+        const arquivos = imagemArquivo
+          ? [imagemArquivo, ...imagensAdicionais]
+          : imagensAdicionais;
+        if (arquivos.length > 0 && criado?.id) {
+          await uploadImagensBrinquedo(criado.id, arquivos, Boolean(imagemArquivo));
         }
         setSucesso("Brinquedo criado com sucesso.");
       }
@@ -476,6 +508,36 @@ export default function ListaBrinquedosAdmin() {
       }
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function removerImagem(imagemId: number) {
+    if (!brinquedoEmEdicao || !window.confirm("Remover esta foto do brinquedo?")) return;
+    setImagemAlterando(imagemId);
+    setErro(null);
+    try {
+      await removerImagemBrinquedo(brinquedoEmEdicao, imagemId);
+      await carregarBrinquedos();
+      setSucesso("Foto removida com sucesso.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel remover a foto.");
+    } finally {
+      setImagemAlterando(null);
+    }
+  }
+
+  async function definirImagemPrincipal(imagemId: number) {
+    if (!brinquedoEmEdicao) return;
+    setImagemAlterando(imagemId);
+    setErro(null);
+    try {
+      await definirImagemPrincipalBrinquedo(brinquedoEmEdicao, imagemId);
+      await carregarBrinquedos();
+      setSucesso("Foto principal atualizada com sucesso.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel definir a foto principal.");
+    } finally {
+      setImagemAlterando(null);
     }
   }
 
@@ -692,38 +754,113 @@ export default function ListaBrinquedosAdmin() {
             <p className="mt-2 text-xs leading-5 text-zinc-500">Use uma descricao curta e clara para explicar o brinquedo, idade recomendada e principais beneficios.</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
-              <div className="relative h-28 overflow-hidden rounded-md border border-zinc-200 bg-white">
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
+              <div className="border-b border-zinc-100 pb-4">
+                <p className="text-lg font-semibold text-zinc-900">Imagens do brinquedo</p>
+                <p className="mt-1 text-sm text-zinc-500">Gerencie a imagem dos cards e a galeria publica.</p>
+              </div>
+
+              <div className="py-5">
+                <p className="text-sm font-semibold text-zinc-900">Foto principal</p>
+                <p className="mt-1 text-xs text-zinc-500">Usada nos cards e na pagina principal.</p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(220px,280px)_1fr] sm:items-start">
+              <div className="relative aspect-square w-full max-w-[280px] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
                 {imagemPreviewUrl ? (
                   <Image
                     src={imagemPreviewUrl}
                     alt="Previa da imagem selecionada"
                     fill
-                    className="object-cover"
+                    className="object-contain p-2"
                   />
                 ) : imagemAtualUrl ? (
                   <Image
                     src={imagemAtualUrl}
                     alt="Imagem atual do brinquedo"
                     fill
-                    className="object-cover"
+                    className="object-contain p-2"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs font-medium text-zinc-400">
                     Sem imagem
                   </div>
                 )}
+                {imagemPreviewUrl || imagemAtualUrl ? <span className="absolute left-2 top-2 rounded-full bg-[#803233] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">Principal</span> : null}
               </div>
-              <div className="flex flex-col gap-3">
-                <Input
-                  label="Imagem do brinquedo"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => {
-                    setImagemArquivo(event.target.files?.[0] ?? null);
-                  }}
-                />
+              <div className="flex flex-col items-start gap-2">
+                <label htmlFor="foto-principal-edicao" className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50">{imagemArquivo ? "Trocar selecao" : "Trocar foto principal"}</label>
+                <input id="foto-principal-edicao" type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImagemArquivo(event.target.files?.[0] ?? null)} />
+                <p className="text-xs text-zinc-500">
+                  {imagemArquivo ? imagemArquivo.name : "Selecione apenas quando quiser substituir a foto principal atual."}
+                </p>
+                {imagemArquivo ? (
+                  <button type="button" onClick={() => setImagemArquivo(null)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Remover da selecao</button>
+                ) : brinquedoAtual?.imagem_principal ? (
+                  <button type="button" disabled={imagemAlterando === brinquedoAtual.imagem_principal.id} onClick={() => void removerImagem(brinquedoAtual.imagem_principal!.id)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">Remover foto principal</button>
+                ) : null}
               </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
+              <p className="text-sm font-semibold text-zinc-900">Fotos adicionais</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Estas fotos aparecem somente na galeria da pagina de detalhe.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label htmlFor="fotos-adicionais-edicao" className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-teal-800">Adicionar fotos</label>
+                <input id="fotos-adicionais-edicao" type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setImagensAdicionais(Array.from(event.target.files ?? []))} />
+                <span className="text-xs text-zinc-500">{imagensAdicionais.length ? `${imagensAdicionais.length} foto(s) selecionada(s)` : "Selecione uma ou mais imagens"}</span>
+              </div>
+
+              {imagensAdicionaisPreview.length > 0 ? (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-teal-700">Novas fotos ainda nao salvas</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {imagensAdicionaisPreview.map(({ arquivo, url }) => (
+                    <div key={`${arquivo.name}-${arquivo.lastModified}`} className="relative max-w-[160px] overflow-hidden rounded-lg border border-teal-200 bg-white p-1.5 shadow-sm">
+                      <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
+                        <Image src={url} alt={`Previa de ${arquivo.name}`} fill className="object-contain" />
+                        <span className="absolute left-1.5 top-1.5 rounded-full bg-teal-700 px-2 py-0.5 text-[10px] font-bold text-white">Nova</span>
+                      </div>
+                      <button type="button" onClick={() => removerFotoAdicionalSelecionada(arquivo)} className="mt-1.5 w-full rounded-md px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Remover da selecao</button>
+                    </div>
+                  ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {brinquedoAtual?.imagens.some((item) => !item.principal) ? (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Fotos salvas</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {brinquedoAtual.imagens.filter((item) => !item.principal).map((item) => {
+                    const url = resolveMediaUrl(item.url);
+                    return (
+                      <div key={item.id} className="max-w-[160px] rounded-lg border border-zinc-200 bg-white p-1.5 shadow-sm">
+                        <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
+                          {url ? (
+                            <Image src={url} alt={item.alt_text || brinquedoAtual.nome} fill className="object-contain" />
+                          ) : null}
+                        </div>
+                        <span className="mt-1.5 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">Adicional</span>
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          <button type="button" disabled={imagemAlterando === item.id} onClick={() => void definirImagemPrincipal(item.id)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 disabled:opacity-50">Tornar principal</button>
+                          <button
+                            type="button"
+                            disabled={imagemAlterando === item.id}
+                            onClick={() => void removerImagem(item.id)}
+                            className="rounded-md px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
+              ) : <div className="mt-5 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-center text-xs text-zinc-400">Nenhuma foto adicional salva.</div>}
             </div>
 
             {brinquedoEmEdicao ? (

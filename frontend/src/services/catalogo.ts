@@ -3,6 +3,7 @@ import type {
   BrinquedoCatalogo,
   CategoriaCatalogo,
   KitFestaCatalogo,
+  ImagemBrinquedo,
   UnidadeBrinquedoStatus,
 } from "@/types/catalogo";
 import { getCsrfToken } from "@/lib/csrf";
@@ -49,6 +50,12 @@ export function excluirCategoria(categoriaId: number): Promise<void> {
 
 export function listarBrinquedos(): Promise<BrinquedoCatalogo[]> {
   return apiGet<BrinquedoCatalogo[]>(CATALOGO_ENDPOINTS.brinquedos);
+}
+
+export function obterBrinquedo(brinquedoId: number): Promise<BrinquedoCatalogo> {
+  return apiGet<BrinquedoCatalogo>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/`,
+  );
 }
 
 export function listarKitsFesta(): Promise<KitFestaCatalogo[]> {
@@ -101,6 +108,7 @@ type UploadImagemBrinquedoResponse = {
   mensagem: string;
   id: number;
   url: string;
+  imagens: ImagemBrinquedo[];
 };
 
 export type RemoverCatalogoResponse = {
@@ -188,10 +196,20 @@ export function excluirBrinquedo(
 export async function uploadImagemBrinquedo(
   brinquedoId: number,
   arquivo: File,
+  principal = false,
+): Promise<UploadImagemBrinquedoResponse> {
+  return uploadImagensBrinquedo(brinquedoId, [arquivo], principal);
+}
+
+export async function uploadImagensBrinquedo(
+  brinquedoId: number,
+  arquivos: File[],
+  primeiraComoPrincipal = false,
 ): Promise<UploadImagemBrinquedoResponse> {
   const csrfToken = await getCsrfToken();
   const formData = new FormData();
-  formData.append("imagem", arquivo);
+  arquivos.forEach((arquivo) => formData.append("imagens", arquivo));
+  formData.append("principal", String(primeiraComoPrincipal));
 
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/brinquedos/${brinquedoId}/imagens/`, {
     method: "POST",
@@ -204,4 +222,23 @@ export async function uploadImagemBrinquedo(
 
   if (!response.ok) throw new Error("Falha ao enviar a imagem.");
   return response.json() as Promise<UploadImagemBrinquedoResponse>;
+}
+
+export function removerImagemBrinquedo(
+  brinquedoId: number,
+  imagemId: number,
+): Promise<void> {
+  return apiDelete<void>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/imagens/${imagemId}/`,
+  );
+}
+
+export function definirImagemPrincipalBrinquedo(
+  brinquedoId: number,
+  imagemId: number,
+): Promise<ImagemBrinquedo> {
+  return apiPost<ImagemBrinquedo>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/imagens/${imagemId}/principal/`,
+    {},
+  );
 }
