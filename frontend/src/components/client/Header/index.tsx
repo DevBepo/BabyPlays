@@ -159,17 +159,25 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
-      <div className="mx-auto flex min-h-16 max-w-[1600px] flex-wrap items-center justify-between gap-x-2 gap-y-2 px-3 py-2 sm:min-h-20 sm:px-6 sm:py-3 lg:flex-nowrap lg:gap-4">
-        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center">
-          <span className="relative block h-14 w-10 shrink-0 overflow-hidden sm:h-16 sm:w-12">
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-3 gap-y-2.5 px-4 py-2 sm:min-h-20 sm:px-6 lg:flex-nowrap lg:gap-4">
+        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center gap-1 sm:gap-2" aria-label="Ir para a página inicial">
+          <span className="relative block h-20 w-24 shrink-0">
             <Image
-              src="/assets/LogoComEscrita.jpg"
+              src="/assets/BabyPlaysOfficialLogo.png"
               alt="BabyPlays - Locação de brinquedos"
-              width={1275}
-              height={990}
               priority
-              sizes="(max-width: 639px) 84px, 97px"
-              className="absolute left-1/2 top-1/2 h-[65px] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[75px]"
+              fill
+              sizes="96px"
+              className="object-contain"
+            />
+          </span>
+          <span className="relative block h-20 w-24 shrink-0">
+            <Image
+              src="/assets/BabyPlaysTiger.png"
+              alt=""
+              fill
+              sizes="96px"
+              className="object-contain"
             />
           </span>
         </Link>
@@ -183,7 +191,7 @@ export function Header({
             placeholder="Buscar brinquedos e kits"
             value={currentSearchQuery}
             onChange={(e) => handleSearchQueryChange(e.target.value)}
-            className="h-10 w-full rounded-full border border-zinc-200 bg-[#F8F9FA] pl-4 pr-11 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-teal-600 focus:bg-white focus:ring-1 focus:ring-teal-600 sm:h-11 sm:pl-5 sm:pr-12"
+            className="h-11 w-full rounded-full border border-zinc-200 bg-[#F8F9FA] pl-5 pr-12 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-teal-600 focus:bg-white focus:ring-1 focus:ring-teal-600"
           />
           <button
             type="submit"

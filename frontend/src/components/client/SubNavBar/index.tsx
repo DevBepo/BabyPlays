@@ -66,13 +66,13 @@ export function SubNavbar() {
   return (
     <nav className="w-full border-b border-zinc-200 bg-white">
       {/* Container com scroll horizontal em telas menores (overflow-x-auto) */}
-      <div className="mx-auto flex h-11 max-w-[1600px] items-center overflow-x-auto px-3 scrollbar-hide sm:h-12 sm:px-6">
-        <ul className="flex min-w-max items-center gap-2.5 whitespace-nowrap sm:gap-6 lg:gap-7">
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center overflow-x-auto overscroll-x-contain scroll-smooth px-4 scrollbar-hide sm:h-12 sm:px-6">
+        <ul className="flex min-w-max items-center gap-3 whitespace-nowrap pr-4 sm:gap-6 sm:pr-0 lg:gap-7">
           {navItems.map((item, index) => (
             <li key={index}>
               <Link
                 href={item.href}
-                className="group flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-[#F7EAF5] hover:text-[#AB2E97] sm:min-h-0 sm:px-0 sm:text-sm sm:hover:bg-transparent [font-family:var(--font-fredoka)]"
+                className="group flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full bg-[#FFF9F7] px-3.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-[#F7EAF5] hover:text-[#AB2E97] sm:min-h-0 sm:bg-transparent sm:px-0 sm:hover:bg-transparent [font-family:var(--font-fredoka)]"
               >
                 {/* O ícone fica mais claro por padrão, e escurece no hover junto com o texto */}
                 <span className="text-zinc-400 transition-colors group-hover:text-[#AB2E97]">
