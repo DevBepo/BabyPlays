@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
@@ -132,7 +133,11 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="aspect-square w-full overflow-hidden bg-[#FFF8EC]">
+      <Link
+        href={`/brinquedos/${id}`}
+        aria-label={`Ver detalhes de ${nome}`}
+        className="aspect-square w-full overflow-hidden bg-[#FFF8EC]"
+      >
         {imagemUrl ? (
           <img
             src={imagemUrl}
@@ -144,11 +149,13 @@ export function ProductCard({
             Sem imagem
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col p-4">
         <h3 className="line-clamp-2 text-sm font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
-          {nome}
+          <Link href={`/brinquedos/${id}`} className="transition-colors hover:text-[#AB2E97]">
+            {nome}
+          </Link>
         </h3>
 
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
@@ -167,6 +174,13 @@ export function ProductCard({
         </div>
 
         <div className="mt-auto pt-3">
+          <Link
+            href={`/brinquedos/${id}`}
+            className="mb-2 inline-flex min-h-8 items-center text-xs font-bold text-[#803233] underline decoration-[#FAB555] decoration-2 underline-offset-4 transition-colors hover:text-[#AB2E97]"
+          >
+            Ver brinquedo
+          </Link>
+
           {hasPeriodOptions ? (
             <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Periodo de locacao">
               {periodosDisponiveis.map((option) => {

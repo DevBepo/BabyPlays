@@ -181,7 +181,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 
   return (
     <article className="group flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-3xl border border-[#FAB555]/35 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#F07F40]/45 hover:shadow-lg hover:shadow-[#803233]/10">
-      <Link href={`/kits/${kit.id}`} aria-label={`Ver detalhes de ${kit.nome}`} className="relative aspect-square overflow-hidden bg-[#FFF8EC]">
+      <div className="relative aspect-square overflow-hidden bg-[#FFF8EC]">
         {imagemUrl ? (
           <Image
             src={imagemUrl}
@@ -192,23 +192,17 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
         ) : (
           <div className="flex h-full w-full items-center justify-center border-b border-dashed border-[#FAB555]/50 bg-white text-xs font-medium text-zinc-400">Sem imagem</div>
         )}
-      </Link>
+      </div>
 
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-center justify-between gap-3">
           <Badge variant="brand" className="normal-case tracking-normal bg-[#FFF4DF] text-[#803233]">Kit festa</Badge>
           <span className="text-xs font-semibold text-zinc-500">{totalItens} item{totalItens === 1 ? "" : "s"}</span>
         </div>
-        <h3 className="mt-3 line-clamp-2 text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]"><Link href={`/kits/${kit.id}`} className="hover:text-[#AB2E97]">{kit.nome}</Link></h3>
+        <h3 className="mt-3 line-clamp-2 text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">{kit.nome}</h3>
         <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-500">{kit.descricao}</p>
 
         <div className="mt-auto pt-4">
-          <Link
-            href={`/kits/${kit.id}`}
-            className="mb-2 inline-flex min-h-8 items-center text-xs font-bold text-[#803233] underline decoration-[#FAB555] decoration-2 underline-offset-4 transition-colors hover:text-[#AB2E97]"
-          >
-            Ver kit completo
-          </Link>
           <p className="text-[11px] font-medium text-zinc-500">A partir de</p>
           <p className="text-xl font-black text-[#2C1615]">{periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}</p>
           
