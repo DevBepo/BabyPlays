@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { adicionarAoCarrinho } from "@/services/cart";
@@ -185,7 +184,7 @@ function BrinquedoDetalheContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8F9FA] px-4 py-8">
+    <main className="min-h-screen bg-[#FFF8EC] px-4 py-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
         <Button
           type="button"
@@ -202,9 +201,9 @@ function BrinquedoDetalheContent() {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:gap-12">
           <div>
-            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-8">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-[#FAB555]/30 bg-white p-4 shadow-sm sm:p-8">
               {imagemUrl ? (
                 <Image
                   src={imagemUrl}
@@ -274,7 +273,7 @@ function BrinquedoDetalheContent() {
           </div>
 
           {/* Detalhes */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 lg:py-2">
             <div>
               <div className="mb-3 flex items-center gap-2">
                 {isAvailable ? (
@@ -286,7 +285,7 @@ function BrinquedoDetalheContent() {
                 )}
               </div>
 
-              <h1 className="text-3xl font-bold text-zinc-900">{brinquedo.nome}</h1>
+              <h1 className="text-3xl font-bold leading-tight text-[#2C1615] sm:text-4xl [font-family:var(--font-fredoka)]">{brinquedo.nome}</h1>
 
               {brinquedo.categoria && (
                 <p className="mt-2 text-sm text-zinc-600">
@@ -295,22 +294,17 @@ function BrinquedoDetalheContent() {
               )}
             </div>
 
-            <Card padding="lg">
-              <div className="space-y-4">
-                <p className="text-sm leading-relaxed text-zinc-700">
-                  {brinquedo.descricao}
-                </p>
-              </div>
-            </Card>
+            <section className="border-y border-[#FAB555]/35 py-5" aria-labelledby="descricao-brinquedo">
+              <h2 id="descricao-brinquedo" className="text-sm font-bold uppercase tracking-wide text-[#803233]">Sobre o brinquedo</h2>
+              <p className="mt-2 whitespace-pre-line text-base leading-7 text-zinc-700">{brinquedo.descricao}</p>
+            </section>
 
-            <Card padding="lg">
+            <section className="rounded-2xl border border-[#AB2E97]/15 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="periodos-brinquedo">
               <div className="space-y-4">
                 <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-zinc-500">
-                    Selecione o periodo
-                  </p>
+                  <h2 id="periodos-brinquedo" className="mb-3 text-sm font-bold text-[#2C1615]">Escolha o período</h2>
                   {hasPeriodOptions ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {brinquedo.periodos_disponiveis.map((option) => {
                         const selected = periodoSelecionado === option.tipo;
                         return (
@@ -319,13 +313,14 @@ function BrinquedoDetalheContent() {
                             type="button"
                             onClick={() => setPeriodoSelecionado(option.tipo as PeriodoLocacao)}
                             aria-pressed={selected}
-                            className={`inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-bold transition-colors ${
+                            className={`flex min-h-16 flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition-colors ${
                               selected
-                                ? "border-teal-600 bg-teal-50 text-teal-800"
-                                : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                                ? "border-[#AB2E97] bg-[#F7EAF5] text-[#803233]"
+                                : "border-zinc-200 bg-white text-zinc-600 hover:border-[#76CFC8]"
                             }`}
                           >
-                            {option.label}
+                            <span className="text-xs font-semibold">{option.label}</span>
+                            <span className="mt-1 text-sm font-black">{formatPrice(option.preco)}</span>
                           </button>
                         );
                       })}
@@ -337,21 +332,21 @@ function BrinquedoDetalheContent() {
                   )}
                 </div>
 
-                <div className="border-t border-zinc-100 pt-4">
-                  <p className="text-xs font-medium text-zinc-500">Valor para este periodo</p>
-                  <p className="mt-2 text-3xl font-bold text-zinc-900">
+                <div className="flex items-end justify-between gap-4 border-t border-zinc-100 pt-4">
+                  <p className="text-xs font-medium text-zinc-500">Total do período selecionado</p>
+                  <p className="text-2xl font-black text-[#2C1615]">
                     {periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}
                   </p>
                 </div>
               </div>
-            </Card>
+            </section>
 
             {isAvailable ? (
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={adicionando}
-                className="h-12 w-full rounded-lg bg-[#FF5A5F] text-lg font-bold text-white transition-colors hover:bg-[#e94d52] disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-12 w-full rounded-xl bg-[#AB2E97] text-base font-bold text-white shadow-sm transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {adicionando ? "Adicionando ao carrinho..." : "Adicionar ao carrinho"}
               </button>

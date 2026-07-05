@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { useCart } from "@/hooks/useCart";
@@ -136,7 +137,7 @@ export function ProductCard({
       <Link
         href={`/brinquedos/${id}`}
         aria-label={`Ver detalhes de ${nome}`}
-        className="aspect-square w-full overflow-hidden bg-[#FFF8EC]"
+        className="aspect-square w-full overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97]"
       >
         {imagemUrl ? (
           <img
@@ -153,7 +154,7 @@ export function ProductCard({
 
       <div className="flex flex-1 flex-col p-4">
         <h3 className="line-clamp-2 text-sm font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
-          <Link href={`/brinquedos/${id}`} className="transition-colors hover:text-[#AB2E97]">
+          <Link href={`/brinquedos/${id}`} className="rounded-sm transition-colors hover:text-[#AB2E97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AB2E97]">
             {nome}
           </Link>
         </h3>
