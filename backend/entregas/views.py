@@ -1,5 +1,6 @@
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework import viewsets
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -7,17 +8,14 @@ from .providers import (
     CepInvalidoError,
     CepNaoEncontradoError,
     EnderecoIncompletoError,
-    RotaProviderError,
 )
 from .serializers import (
     CalcularTaxaEntregaRetiradaSerializer,
+    RegraFreteBairroAdminSerializer,
     ResultadoTaxaEntregaRetiradaSerializer,
 )
-from .services import (
-    ConfiguracaoTaxaAusenteError,
-    DistanciaInvalidaError,
-    TaxaEntregaRetiradaService,
-)
+from .models import RegraFreteBairro
+from .services import TaxaEntregaRetiradaService
 
 
 class CalcularTaxaEntregaRetiradaView(APIView):
@@ -36,21 +34,15 @@ class CalcularTaxaEntregaRetiradaView(APIView):
             return self._erro("CEP nao encontrado.")
         except EnderecoIncompletoError:
             return self._erro("Endereco incompleto para calcular a taxa.")
-        except ConfiguracaoTaxaAusenteError:
-            return self._erro(
-                "Configuracao ativa da taxa de entrega e retirada ausente.",
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except RotaProviderError:
-            return self._erro(
-                "Nao foi possivel calcular a rota para este endereco.",
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except DistanciaInvalidaError:
-            return self._erro("Distancia de entrega invalida.")
-
         response_serializer = ResultadoTaxaEntregaRetiradaSerializer(resultado)
         return Response(response_serializer.data)
 
     def _erro(self, mensagem, status_code=status.HTTP_400_BAD_REQUEST):
         return Response({"detail": mensagem}, status=status_code)
+
+
+class RegraFreteBairroAdminViewSet(viewsets.ModelViewSet):
+    queryset = RegraFreteBairro.objects.all()
+    serializer_class = RegraFreteBairroAdminSerializer
+    permission_classes = [IsAdminUser]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]

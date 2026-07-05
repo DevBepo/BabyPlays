@@ -24,10 +24,11 @@ export type PedidoCliente = {
   data_fim_locacao: string | null;
   subtotal_itens_snapshot: string;
   endereco_entrega_snapshot: unknown;
-  distancia_ida_km_snapshot: string;
-  distancia_total_km_snapshot: string;
-  valor_por_km_snapshot: string;
-  taxa_entrega_retirada_snapshot: string;
+  distancia_ida_km_snapshot: string | null;
+  distancia_total_km_snapshot: string | null;
+  valor_por_km_snapshot: string | null;
+  taxa_entrega_retirada_snapshot: string | null;
+  taxa_entrega_status_snapshot: "calculada" | "a_confirmar" | "sujeita_analise";
   total_estimado_snapshot: string;
   itens: PedidoClienteItem[];
   criado_em: string;

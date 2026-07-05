@@ -159,29 +159,25 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
-      <div className="mx-auto flex min-h-16 max-w-[1600px] flex-wrap items-center justify-between gap-x-2 gap-y-2 px-3 py-2 sm:min-h-20 sm:px-6 sm:py-3 lg:flex-nowrap lg:gap-4">
-        <Link href="/" className="flex min-w-0 shrink cursor-pointer select-none items-center gap-1 sm:shrink-0 sm:gap-2">
-          <span className="relative block h-10 w-10 shrink-0 overflow-hidden sm:h-14 sm:w-16">
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-3 gap-y-2.5 px-4 py-2 sm:min-h-20 sm:px-6 lg:flex-nowrap lg:gap-4">
+        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center gap-1 sm:gap-2" aria-label="Ir para a página inicial">
+          <span className="relative block h-20 w-24 shrink-0">
             <Image
-              src="/assets/SomenteLogo.jpg"
-              alt=""
-              width={128}
-              height={102}
+              src="/assets/BabyPlaysOfficialLogo.png"
+              alt="BabyPlays - Locação de brinquedos"
               priority
-              unoptimized
-              sizes="(max-width: 639px) 40px, 64px"
-              className="absolute left-1/2 top-1/2 h-[64px] w-[80px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[115px]"
+              fill
+              sizes="96px"
+              className="object-contain"
             />
           </span>
-          <span className="relative block h-10 w-[150px] shrink overflow-hidden min-[430px]:w-44 sm:h-[72px] sm:w-76 sm:shrink-0 lg:overflow-visible">
+          <span className="relative block h-20 w-24 shrink-0">
             <Image
-              src="/logo-babyplays-header.png"
-              alt="BabyPlays - Locação de brinquedos"
-              width={2048}
-              height={683}
-              priority
-              sizes="(max-width: 429px) 150px, (max-width: 639px) 176px, (max-width: 1023px) 280px, 352px"
-              className="absolute left-1/2 top-1/2 h-auto w-[142px] max-h-28 -translate-x-1/2 -translate-y-1/2 object-contain min-[430px]:w-40 sm:w-[280px] sm:max-h-[180px] lg:left-0 lg:w-[352px] lg:translate-x-0"
+              src="/assets/BabyPlaysTiger.png"
+              alt=""
+              fill
+              sizes="96px"
+              className="object-contain"
             />
           </span>
         </Link>
@@ -195,7 +191,7 @@ export function Header({
             placeholder="Buscar brinquedos e kits"
             value={currentSearchQuery}
             onChange={(e) => handleSearchQueryChange(e.target.value)}
-            className="h-10 w-full rounded-full border border-zinc-200 bg-[#F8F9FA] pl-4 pr-11 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-teal-600 focus:bg-white focus:ring-1 focus:ring-teal-600 sm:h-11 sm:pl-5 sm:pr-12"
+            className="h-11 w-full rounded-full border border-zinc-200 bg-[#F8F9FA] pl-5 pr-12 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-teal-600 focus:bg-white focus:ring-1 focus:ring-teal-600"
           />
           <button
             type="submit"

@@ -1,6 +1,15 @@
 from django.urls import path
+from rest_framework.routers import SimpleRouter
 
-from .views import CalcularTaxaEntregaRetiradaView
+from .views import CalcularTaxaEntregaRetiradaView, RegraFreteBairroAdminViewSet
+
+
+router = SimpleRouter()
+router.register(
+    "admin/regras-frete-bairro",
+    RegraFreteBairroAdminViewSet,
+    basename="admin-regras-frete-bairro",
+)
 
 
 urlpatterns = [
@@ -9,4 +18,4 @@ urlpatterns = [
         CalcularTaxaEntregaRetiradaView.as_view(),
         name="taxa-entrega-retirada-calcular",
     ),
-]
+] + router.urls

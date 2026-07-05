@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 
@@ -155,8 +156,6 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
   const imagem = getKitImage(kit);
   const imagemUrl = resolveMediaUrl(imagem?.url);
   const totalItens = kit.itens.reduce((total, item) => total + item.quantidade, 0);
-  const itensVisiveis = kit.itens.slice(0, 3);
-  const itensOcultos = Math.max(kit.itens.length - itensVisiveis.length, 0);
   const periodosDisponiveis: PeriodoLocacaoDisponivel[] = kit.periodos_disponiveis;
   const periodoAtual = useMemo(() => periodosDisponiveis.find((periodo) => periodo.tipo === periodoSelecionado) ?? periodosDisponiveis[0], [periodosDisponiveis, periodoSelecionado]);
   
@@ -182,7 +181,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 
   return (
     <article className="group flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-3xl border border-[#FAB555]/35 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#F07F40]/45 hover:shadow-lg hover:shadow-[#803233]/10">
-      <div className="relative aspect-square overflow-hidden bg-[#FFF8EC]">
+      <Link href={`/kits/${kit.id}`} aria-label={`Ver detalhes de ${kit.nome}`} className="relative aspect-square overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97]">
         {imagemUrl ? (
           <Image
             src={imagemUrl}
@@ -193,37 +192,20 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
         ) : (
           <div className="flex h-full w-full items-center justify-center border-b border-dashed border-[#FAB555]/50 bg-white text-xs font-medium text-zinc-400">Sem imagem</div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-center justify-between gap-3">
           <Badge variant="brand" className="normal-case tracking-normal bg-[#FFF4DF] text-[#803233]">Kit festa</Badge>
           <span className="text-xs font-semibold text-zinc-500">{totalItens} item{totalItens === 1 ? "" : "s"}</span>
         </div>
-        <h3 className="mt-3 line-clamp-2 text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">{kit.nome}</h3>
+        <h3 className="mt-3 line-clamp-2 text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
+          <Link href={`/kits/${kit.id}`} className="rounded-sm transition-colors hover:text-[#AB2E97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AB2E97]">{kit.nome}</Link>
+        </h3>
         <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-500">{kit.descricao}</p>
 
-        <div className="mt-3 rounded-2xl border border-[#FAB555]/25 bg-[#FFF8EC]/70 px-3 py-2">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#803233]/70">
-            Incluso no kit
-          </p>
-          <div className="space-y-1">
-            {itensVisiveis.map((item) => (
-              <div key={item.id} className="flex min-w-0 items-center gap-1.5 text-xs leading-4 text-zinc-600">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F07F40]" aria-hidden="true" />
-                <span className="shrink-0 font-semibold text-[#803233]">{item.quantidade}x</span>
-                <span className="min-w-0 flex-1 truncate">{item.brinquedo.nome}</span>
-              </div>
-            ))}
-          </div>
-          {itensOcultos > 0 ? (
-            <span className="mt-1.5 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#AB2E97]">
-              +{itensOcultos} {itensOcultos === 1 ? "item" : "itens"}
-            </span>
-          ) : null}
-        </div>
-
         <div className="mt-auto pt-4">
+          <Link href={`/kits/${kit.id}`} className="mb-2 inline-flex text-xs font-bold text-[#803233] underline decoration-[#FAB555] decoration-2 underline-offset-4 hover:text-[#AB2E97]">Ver kit completo</Link>
           <p className="text-[11px] font-medium text-zinc-500">A partir de</p>
           <p className="text-xl font-black text-[#2C1615]">{periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}</p>
           
@@ -274,7 +256,7 @@ export default function Home() {
   const [errors, setErrors] = useState<CatalogoError>(initialErrors);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("todos");
-  const [onlyAvailable, setOnlyAvailable] = useState(true);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   
   const [brinquedoScrollState, setBrinquedoScrollState] = useState(initialCarouselScrollState);
   const [kitsScrollState, setKitsScrollState] = useState(initialCarouselScrollState);
@@ -436,7 +418,6 @@ export default function Home() {
                               descricao={brinquedo.descricao}
                               periodosDisponiveis={brinquedo.periodos_disponiveis}
                               categoriaNome={brinquedo.categoria?.nome}
-                              quantidadeDisponivel={brinquedo.quantidade_disponivel}
                               disponivelParaCarrinho={brinquedo.disponivel_para_carrinho === true}
                               statusCatalogo={brinquedo.status_catalogo ?? "alugado"}
                               imagemUrl={resolveMediaUrl(imagem?.url)}

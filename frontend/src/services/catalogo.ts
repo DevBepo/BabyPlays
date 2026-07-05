@@ -3,6 +3,7 @@ import type {
   BrinquedoCatalogo,
   CategoriaCatalogo,
   KitFestaCatalogo,
+  ImagemBrinquedo,
   UnidadeBrinquedoStatus,
 } from "@/types/catalogo";
 import { getCsrfToken } from "@/lib/csrf";
@@ -51,6 +52,12 @@ export function listarBrinquedos(): Promise<BrinquedoCatalogo[]> {
   return apiGet<BrinquedoCatalogo[]>(CATALOGO_ENDPOINTS.brinquedos);
 }
 
+export function obterBrinquedo(brinquedoId: number): Promise<BrinquedoCatalogo> {
+  return apiGet<BrinquedoCatalogo>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/`,
+  );
+}
+
 export function listarKitsFesta(): Promise<KitFestaCatalogo[]> {
   return apiGet<KitFestaCatalogo[]>(CATALOGO_ENDPOINTS.kitsFesta);
 }
@@ -88,6 +95,7 @@ export type CriarBrinquedoPayload = {
   descricao: string;
   categoria?: number;
   preco_diaria?: string | number | null;
+  preco_3_dias?: string | number | null;
   preco_15_dias?: string | number | null;
   preco_30_dias?: string | number | null;
   ativo: boolean;
@@ -100,6 +108,7 @@ type UploadImagemBrinquedoResponse = {
   mensagem: string;
   id: number;
   url: string;
+  imagens: ImagemBrinquedo[];
 };
 
 export type RemoverCatalogoResponse = {
@@ -112,6 +121,8 @@ export type UnidadeBrinquedoAdmin = {
   codigo: string;
   status: UnidadeBrinquedoStatus;
   status_label: string;
+  dedicada_kit_festa: boolean;
+  kit_festa_nome: string | null;
 };
 
 type CriarBrinquedoResponse = {
@@ -121,6 +132,7 @@ type CriarBrinquedoResponse = {
   categoria: CategoriaCatalogo | null;
   preco_aluguel: string;
   preco_diaria: string | null;
+  preco_3_dias: string | null;
   preco_15_dias: string | null;
   preco_30_dias: string | null;
   ativo: boolean;
@@ -184,10 +196,20 @@ export function excluirBrinquedo(
 export async function uploadImagemBrinquedo(
   brinquedoId: number,
   arquivo: File,
+  principal = false,
+): Promise<UploadImagemBrinquedoResponse> {
+  return uploadImagensBrinquedo(brinquedoId, [arquivo], principal);
+}
+
+export async function uploadImagensBrinquedo(
+  brinquedoId: number,
+  arquivos: File[],
+  primeiraComoPrincipal = false,
 ): Promise<UploadImagemBrinquedoResponse> {
   const csrfToken = await getCsrfToken();
   const formData = new FormData();
-  formData.append("imagem", arquivo);
+  arquivos.forEach((arquivo) => formData.append("imagens", arquivo));
+  formData.append("principal", String(primeiraComoPrincipal));
 
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/brinquedos/${brinquedoId}/imagens/`, {
     method: "POST",
@@ -200,4 +222,23 @@ export async function uploadImagemBrinquedo(
 
   if (!response.ok) throw new Error("Falha ao enviar a imagem.");
   return response.json() as Promise<UploadImagemBrinquedoResponse>;
+}
+
+export function removerImagemBrinquedo(
+  brinquedoId: number,
+  imagemId: number,
+): Promise<void> {
+  return apiDelete<void>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/imagens/${imagemId}/`,
+  );
+}
+
+export function definirImagemPrincipalBrinquedo(
+  brinquedoId: number,
+  imagemId: number,
+): Promise<ImagemBrinquedo> {
+  return apiPost<ImagemBrinquedo>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/imagens/${imagemId}/principal/`,
+    {},
+  );
 }

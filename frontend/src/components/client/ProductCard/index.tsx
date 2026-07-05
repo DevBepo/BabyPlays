@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
@@ -17,7 +18,6 @@ interface ProductCardProps {
   descricao: string;
   periodosDisponiveis: PeriodoLocacaoDisponivel[];
   categoriaNome?: string;
-  quantidadeDisponivel: number;
   disponivelParaCarrinho: boolean;
   statusCatalogo: "disponivel" | "indisponivel" | "alugado";
   imagemUrl?: string | null;
@@ -53,7 +53,6 @@ export function ProductCard({
   descricao,
   periodosDisponiveis,
   categoriaNome,
-  quantidadeDisponivel,
   disponivelParaCarrinho,
   statusCatalogo,
   imagemUrl,
@@ -75,8 +74,7 @@ export function ProductCard({
   );
   const hasPeriodOptions = periodosDisponiveis.length > 0;
   const periodoEfetivo = periodoAtual?.tipo;
-  const hasStock = quantidadeDisponivel > 0;
-  const isAvailable = disponivelParaCarrinho && hasStock && hasPeriodOptions;
+  const isAvailable = disponivelParaCarrinho && hasPeriodOptions;
   const isManuallyUnavailable = statusCatalogo === "indisponivel";
 
   const handleAddToCart = async () => {
@@ -135,7 +133,11 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="aspect-square w-full overflow-hidden bg-[#FFF8EC]">
+      <Link
+        href={`/brinquedos/${id}`}
+        aria-label={`Ver detalhes de ${nome}`}
+        className="aspect-square w-full overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97]"
+      >
         {imagemUrl ? (
           <img
             src={imagemUrl}
@@ -147,18 +149,20 @@ export function ProductCard({
             Sem imagem
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col p-4">
         <h3 className="line-clamp-2 text-sm font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
-          {nome}
+          <Link href={`/brinquedos/${id}`} className="rounded-sm transition-colors hover:text-[#AB2E97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AB2E97]">
+            {nome}
+          </Link>
         </h3>
 
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
           {categoriaNome || descricao}
         </p>
 
-        <div className="mt-3 flex items-end justify-between gap-3">
+        <div className="mt-3 flex items-end gap-3">
           <div>
             <p className="text-lg font-black leading-none text-[#2C1615]">
               {periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}
@@ -167,12 +171,16 @@ export function ProductCard({
               por periodo
             </p>
           </div>
-          <p className="text-right text-[11px] font-medium leading-4 text-zinc-500">
-            {quantidadeDisponivel} unid.
-          </p>
         </div>
 
         <div className="mt-auto pt-3">
+          <Link
+            href={`/brinquedos/${id}`}
+            className="mb-2 inline-flex min-h-8 items-center text-xs font-bold text-[#803233] underline decoration-[#FAB555] decoration-2 underline-offset-4 transition-colors hover:text-[#AB2E97]"
+          >
+            Ver brinquedo
+          </Link>
+
           {hasPeriodOptions ? (
             <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Periodo de locacao">
               {periodosDisponiveis.map((option) => {

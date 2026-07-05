@@ -135,7 +135,11 @@ function formatDateTime(value: string | null) {
   }).format(date);
 }
 
-function formatCurrency(value: string) {
+function formatCurrency(value: string | null) {
+  if (value === null) {
+    return "A confirmar";
+  }
+
   const numericValue = Number(value);
 
   if (Number.isNaN(numericValue)) {
@@ -534,11 +538,19 @@ export default function DetalhePedidoPage() {
                 <div className="flex justify-between gap-4">
                   <span>Taxa de entrega e retirada</span>
                   <span className="font-medium text-zinc-900">
-                    {formatCurrency(pedido.valores.taxa_entrega_retirada_snapshot)}
+                    {pedido.valores.taxa_entrega_status_snapshot === "calculada"
+                      ? formatCurrency(pedido.valores.taxa_entrega_retirada_snapshot)
+                      : pedido.valores.taxa_entrega_status_snapshot === "sujeita_analise"
+                        ? "Sujeita à análise"
+                        : "A confirmar"}
                   </span>
                 </div>
                 <div className="mt-1 flex justify-between gap-4 border-t border-zinc-100 pt-3 text-base font-bold text-zinc-900">
-                  <span>Total estimado</span>
+                  <span>
+                    {pedido.valores.taxa_entrega_status_snapshot === "calculada"
+                      ? "Total estimado"
+                      : "Subtotal com taxa pendente"}
+                  </span>
                   <span className="text-lg text-teal-600">
                     {formatCurrency(pedido.valores.total_estimado_snapshot)}
                   </span>

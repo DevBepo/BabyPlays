@@ -25,6 +25,8 @@ export type UnidadeBrinquedoAdmin = {
   codigo: string;
   status: UnidadeBrinquedoStatus;
   status_label: string;
+  dedicada_kit_festa: boolean;
+  kit_festa_nome: string | null;
 };
 
 export type UnidadeBrinquedoStatus =
@@ -36,7 +38,7 @@ export type UnidadeBrinquedoStatus =
   | "standby"
   | "baixada";
 
-export type PeriodoLocacao = "15_dias" | "30_dias" | "diaria";
+export type PeriodoLocacao = "3_dias" | "15_dias" | "30_dias" | "diaria";
 
 export type PeriodoLocacaoDisponivel = {
   tipo: PeriodoLocacao;
@@ -51,6 +53,7 @@ export type BrinquedoCatalogo = {
   descricao: string;
   preco_aluguel: string;
   preco_diaria: string | null;
+  preco_3_dias: string | null;
   preco_15_dias: string | null;
   preco_30_dias: string | null;
   permite_diaria: boolean;
@@ -62,7 +65,9 @@ export type BrinquedoCatalogo = {
   status_catalogo?: "disponivel" | "indisponivel" | "alugado";
   status_catalogo_label?: "Disponivel" | "Alugado";
   categoria: CategoriaResumo | null;
-  quantidade_disponivel: number;
+  quantidade_disponivel?: number;
+  total_unidades?: number;
+  unidades_dedicadas_kits?: number;
   imagem_principal: ImagemBrinquedo | null;
   imagens: ImagemBrinquedo[];
 };

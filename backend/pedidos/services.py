@@ -20,8 +20,11 @@ from entregas.providers import (
     CepInvalidoError,
     CepNaoEncontradoError,
     EnderecoIncompletoError,
+    RotaProviderError,
 )
 from entregas.services import (
+    ConfiguracaoTaxaAusenteError,
+    DistanciaInvalidaError,
     TaxaEntregaRetiradaService,
     quantizar_decimal,
 )
@@ -41,6 +44,7 @@ from .models import (
 
 class CarrinhoService:
     PERIODOS_LOCACAO = {
+        "3_dias": {"tipo": "3_dias", "label": "3 dias", "dias": 3},
         "15_dias": {"tipo": "15_dias", "label": "15 dias", "dias": 15},
         "30_dias": {"tipo": "30_dias", "label": "30 dias", "dias": 30},
         "diaria": {"tipo": "diaria", "label": "Diaria", "dias": 1},
@@ -536,6 +540,24 @@ class PedidoService:
             raise serializers.ValidationError(
                 {"endereco": "Endereco incompleto para calcular a taxa."}
             ) from exc
+        except (
+            ConfiguracaoTaxaAusenteError,
+            RotaProviderError,
+            DistanciaInvalidaError,
+        ):
+            return {
+                "nome": "Taxa de entrega e retirada",
+                "endereco_interpretado": {
+                    "cep": dados_cliente["cep"],
+                    "numero": dados_cliente["numero"],
+                    "complemento": dados_cliente.get("complemento", ""),
+                },
+                "status": "sujeita_analise",
+                "distancia_ida_km": None,
+                "distancia_total_km": None,
+                "valor_por_km": None,
+                "taxa": None,
+            }
 
     @staticmethod
     @transaction.atomic
@@ -631,8 +653,21 @@ class PedidoService:
             dados_cliente,
             taxa_service=taxa_service,
         )
-        taxa_entrega = quantizar_decimal(calculo_taxa["taxa"])
-        total_estimado = quantizar_decimal(subtotal + taxa_entrega)
+        taxa_entrega = calculo_taxa.get("taxa")
+        if taxa_entrega is not None and Decimal(taxa_entrega) > 0:
+            taxa_entrega = quantizar_decimal(taxa_entrega)
+        else:
+            taxa_entrega = None
+        taxa_status = calculo_taxa.get(
+            "status",
+            Pedido.StatusTaxaEntrega.CALCULADA,
+        )
+        status_validos = {choice for choice, _label in Pedido.StatusTaxaEntrega.choices}
+        if taxa_status not in status_validos:
+            taxa_status = Pedido.StatusTaxaEntrega.SUJEITA_ANALISE
+        if taxa_entrega is None and taxa_status == Pedido.StatusTaxaEntrega.CALCULADA:
+            taxa_status = Pedido.StatusTaxaEntrega.A_CONFIRMAR
+        total_estimado = quantizar_decimal(subtotal + (taxa_entrega or Decimal("0.00")))
         cliente, _criado = Cliente.objects.get_or_create(
             user=usuario,
             defaults={
@@ -657,6 +692,7 @@ class PedidoService:
             distancia_total_km_snapshot=calculo_taxa["distancia_total_km"],
             valor_por_km_snapshot=calculo_taxa["valor_por_km"],
             taxa_entrega_retirada_snapshot=taxa_entrega,
+            taxa_entrega_status_snapshot=taxa_status,
             total_estimado_snapshot=total_estimado,
         )
 
@@ -733,18 +769,34 @@ class PedidoService:
             linhas.extend(
                 ["", "Observacoes:", pedido.observacoes_cliente]
             )
+        linhas.extend(["", f"Subtotal: R$ {pedido.subtotal_itens_snapshot:.2f}"])
+        if pedido.taxa_entrega_status_snapshot == Pedido.StatusTaxaEntrega.CALCULADA:
+            taxa_formatada = f"{pedido.taxa_entrega_retirada_snapshot:.2f}".replace(
+                ".", ","
+            )
+            linhas.append(
+                f"Taxa de entrega e retirada: R$ {taxa_formatada}"
+            )
+            linhas.append(f"Total estimado: R$ {pedido.total_estimado_snapshot:.2f}")
+        elif (
+            pedido.taxa_entrega_status_snapshot
+            == Pedido.StatusTaxaEntrega.SUJEITA_ANALISE
+        ):
+            linhas.append(
+                "Taxa de entrega e retirada: sujeita à análise para este endereço."
+            )
+        else:
+            linhas.append(
+                "Taxa de entrega e retirada: a confirmar pela BabyPlays."
+            )
         linhas.extend(
             [
-                "",
-                f"Subtotal: R$ {pedido.subtotal_itens_snapshot:.2f}",
-                f"Entrega e retirada: R$ {pedido.taxa_entrega_retirada_snapshot:.2f}",
-                f"Total estimado: R$ {pedido.total_estimado_snapshot:.2f}",
                 "",
                 "Contrato aceito no site: Sim",
                 "",
                 (
-                    "Gostaria de confirmar disponibilidade, datas de "
-                    "entrega/retirada e os proximos passos."
+                    "Gostaria de confirmar a disponibilidade da data de entrega "
+                    "e retirada, o período da locação e os detalhes finais do pedido."
                 ),
             ]
         )

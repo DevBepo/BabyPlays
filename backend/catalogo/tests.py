@@ -992,7 +992,7 @@ class BrinquedoAPITests(APITestCase):
 
         response = self.client.get(self.brinquedos_url)
 
-        self.assertEqual(response.data[0]["quantidade_disponivel"], 1)
+        self.assertNotIn("quantidade_disponivel", response.data[0])
         self.assertTrue(response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(response.data[0]["status_catalogo"], "disponivel")
         self.assertEqual(response.data[0]["status_catalogo_label"], "Disponivel")
@@ -1070,7 +1070,7 @@ class BrinquedoAPITests(APITestCase):
 
         response = self.client.get(self.brinquedos_url)
 
-        self.assertEqual(response.data[0]["quantidade_disponivel"], 0)
+        self.assertNotIn("quantidade_disponivel", response.data[0])
         self.assertFalse(response.data[0]["disponivel_para_carrinho"])
         self.assertEqual(response.data[0]["status_catalogo"], "alugado")
 
@@ -1354,12 +1354,41 @@ class BrinquedoAPITests(APITestCase):
         )
         self.assertEqual(response.data["quantidade_disponivel"], 0)
 
-    def test_brinquedo_sem_unidades_disponiveis_retorna_quantidade_zero(self):
+    def test_api_admin_distingue_total_avulsas_e_unidades_dedicadas_a_kit(self):
+        unidade_avulsa = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-AVULSA",
+        )
+        unidade_kit = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-KIT",
+        )
+        kit = KitFesta.objects.create(
+            nome="Kit piscina",
+            descricao="Kit de teste",
+            preco_aluguel="100.00",
+        )
+        item = ItemKitFesta.objects.create(
+            kit=kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        DedicacaoUnidadeKit.objects.create(item_kit=item, unidade=unidade_kit)
+        self.client.force_authenticate(user=self.usuario_admin)
+
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 0)
-        self.assertIn("quantidade_disponivel", response.data)
+        self.assertEqual(response.data["total_unidades"], 2)
+        self.assertEqual(response.data["quantidade_disponivel"], 1)
+        self.assertEqual(response.data["unidades_dedicadas_kits"], 1)
+        self.assertTrue(UnidadeBrinquedo.objects.filter(id=unidade_avulsa.id).exists())
+
+    def test_api_publica_detalhe_nao_expoe_quantidade_disponivel(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
     def test_brinquedo_com_multiplas_unidades_disponiveis_conta_corretamente(self):
         UnidadeBrinquedo.objects.create(
@@ -1376,7 +1405,7 @@ class BrinquedoAPITests(APITestCase):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 2)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
     def test_unidades_indisponiveis_nao_contam_como_disponiveis(self):
         status_indisponiveis = [
@@ -1397,9 +1426,9 @@ class BrinquedoAPITests(APITestCase):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 0)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
-    def test_quantidade_disponivel_continua_sendo_exibida_para_brinquedo_ativo(self):
+    def test_quantidade_disponivel_nao_e_exibida_para_brinquedo_ativo(self):
         UnidadeBrinquedo.objects.create(
             brinquedo=self.brinquedo,
             codigo="PISCINA-ATIVO-001",
@@ -1409,7 +1438,7 @@ class BrinquedoAPITests(APITestCase):
         response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantidade_disponivel"], 1)
+        self.assertNotIn("quantidade_disponivel", response.data)
 
     def test_quantidade_disponivel_nao_depende_de_brinquedo_ativo(self):
         self.brinquedo.ativo = False
@@ -1455,6 +1484,30 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.data[0]["status"], UnidadeBrinquedo.Status.DISPONIVEL)
         self.assertEqual(response.data[0]["status_label"], "Disponivel")
 
+    def test_usuario_admin_identifica_unidade_dedicada_e_nome_do_kit(self):
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="PISCINA-KIT-001",
+        )
+        kit = KitFesta.objects.create(
+            nome="Kit Festa Aventura",
+            descricao="Kit de teste",
+            preco_aluguel="100.00",
+        )
+        item = ItemKitFesta.objects.create(
+            kit=kit,
+            brinquedo=self.brinquedo,
+            quantidade=1,
+        )
+        DedicacaoUnidadeKit.objects.create(item_kit=item, unidade=unidade)
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/unidades/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data[0]["dedicada_kit_festa"])
+        self.assertEqual(response.data[0]["kit_festa_nome"], "Kit Festa Aventura")
+
     def test_usuario_admin_marca_apenas_uma_unidade_como_alugada(self):
         self.brinquedo.preco_15_dias = "150.00"
         self.brinquedo.save(update_fields=["preco_15_dias"])
@@ -1484,6 +1537,58 @@ class BrinquedoAPITests(APITestCase):
         catalogo_response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
         self.assertTrue(catalogo_response.data["disponivel_para_carrinho"])
         self.assertEqual(catalogo_response.data["quantidade_disponivel"], 1)
+
+    def test_admin_pode_alterar_livremente_status_da_unidade(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        for indice, status_inicial in enumerate(
+            (
+                UnidadeBrinquedo.Status.EM_LOCACAO,
+                UnidadeBrinquedo.Status.HIGIENIZACAO,
+                UnidadeBrinquedo.Status.STANDBY,
+            ),
+            start=1,
+        ):
+            unidade = UnidadeBrinquedo.objects.create(
+                brinquedo=self.brinquedo,
+                codigo=f"PISCINA-LIVRE-{indice}",
+                status=status_inicial,
+            )
+            response = self.client.patch(
+                f"/api/admin/unidades/{unidade.id}/status/",
+                {"status": UnidadeBrinquedo.Status.DISPONIVEL},
+                format="json",
+            )
+            unidade.refresh_from_db()
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
+
+    def test_preco_zero_e_salvo_como_vazio_e_nao_aparece_no_publico(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        response = self.client.patch(
+            f"{self.brinquedos_url}{self.brinquedo.id}/",
+            {"preco_diaria": "0", "preco_15_dias": "150.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.brinquedo.refresh_from_db()
+        self.assertIsNone(self.brinquedo.preco_diaria)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertIsNone(response.data["preco_diaria"])
+        self.assertNotIn("diaria", [item["tipo"] for item in response.data["periodos_disponiveis"]])
+
+    def test_periodo_de_tres_dias_aparece_somente_quando_configurado(self):
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertNotIn("3_dias", [item["tipo"] for item in response.data["periodos_disponiveis"]])
+
+        self.brinquedo.preco_3_dias = "90.00"
+        self.brinquedo.save(update_fields=["preco_3_dias"])
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+        self.assertIn(
+            {"tipo": "3_dias", "label": "3 dias", "dias": 3, "preco": "90.00"},
+            response.data["periodos_disponiveis"],
+        )
 
     def test_usuario_comum_nao_altera_status_de_unidade(self):
         unidade = UnidadeBrinquedo.objects.create(
@@ -1611,6 +1716,146 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(
             [imagem["id"] for imagem in response.data["imagens"]],
             [imagem_principal.id, imagem_ordem_1.id, imagem_ordem_2.id],
+        )
+
+    def test_listagem_publica_retorna_somente_imagem_principal(self):
+        adicional = self.criar_imagem_brinquedo(ordem=1)
+        principal = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("principal.jpg"),
+            principal=True,
+            ordem=2,
+        )
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["imagem_principal"]["id"], principal.id)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data[0]["imagens"]],
+            [principal.id],
+        )
+        self.assertNotEqual(response.data[0]["imagens"][0]["id"], adicional.id)
+
+    def test_admin_envia_varias_fotos_em_uma_operacao(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/",
+            {
+                "imagens": [
+                    self.imagem_upload("principal.jpg"),
+                    self.imagem_upload("adicional.jpg"),
+                ],
+                "principal": "true",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data["imagens"]), 2)
+        self.assertTrue(response.data["imagens"][0]["principal"])
+        self.assertFalse(response.data["imagens"][1]["principal"])
+        self.assertEqual(self.brinquedo.imagens.count(), 2)
+
+    def test_upload_multiplo_invalido_nao_salva_parcialmente(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        invalida = SimpleUploadedFile(
+            "invalida.jpg",
+            b"nao e uma imagem",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/",
+            {"imagens": [self.imagem_upload("valida.jpg"), invalida]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(self.brinquedo.imagens.exists())
+
+    def test_usuario_comum_nao_altera_imagens(self):
+        imagem = self.criar_imagem_brinquedo(principal=True)
+        self.client.force_authenticate(user=self.usuario_comum)
+
+        upload = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/",
+            {"imagem": self.imagem_upload("nova.jpg")},
+            format="multipart",
+        )
+        remover = self.client.delete(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{imagem.id}/"
+        )
+        promover = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{imagem.id}/principal/"
+        )
+
+        self.assertEqual(upload.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(remover.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(promover.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(ImagemBrinquedo.objects.filter(pk=imagem.pk).exists())
+
+    def test_admin_troca_imagem_principal_sem_violar_restricao_unica(self):
+        principal = self.criar_imagem_brinquedo(principal=True)
+        adicional = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("adicional.jpg"),
+            ordem=1,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{adicional.id}/principal/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        principal.refresh_from_db()
+        adicional.refresh_from_db()
+        self.assertFalse(principal.principal)
+        self.assertTrue(adicional.principal)
+        self.assertEqual(self.brinquedo.imagens.filter(principal=True).count(), 1)
+
+    def test_admin_remove_adicional_e_exclui_arquivo_apos_commit(self):
+        adicional = self.criar_imagem_brinquedo()
+        caminho = Path(adicional.imagem.path)
+        self.assertTrue(caminho.exists())
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.delete(
+                f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{adicional.id}/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ImagemBrinquedo.objects.filter(pk=adicional.pk).exists())
+        self.assertFalse(caminho.exists())
+
+    def test_admin_remove_principal_e_promove_proxima(self):
+        principal = self.criar_imagem_brinquedo(principal=True)
+        adicional = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("adicional.jpg"),
+            ordem=1,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.delete(
+                f"{self.brinquedos_url}{self.brinquedo.id}/imagens/{principal.id}/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        adicional.refresh_from_db()
+        self.assertTrue(adicional.principal)
+
+    def test_detalhe_com_uma_imagem_nao_duplica_galeria(self):
+        principal = self.criar_imagem_brinquedo(principal=True)
+
+        response = self.client.get(f"{self.brinquedos_url}{self.brinquedo.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imagem_principal"]["id"], principal.id)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data["imagens"]],
+            [principal.id],
         )
 
     def test_api_publica_nao_expoe_caminho_interno_do_arquivo(self):
@@ -2346,7 +2591,7 @@ class KitPersonalizavelAPITests(APITestCase):
         self.assertEqual(brinquedos[0]["id"], self.brinquedo_grande.id)
         self.assertEqual(brinquedos[0]["preco_aluguel"], "220.00")
         self.assertTrue(brinquedos[0]["permite_diaria"])
-        self.assertIn("quantidade_disponivel", brinquedos[0])
+        self.assertNotIn("quantidade_disponivel", brinquedos[0])
 
     def test_api_publica_retorna_brinquedos_elegiveis_no_modo_brinquedos(self):
         self.configuracao.modo_elegibilidade = (

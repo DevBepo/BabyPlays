@@ -1,5 +1,6 @@
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.core.exceptions import ValidationError
+from django.db.models import Count, Max, Prefetch, Q
 from rest_framework import serializers
 
 from .models import (
@@ -131,6 +132,107 @@ class BrinquedoService:
         return "excluido"
 
 
+class ImagemBrinquedoService:
+    @staticmethod
+    def _excluir_arquivos_salvos(instancias):
+        for instancia in instancias:
+            arquivo = instancia.imagem
+            if arquivo and getattr(arquivo, "_committed", False) and arquivo.name:
+                arquivo.storage.delete(arquivo.name)
+
+    @staticmethod
+    def criar_imagens(brinquedo, arquivos, definir_primeira_como_principal=False):
+        arquivos = list(arquivos)
+        if not arquivos:
+            raise ValidationError({"imagens": "Nenhuma imagem foi enviada."})
+
+        instancias = []
+        try:
+            with transaction.atomic():
+                brinquedo = Brinquedo.objects.select_for_update().get(pk=brinquedo.pk)
+                imagens_existentes = list(
+                    ImagemBrinquedo.objects.select_for_update()
+                    .filter(brinquedo=brinquedo)
+                    .order_by("-principal", "ordem", "id")
+                )
+                tem_principal = any(imagem.principal for imagem in imagens_existentes)
+                primeira_e_principal = definir_primeira_como_principal or not tem_principal
+                maior_ordem = (
+                    ImagemBrinquedo.objects.filter(brinquedo=brinquedo)
+                    .aggregate(maior=Max("ordem"))["maior"]
+                    or 0
+                )
+
+                for indice, arquivo in enumerate(arquivos):
+                    imagem = ImagemBrinquedo(
+                        brinquedo=brinquedo,
+                        imagem=arquivo,
+                        principal=primeira_e_principal and indice == 0,
+                        ordem=maior_ordem + indice + 1,
+                    )
+                    imagem.full_clean(validate_constraints=False)
+                    instancias.append(imagem)
+
+                if primeira_e_principal:
+                    ImagemBrinquedo.objects.filter(
+                        brinquedo=brinquedo,
+                        principal=True,
+                    ).update(principal=False)
+
+                for imagem in instancias:
+                    imagem.save()
+        except Exception:
+            ImagemBrinquedoService._excluir_arquivos_salvos(instancias)
+            raise
+
+        return instancias
+
+    @staticmethod
+    def definir_principal(brinquedo, imagem_id):
+        with transaction.atomic():
+            brinquedo = Brinquedo.objects.select_for_update().get(pk=brinquedo.pk)
+            imagem = ImagemBrinquedo.objects.select_for_update().get(
+                pk=imagem_id,
+                brinquedo=brinquedo,
+                ativo=True,
+            )
+            ImagemBrinquedo.objects.filter(
+                brinquedo=brinquedo,
+                principal=True,
+            ).exclude(pk=imagem.pk).update(principal=False)
+            if not imagem.principal:
+                imagem.principal = True
+                imagem.save(update_fields=["principal", "atualizado_em"])
+        return imagem
+
+    @staticmethod
+    def remover_imagem(brinquedo, imagem_id):
+        with transaction.atomic():
+            brinquedo = Brinquedo.objects.select_for_update().get(pk=brinquedo.pk)
+            imagem = ImagemBrinquedo.objects.select_for_update().get(
+                pk=imagem_id,
+                brinquedo=brinquedo,
+            )
+            era_principal = imagem.principal
+            storage = imagem.imagem.storage
+            nome_arquivo = imagem.imagem.name
+            imagem.delete()
+
+            if era_principal:
+                proxima = (
+                    ImagemBrinquedo.objects.select_for_update()
+                    .filter(brinquedo=brinquedo, ativo=True)
+                    .order_by("ordem", "id")
+                    .first()
+                )
+                if proxima:
+                    proxima.principal = True
+                    proxima.save(update_fields=["principal", "atualizado_em"])
+
+            if nome_arquivo:
+                transaction.on_commit(lambda: storage.delete(nome_arquivo))
+
+
 class UnidadeBrinquedoOperacaoService:
     STATUS_LIBERAVEIS = {
         UnidadeBrinquedo.Status.HIGIENIZACAO,
@@ -140,14 +242,21 @@ class UnidadeBrinquedoOperacaoService:
     @staticmethod
     @transaction.atomic
     def alterar_status(unidade, novo_status, usuario_admin):
-        if novo_status == UnidadeBrinquedo.Status.DISPONIVEL:
-            return UnidadeBrinquedoOperacaoService.liberar_disponibilidade(
-                unidade,
-                usuario_admin,
-            )
         unidade = UnidadeBrinquedo.objects.select_for_update().get(id=unidade.id)
+        tinha_disponibilidade_avulsa = BrinquedoService.quantidade_disponivel(
+            unidade.brinquedo
+        ) > 0
         unidade.status = novo_status
         unidade.save(update_fields=["status", "atualizado_em"])
+        if (
+            novo_status == UnidadeBrinquedo.Status.DISPONIVEL
+            and not tinha_disponibilidade_avulsa
+            and not DedicacaoUnidadeKit.objects.filter(unidade=unidade).exists()
+        ):
+            InteresseDisponibilidade.objects.filter(
+                brinquedo=unidade.brinquedo,
+                status=InteresseDisponibilidade.Status.PENDENTE,
+            ).update(disponibilidade_destacada=True)
         return unidade
 
     @staticmethod

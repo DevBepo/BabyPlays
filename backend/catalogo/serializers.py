@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -18,7 +20,16 @@ from .models import (
 from .services import BrinquedoService, KitPersonalizavelService
 
 
-PRECO_PERIODO_FIELDS = ("preco_diaria", "preco_15_dias", "preco_30_dias")
+PRECO_PERIODO_FIELDS = ("preco_diaria", "preco_3_dias", "preco_15_dias", "preco_30_dias")
+
+
+class PrecoPeriodoField(serializers.DecimalField):
+    def __init__(self, **kwargs):
+        super().__init__(max_digits=8, decimal_places=2, allow_null=True, required=False, **kwargs)
+
+    def to_internal_value(self, data):
+        valor = super().to_internal_value(data)
+        return None if valor is not None and not preco_periodo_valido(valor) else valor
 
 
 def primeiro_preco_disponivel(attrs, instance=None):
@@ -52,6 +63,14 @@ def sincronizar_preco_legado(attrs, instance=None):
     if preco is not None:
         attrs["preco_aluguel"] = preco
     return attrs
+
+
+def ocultar_precos_invalidos(data):
+    for campo in PRECO_PERIODO_FIELDS:
+        valor = data.get(campo)
+        if valor is not None and not preco_periodo_valido(Decimal(valor)):
+            data[campo] = None
+    return data
 
 
 class CategoriaResumoSerializer(serializers.ModelSerializer):
@@ -105,7 +124,6 @@ class ImagemBrinquedoPublicSerializer(serializers.ModelSerializer):
 
 
 class BrinquedoPublicSerializer(serializers.ModelSerializer):
-    quantidade_disponivel = serializers.SerializerMethodField()
     exibir_no_catalogo = serializers.BooleanField(source="ativo", read_only=True)
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
@@ -123,6 +141,7 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "descricao",
             "preco_aluguel",
             "preco_diaria",
+            "preco_3_dias",
             "preco_15_dias",
             "preco_30_dias",
             "permite_diaria",
@@ -132,17 +151,10 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "disponivel_para_carrinho",
             "status_catalogo",
             "status_catalogo_label",
-            "quantidade_disponivel",
             "imagem_principal",
             "imagens",
         )
         read_only_fields = fields
-
-    def get_quantidade_disponivel(self, obj):
-        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
-        if quantidade_anotada is not None:
-            return quantidade_anotada
-        return BrinquedoService.quantidade_disponivel(obj)
 
     def get_disponivel_para_carrinho(self, obj):
         return BrinquedoService.disponivel_para_locacao_avulsa(obj)
@@ -155,6 +167,9 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
+
+    def to_representation(self, instance):
+        return ocultar_precos_invalidos(super().to_representation(instance))
 
     def get_imagens_ativas(self, obj):
         imagens = getattr(obj, "imagens_publicas", None)
@@ -178,6 +193,10 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
         return None
 
     def get_imagens(self, obj):
+        view = self.context.get("view")
+        if getattr(view, "action", None) == "list":
+            principal = self.get_imagem_principal(obj)
+            return [principal] if principal else []
         return ImagemBrinquedoPublicSerializer(
             self.get_imagens_ativas(obj),
             many=True,
@@ -186,7 +205,13 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
 
 
 class BrinquedoAdminSerializer(serializers.ModelSerializer):
+    preco_diaria = PrecoPeriodoField()
+    preco_3_dias = PrecoPeriodoField()
+    preco_15_dias = PrecoPeriodoField()
+    preco_30_dias = PrecoPeriodoField()
     quantidade_disponivel = serializers.SerializerMethodField()
+    total_unidades = serializers.SerializerMethodField()
+    unidades_dedicadas_kits = serializers.SerializerMethodField()
     disponivel_para_carrinho = serializers.SerializerMethodField()
     status_catalogo = serializers.SerializerMethodField()
     status_catalogo_label = serializers.SerializerMethodField()
@@ -208,6 +233,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "categoria",
             "preco_aluguel",
             "preco_diaria",
+            "preco_3_dias",
             "preco_15_dias",
             "preco_30_dias",
             "permite_diaria",
@@ -219,6 +245,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "status_catalogo_label",
             "data_cadastro",
             "quantidade_disponivel",
+            "total_unidades",
+            "unidades_dedicadas_kits",
             "imagem_principal",
             "imagens",
         )
@@ -226,6 +254,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "id",
             "data_cadastro",
             "quantidade_disponivel",
+            "total_unidades",
+            "unidades_dedicadas_kits",
             "disponivel_para_carrinho",
             "status_catalogo",
             "status_catalogo_label",
@@ -239,11 +269,20 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
         validar_precos_por_periodo(attrs, self.instance)
         return sincronizar_preco_legado(attrs, self.instance)
 
+    def to_representation(self, instance):
+        return ocultar_precos_invalidos(super().to_representation(instance))
+
     def get_quantidade_disponivel(self, obj):
         quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
         if quantidade_anotada is not None:
             return quantidade_anotada
         return BrinquedoService.quantidade_disponivel(obj)
+
+    def get_total_unidades(self, obj):
+        return obj.unidades.count()
+
+    def get_unidades_dedicadas_kits(self, obj):
+        return obj.unidades.filter(dedicacao_kit__isnull=False).count()
 
     def get_disponivel_para_carrinho(self, obj):
         return BrinquedoService.disponivel_para_locacao_avulsa(obj)
@@ -300,11 +339,26 @@ class UnidadeBrinquedoOperacaoSerializer(serializers.ModelSerializer):
 
 class UnidadeBrinquedoAdminSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+    dedicada_kit_festa = serializers.SerializerMethodField()
+    kit_festa_nome = serializers.SerializerMethodField()
 
     class Meta:
         model = UnidadeBrinquedo
-        fields = ("id", "codigo", "status", "status_label")
-        read_only_fields = ("id", "status", "status_label")
+        fields = (
+            "id", "codigo", "status", "status_label",
+            "dedicada_kit_festa", "kit_festa_nome",
+        )
+        read_only_fields = (
+            "id", "status", "status_label",
+            "dedicada_kit_festa", "kit_festa_nome",
+        )
+
+    def get_dedicada_kit_festa(self, obj):
+        return hasattr(obj, "dedicacao_kit")
+
+    def get_kit_festa_nome(self, obj):
+        dedicacao = getattr(obj, "dedicacao_kit", None)
+        return dedicacao.item_kit.kit.nome if dedicacao else None
 
 
 class AtualizarStatusUnidadeAdminSerializer(serializers.ModelSerializer):
@@ -337,8 +391,6 @@ class BrinquedoKitResumoSerializer(serializers.ModelSerializer):
 
 
 class BrinquedoElegivelKitPersonalizavelSerializer(BrinquedoKitResumoSerializer):
-    quantidade_disponivel = serializers.SerializerMethodField()
-
     class Meta:
         model = Brinquedo
         fields = (
@@ -351,15 +403,8 @@ class BrinquedoElegivelKitPersonalizavelSerializer(BrinquedoKitResumoSerializer)
             "preco_30_dias",
             "permite_diaria",
             "imagem_principal",
-            "quantidade_disponivel",
         )
         read_only_fields = fields
-
-    def get_quantidade_disponivel(self, obj):
-        quantidade_anotada = getattr(obj, "quantidade_disponivel_anotada", None)
-        if quantidade_anotada is not None:
-            return quantidade_anotada
-        return BrinquedoService.quantidade_disponivel(obj)
 
 
 class ItemKitFestaPublicSerializer(serializers.ModelSerializer):

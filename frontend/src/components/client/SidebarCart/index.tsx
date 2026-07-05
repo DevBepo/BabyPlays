@@ -108,10 +108,6 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const quantidadeTotal = itens.reduce((acc, item) => acc + item.quantidade, 0);
   const subtotal = itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0);
   
-  // Frete fixo/simulado provisório
-  const valorFrete = 18.50; 
-  const total = subtotal > 0 ? subtotal + valorFrete : 0;
-
   const handleRemoverItem = async (id: number) => {
     try {
       await removerItemCarrinho(id);
@@ -196,8 +192,8 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   if (cartLoading) {
     return (
       <aside className={variant === "drawer"
-        ? "fixed inset-y-0 right-0 z-[60] h-dvh w-full max-w-[min(100vw,420px)] animate-pulse border-l border-zinc-200 bg-white p-5 shadow-2xl"
-        : "fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-sm animate-pulse border border-zinc-200 bg-white p-5 shadow-xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto"}
+        ? "fixed bottom-3 right-3 top-20 z-[60] w-[min(calc(100vw-24px),420px)] animate-pulse rounded-xl border border-zinc-200 bg-white p-5 shadow-2xl"
+        : "w-full animate-pulse self-start rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto"}
       >
         <div className="h-6 bg-zinc-100 rounded w-1/2 mb-8"></div>
         <div className="space-y-4"><div className="h-20 bg-zinc-50 rounded"></div></div>
@@ -211,8 +207,8 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
         id="reserva"
         className={`custom-scrollbar flex flex-col gap-4 overflow-y-auto bg-white p-4 sm:gap-6 sm:p-5 ${
           variant === "drawer"
-            ? "fixed inset-y-0 right-0 z-[60] h-dvh w-full max-w-[min(100vw,420px)] border-l border-zinc-200 shadow-2xl"
-            : "fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-[min(100vw,420px)] border border-zinc-200 shadow-2xl lg:sticky lg:inset-auto lg:top-[104px] lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:self-start lg:scroll-mt-28 lg:rounded-xl lg:shadow-sm lg:max-h-[calc(100dvh-120px)]"
+            ? "fixed bottom-3 right-3 top-20 z-[60] w-[min(calc(100vw-24px),420px)] rounded-xl border border-zinc-200 shadow-2xl"
+            : "w-full self-start rounded-xl border border-zinc-200 shadow-sm lg:sticky lg:top-[104px] lg:max-h-[calc(100dvh-120px)]"
         }`}
       >
         
@@ -316,13 +312,16 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
             <span>R$ {subtotal.toFixed(2).replace(".", ",")}</span>
           </div>
           <div className="flex justify-between text-sm text-zinc-600">
-            <span>Frete estimado</span>
-            <span>R$ {valorFrete.toFixed(2).replace(".", ",")}</span>
+            <span>Taxa de entrega e retirada</span>
+            <span>A confirmar pelo endereço</span>
           </div>
           <div className="flex justify-between items-center mt-2">
-            <span className="text-base font-bold text-zinc-900">Total</span>
-            <span className="text-lg font-black text-teal-600">R$ {total.toFixed(2).replace(".", ",")}</span>
+            <span className="text-base font-bold text-zinc-900">Subtotal dos itens</span>
+            <span className="text-lg font-black text-teal-600">R$ {subtotal.toFixed(2).replace(".", ",")}</span>
           </div>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            O total final será confirmado pela BabyPlays após a análise do endereço.
+          </p>
         </div>
 
         <div className="flex flex-col gap-4 mt-2">

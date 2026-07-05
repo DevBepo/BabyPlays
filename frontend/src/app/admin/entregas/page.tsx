@@ -1,242 +1,246 @@
 "use client";
 
-import { useState } from "react";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+import { Table, Tbody, Td, Th, Thead, Tr } from "@/components/admin/Table";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import {
+  atualizarRegraFreteBairro,
+  criarRegraFreteBairro,
+  excluirRegraFreteBairro,
+  listarRegrasFreteBairro,
+} from "@/services/adminEntregas";
+import type { ApiError, ApiFieldErrors } from "@/types/api";
+import type { RegraFreteBairro } from "@/types/adminEntregas";
 
-const VIACEP_BASE_URL = "https://viacep.com.br/ws/";
-
-type ViaCepResponse = {
-  cep?: string;
-  logradouro?: string;
-  bairro?: string;
-  localidade?: string;
-  uf?: string;
-  erro?: boolean;
+const FORM_INICIAL = {
+  uf: "",
+  cidade: "",
+  bairro: "",
+  valorTaxa: "",
+  ativo: true,
+  observacao: "",
 };
 
-function normalizarCep(cep: string) {
-  return cep.replace(/[.\-\s]/g, "");
+const FILTROS_STATUS = [
+  { value: "todos", label: "Todos" },
+  { value: "ativos", label: "Ativos" },
+  { value: "inativos", label: "Inativos" },
+];
+
+function isApiError(error: unknown): error is ApiError {
+  return typeof error === "object" && error !== null && "message" in error;
+}
+
+function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
+  return fieldErrors?.[campo]?.join(" ");
+}
+
+function normalizarBusca(valor: string) {
+  return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function formatarValor(valor: string | null) {
+  if (!valor || Number(valor) <= 0) {
+    return "A confirmar";
+  }
+  return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 export default function EntregasConfigPage() {
-  const [loading, setLoading] = useState(false);
-  const [cepLoading, setCepLoading] = useState(false);
-  const [cepError, setCepError] = useState<string | null>(null);
-  const [cepSuccess, setCepSuccess] = useState<string | null>(null);
+  const [regras, setRegras] = useState<RegraFreteBairro[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>();
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [formAberto, setFormAberto] = useState(false);
+  const [regraEditando, setRegraEditando] = useState<RegraFreteBairro | null>(null);
+  const [form, setForm] = useState(FORM_INICIAL);
 
-  // Mock dos dados atuais que viriam de um GET /api/taxa-entrega-retirada/configuracao/
-  const [config, setConfig] = useState({
-    cep: "92700-000",
-    logradouro: "Rua São José",
-    numero: "150",
-    bairro: "Centro",
-    cidade: "Guaíba",
-    estado: "RS",
-    valorPorKm: 1.50,
-    ativo: true,
-  });
-
-  const handleBuscarCep = async () => {
-    const cep = normalizarCep(config.cep);
-
-    setCepError(null);
-    setCepSuccess(null);
-
-    if (!/^\d{8}$/.test(cep)) {
-      setCepError("CEP invalido. Informe exatamente 8 digitos.");
-      return;
+  useEffect(() => {
+    let active = true;
+    async function carregar() {
+      try {
+        const dados = await listarRegrasFreteBairro();
+        if (active) setRegras(dados);
+      } catch (error) {
+        if (active) setErro(isApiError(error) ? error.message : "Nao foi possivel carregar as regras de frete.");
+      } finally {
+        if (active) setLoading(false);
+      }
     }
+    void carregar();
+    return () => { active = false; };
+  }, []);
 
-    setCepLoading(true);
+  const regrasFiltradas = useMemo(() => {
+    const termo = normalizarBusca(busca);
+    return regras.filter((regra) => {
+      const correspondeBusca = !termo || normalizarBusca(`${regra.cidade} ${regra.bairro} ${regra.uf}`).includes(termo);
+      const correspondeStatus = filtroStatus === "todos" || (filtroStatus === "ativos" ? regra.ativo : !regra.ativo);
+      return correspondeBusca && correspondeStatus;
+    });
+  }, [busca, filtroStatus, regras]);
 
+  function abrirNovaRegra() {
+    setRegraEditando(null);
+    setForm(FORM_INICIAL);
+    setFieldErrors(undefined);
+    setErro(null);
+    setFormAberto(true);
+  }
+
+  function editar(regra: RegraFreteBairro) {
+    setRegraEditando(regra);
+    setForm({
+      uf: regra.uf,
+      cidade: regra.cidade,
+      bairro: regra.bairro,
+      valorTaxa: regra.valor_taxa ?? "",
+      ativo: regra.ativo,
+      observacao: regra.observacao,
+    });
+    setFieldErrors(undefined);
+    setErro(null);
+    setFormAberto(true);
+  }
+
+  function fecharFormulario() {
+    setFormAberto(false);
+    setRegraEditando(null);
+    setForm(FORM_INICIAL);
+    setFieldErrors(undefined);
+  }
+
+  async function salvar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSalvando(true);
+    setErro(null);
+    setSucesso(null);
+    setFieldErrors(undefined);
+    const payload = {
+      uf: form.uf,
+      cidade: form.cidade,
+      bairro: form.bairro,
+      valor_taxa: form.valorTaxa.trim() === "" || Number(form.valorTaxa) === 0 ? null : form.valorTaxa,
+      ativo: form.ativo,
+      observacao: form.observacao,
+    };
     try {
-      const response = await fetch(`${VIACEP_BASE_URL}${cep}/json/`, {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        setCepError("Servico externo de CEP indisponivel. Tente novamente em instantes.");
-        return;
+      const salva = regraEditando
+        ? await atualizarRegraFreteBairro(regraEditando.id, payload)
+        : await criarRegraFreteBairro(payload);
+      setRegras((atuais) => regraEditando
+        ? atuais.map((item) => item.id === salva.id ? salva : item)
+        : [...atuais, salva]);
+      setSucesso(regraEditando ? "Regra atualizada com sucesso." : "Regra criada com sucesso.");
+      fecharFormulario();
+    } catch (error) {
+      if (isApiError(error)) {
+        setErro(error.message);
+        setFieldErrors(error.fieldErrors);
+      } else {
+        setErro("Nao foi possivel salvar a regra de frete.");
       }
-
-      const data = (await response.json()) as ViaCepResponse;
-
-      if (data.erro) {
-        setCepError("CEP nao encontrado. Confira os numeros informados.");
-        return;
-      }
-
-      setConfig((currentConfig) => ({
-        ...currentConfig,
-        cep,
-        logradouro: data.logradouro?.trim() ?? "",
-        bairro: data.bairro?.trim() ?? "",
-        cidade: data.localidade?.trim() ?? "",
-        estado: data.uf?.trim().toUpperCase() ?? "",
-      }));
-      setCepSuccess("CEP encontrado e endereco preenchido.");
-    } catch {
-      setCepError("Erro de rede ao buscar CEP. Verifique sua conexao e tente novamente.");
     } finally {
-      setCepLoading(false);
+      setSalvando(false);
     }
-  };
+  }
 
-  const handleSalvar = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    
-    setTimeout(() => {
-      setLoading(false);
-      alert("Configurações de logística atualizadas com sucesso!");
-    }, 1000);
-  };
+  async function alternarAtivo(regra: RegraFreteBairro) {
+    setErro(null);
+    setSucesso(null);
+    try {
+      const atualizada = await atualizarRegraFreteBairro(regra.id, { ativo: !regra.ativo });
+      setRegras((atuais) => atuais.map((item) => item.id === atualizada.id ? atualizada : item));
+      setSucesso(atualizada.ativo ? "Regra ativada com sucesso." : "Regra desativada com sucesso.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel alterar o status da regra.");
+    }
+  }
+
+  async function excluir(regra: RegraFreteBairro) {
+    if (!window.confirm(`Remover a regra de ${regra.bairro} - ${regra.cidade}/${regra.uf}?`)) return;
+    setExcluindoId(regra.id);
+    setErro(null);
+    setSucesso(null);
+    try {
+      await excluirRegraFreteBairro(regra.id);
+      setRegras((atuais) => atuais.filter((item) => item.id !== regra.id));
+      setSucesso("Regra removida com sucesso.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel remover a regra.");
+    } finally {
+      setExcluindoId(null);
+    }
+  }
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6">
-      
-      {/* Cabeçalho */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Configuração de Entregas</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Defina o endereço base da loja e o valor cobrado por quilómetro rodado.
-        </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900">Frete por bairro</h1>
+          <p className="mt-1 text-sm text-zinc-500">Configure valores de entrega e retirada por cidade e bairro.</p>
+        </div>
+        <Button type="button" onClick={abrirNovaRegra}>Nova regra</Button>
       </div>
 
-      <form onSubmit={handleSalvar} className="flex flex-col gap-6">
-        
-        {/* Card 1: Endereço Base */}
-        <Card padding="lg">
-          <h2 className="text-lg font-bold text-zinc-800 mb-4 pb-2 border-b border-zinc-100">
-            Endereço de Origem (Estoque)
-          </h2>
-          <p className="text-sm text-zinc-500 mb-6">
-            Este endereço é utilizado pela API do Google Routes para calcular a distância exata até à casa do cliente.
-          </p>
+      {erro && <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">{erro}</div>}
+      {sucesso && <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">{sucesso}</div>}
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-4">
-              <Input 
-                label="CEP *" 
-                value={config.cep}
-                onChange={(e) => {
-                  setCepError(null);
-                  setCepSuccess(null);
-                  setConfig({...config, cep: e.target.value});
-                }}
-                error={cepError ?? undefined}
-                required 
-              />
-            </div>
-            <div className="md:col-span-8 flex items-end">
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full md:w-auto"
-                loading={cepLoading}
-                onClick={handleBuscarCep}
-              >
-                {cepLoading ? "Buscando..." : "Buscar CEP"}
-              </Button>
-            </div>
-            {cepSuccess && (
-              <p className="md:col-span-12 text-sm font-medium text-teal-700">
-                {cepSuccess}
-              </p>
-            )}
-
-            <div className="md:col-span-9">
-              <Input 
-                label="Logradouro (Rua, Avenida) *" 
-                value={config.logradouro}
-                onChange={(e) => setConfig({...config, logradouro: e.target.value})}
-                required 
-              />
-            </div>
-            <div className="md:col-span-3">
-              <Input 
-                label="Número *" 
-                value={config.numero}
-                onChange={(e) => setConfig({...config, numero: e.target.value})}
-                required 
-              />
-            </div>
-
-            <div className="md:col-span-4">
-              <Input 
-                label="Bairro *" 
-                value={config.bairro}
-                onChange={(e) => setConfig({...config, bairro: e.target.value})}
-                required 
-              />
-            </div>
-            <div className="md:col-span-6">
-              <Input 
-                label="Cidade *" 
-                value={config.cidade}
-                onChange={(e) => setConfig({...config, cidade: e.target.value})}
-                required 
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Input 
-                label="UF *" 
-                value={config.estado}
-                onChange={(e) => setConfig({...config, estado: e.target.value})}
-                required 
-              />
-            </div>
+      {formAberto && (
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-zinc-900">{regraEditando ? "Editar regra" : "Nova regra"}</h2>
+            <Button type="button" variant="ghost" size="sm" onClick={fecharFormulario}>Cancelar</Button>
           </div>
-        </Card>
+          <form onSubmit={salvar} className="mt-5 grid gap-5 md:grid-cols-3">
+            <Input label="UF *" value={form.uf} maxLength={2} required onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))} error={erroCampo(fieldErrors, "uf")} />
+            <Input label="Cidade *" value={form.cidade} required onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} error={erroCampo(fieldErrors, "cidade")} />
+            <Input label="Bairro *" value={form.bairro} required onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))} error={erroCampo(fieldErrors, "bairro")} />
+            <Input label="Valor da taxa" type="number" min="0" step="0.01" placeholder="A confirmar" value={form.valorTaxa} onChange={(e) => setForm((f) => ({ ...f, valorTaxa: e.target.value }))} error={erroCampo(fieldErrors, "valor_taxa")} />
+            <div className="flex items-center pt-7"><Checkbox label="Regra ativa" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} /></div>
+            <p className="text-xs text-zinc-500 md:col-span-2">Valor vazio ou zero será salvo como “a confirmar”, nunca como frete grátis.</p>
+            <div className="flex justify-end"><Button type="submit" loading={salvando}>{regraEditando ? "Atualizar regra" : "Salvar regra"}</Button></div>
+          </form>
+        </section>
+      )}
 
-        {/* Card 2: Precificação Logística */}
-        <Card padding="lg">
-          <h2 className="text-lg font-bold text-zinc-800 mb-4 pb-2 border-b border-zinc-100">
-            Precificação do Frete
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Input 
-                label="Valor cobrado por KM rodado (R$) *" 
-                type="number"
-                step="0.01"
-                value={config.valorPorKm}
-                onChange={(e) => setConfig({...config, valorPorKm: parseFloat(e.target.value)})}
-                required 
-              />
-              <p className="text-xs text-zinc-500 mt-2">
-                O sistema calcula a distância de ida e volta e multiplica por este valor. Ex: Se a distância for 10km, o cálculo é (10km ida + 10km volta) * R$ 1,50 = R$ 30,00 de taxa.
-              </p>
-            </div>
-            
-            <div className="flex flex-col justify-center bg-zinc-50 p-4 rounded-lg border border-zinc-200">
-              <Checkbox 
-                label="Habilitar Entregas no Site" 
-                checked={config.ativo}
-                onChange={(e) => setConfig({...config, ativo: e.target.checked})}
-              />
-              <p className="text-xs text-zinc-500 mt-1 pl-8">
-                Se desmarcado, os clientes só poderão escolher a opção &quot;Retirar na Loja&quot;.
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Ações */}
-        <div className="flex justify-end pt-2">
-          <Button type="submit" variant="primary" loading={loading} className="w-full sm:w-auto px-8">
-            Salvar Configurações
-          </Button>
+      <section className="flex flex-col gap-4">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <Input aria-label="Buscar por cidade ou bairro" placeholder="Buscar por cidade ou bairro" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <Select aria-label="Filtrar por status" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} options={FILTROS_STATUS} />
         </div>
 
-      </form>
+        {loading ? (
+          <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-500">Carregando regras de frete...</div>
+        ) : regrasFiltradas.length === 0 ? (
+          <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500">{regras.length === 0 ? "Nenhuma regra de frete cadastrada." : "Nenhuma regra encontrada para os filtros informados."}</div>
+        ) : (
+          <Table>
+            <Thead><Tr><Th>Localidade</Th><Th>Taxa</Th><Th>Status</Th><Th>Observacao</Th><Th className="text-right">Acoes</Th></Tr></Thead>
+            <Tbody>
+              {regrasFiltradas.map((regra) => (
+                <Tr key={regra.id}>
+                  <Td><div className="flex flex-col"><span className="font-semibold text-zinc-900">{regra.bairro}</span><span className="text-xs text-zinc-500">{regra.cidade}/{regra.uf}</span></div></Td>
+                  <Td><div className="flex flex-col"><span className="font-semibold">{formatarValor(regra.valor_taxa)}</span><span className="text-xs text-zinc-400">{regra.status_taxa === "calculada" ? "Valor definido" : "A confirmar"}</span></div></Td>
+                  <Td>{regra.ativo ? <Badge variant="success">Ativa</Badge> : <Badge variant="default">Inativa</Badge>}</Td>
+                  <Td className="max-w-xs whitespace-normal text-sm text-zinc-600">{regra.observacao || "—"}</Td>
+                  <Td className="text-right"><div className="flex justify-end gap-2"><Button type="button" size="sm" variant="outline" onClick={() => editar(regra)}>Editar</Button><Button type="button" size="sm" variant={regra.ativo ? "outline" : "secondary"} onClick={() => void alternarAtivo(regra)}>{regra.ativo ? "Desativar" : "Ativar"}</Button><Button type="button" size="sm" variant="danger" loading={excluindoId === regra.id} onClick={() => void excluir(regra)}>Remover</Button></div></Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        )}
+      </section>
     </div>
   );
 }

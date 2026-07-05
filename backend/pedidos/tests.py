@@ -22,8 +22,9 @@ from catalogo.models import (
     RegraCategoriaKitPersonalizavel,
     UnidadeBrinquedo,
 )
-from entregas.providers import RotaProviderError
-from entregas.services import ConfiguracaoTaxaAusenteError
+from entregas.models import RegraFreteBairro
+from entregas.providers import FakeCepProvider, RotaProviderError
+from entregas.services import ConfiguracaoTaxaAusenteError, TaxaEntregaRetiradaService
 from clientes.models import Cliente
 
 from .models import (
@@ -39,14 +40,17 @@ from .services import PedidoService
 
 
 class FakeTaxaEntregaRetiradaService:
-    def __init__(self, erro=None):
+    def __init__(self, erro=None, status_taxa="calculada", taxa=Decimal("48.00")):
         self.erro = erro
+        self.status_taxa = status_taxa
+        self.taxa = taxa
 
     def calcular(self, cep, numero, complemento=""):
         if self.erro:
             raise self.erro
         return {
             "nome": "Taxa de entrega e retirada",
+            "status": self.status_taxa,
             "endereco_interpretado": {
                 "cep": cep,
                 "logradouro": "Praca da Se",
@@ -56,10 +60,10 @@ class FakeTaxaEntregaRetiradaService:
                 "cidade": "Sao Paulo",
                 "uf": "SP",
             },
-            "distancia_ida_km": Decimal("8.00"),
-            "distancia_total_km": Decimal("16.00"),
-            "valor_por_km": Decimal("3.00"),
-            "taxa": Decimal("48.00"),
+            "distancia_ida_km": Decimal("8.00") if self.taxa is not None else None,
+            "distancia_total_km": Decimal("16.00") if self.taxa is not None else None,
+            "valor_por_km": Decimal("3.00") if self.taxa is not None else None,
+            "taxa": self.taxa,
         }
 
 
@@ -253,6 +257,46 @@ class CarrinhoAPITests(APITestCase):
         payload.update(extra)
         return client.post(self.itens_url, payload, format="json")
 
+    def test_carrinho_aceita_tres_dias_quando_preco_esta_configurado(self):
+        self.brinquedo.preco_3_dias = Decimal("90.00")
+        self.brinquedo.save(update_fields=["preco_3_dias"])
+
+        response = self.adicionar_brinquedo(periodo_locacao="3_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        item = ItemCarrinho.objects.get(id=response.data["id"])
+        self.assertEqual(item.snapshot["periodo_locacao"]["tipo"], "3_dias")
+        self.assertEqual(item.snapshot["periodo_locacao"]["dias"], 3)
+        self.assertEqual(item.snapshot["periodo_locacao"]["preco"], "90.00")
+        self.assertEqual(item.preco_unitario_snapshot, Decimal("90.00"))
+
+        pedido_response = self.converter_carrinho_em_pedido()
+        self.assertEqual(pedido_response.status_code, status.HTTP_201_CREATED)
+        item_pedido = ItemPedido.objects.get(pedido_id=pedido_response.data["id"])
+        self.assertEqual(item_pedido.snapshot["periodo_locacao"]["tipo"], "3_dias")
+        self.assertEqual(item_pedido.preco_unitario_snapshot, Decimal("90.00"))
+
+    def test_carrinho_rejeita_tres_dias_sem_preco_configurado(self):
+        response = self.adicionar_brinquedo(periodo_locacao="3_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo_locacao", response.data)
+
+    def test_carrinho_rejeita_tres_dias_com_preco_zero(self):
+        self.brinquedo.preco_3_dias = Decimal("0.00")
+        self.brinquedo.save(update_fields=["preco_3_dias"])
+
+        response = self.adicionar_brinquedo(periodo_locacao="3_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo_locacao", response.data)
+
+    def test_carrinho_rejeita_periodo_invalido(self):
+        response = self.adicionar_brinquedo(periodo_locacao="7_dias")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("periodo_locacao", response.data)
+
     def adicionar_kit_festa(self, client=None, quantidade=1, **extra):
         client = client or self.client
         payload = {
@@ -311,6 +355,7 @@ class CarrinhoAPITests(APITestCase):
         autenticar=True,
         aceitar_contrato=True,
         contrato=None,
+        taxa_service=None,
         **extra,
     ):
         client = client or self.client
@@ -330,7 +375,7 @@ class CarrinhoAPITests(APITestCase):
             )
         with patch(
             "pedidos.services.TaxaEntregaRetiradaService",
-            return_value=FakeTaxaEntregaRetiradaService(),
+            return_value=taxa_service or FakeTaxaEntregaRetiradaService(),
         ):
             return client.post(
                 self.converter_pedido_url,
@@ -690,10 +735,11 @@ class CarrinhoAPITests(APITestCase):
         self.assertIn("solicitacao de locacao", resumo_whatsapp)
         self.assertIn(f"Pedido: #{pedido.id}", resumo_whatsapp)
         self.assertIn("Contrato aceito no site: Sim", resumo_whatsapp)
+        self.assertIn("Taxa de entrega e retirada: R$ 48,00", resumo_whatsapp)
         self.assertIn(
             (
-                "Gostaria de confirmar disponibilidade, datas de "
-                "entrega/retirada e os proximos passos."
+                "Gostaria de confirmar a disponibilidade da data de entrega "
+                "e retirada, o período da locação e os detalhes finais do pedido."
             ),
             resumo_whatsapp,
         )
@@ -705,6 +751,63 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(item.snapshot["brinquedo"]["nome"], "Cama elastica")
         self.assertNotIn("snapshot", response.data["itens"][0])
         self.assertEqual(response.data["itens"][0]["nome_snapshot"], "Cama elastica")
+
+    def test_pedido_salva_frete_a_confirmar_e_informa_whatsapp(self):
+        self.adicionar_brinquedo()
+
+        response = self.converter_carrinho_em_pedido(
+            taxa_service=FakeTaxaEntregaRetiradaService(
+                status_taxa="a_confirmar",
+                taxa=None,
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertIsNone(pedido.taxa_entrega_retirada_snapshot)
+        self.assertEqual(
+            pedido.taxa_entrega_status_snapshot,
+            Pedido.StatusTaxaEntrega.A_CONFIRMAR,
+        )
+        self.assertIn(
+            "Taxa de entrega e retirada: a confirmar pela BabyPlays.",
+            response.data["whatsapp_resumo"],
+        )
+        self.assertNotIn("R$ 0,00", response.data["whatsapp_resumo"])
+
+    def test_checkout_usa_valor_cadastrado_para_o_bairro(self):
+        self.adicionar_brinquedo()
+        RegraFreteBairro.objects.create(
+            uf="SP",
+            cidade="São Paulo",
+            bairro="Sé",
+            valor_taxa=Decimal("31.50"),
+        )
+        taxa_service = TaxaEntregaRetiradaService(
+            cep_provider=FakeCepProvider(
+                {
+                    "cep": "01001000",
+                    "logradouro": "Praca da Se",
+                    "bairro": "Se",
+                    "cidade": "Sao Paulo",
+                    "uf": "SP",
+                }
+            )
+        )
+
+        response = self.converter_carrinho_em_pedido(taxa_service=taxa_service)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertEqual(pedido.taxa_entrega_retirada_snapshot, Decimal("31.50"))
+        self.assertEqual(
+            pedido.taxa_entrega_status_snapshot,
+            Pedido.StatusTaxaEntrega.CALCULADA,
+        )
+        self.assertIn(
+            "Taxa de entrega e retirada: R$ 31,50",
+            response.data["whatsapp_resumo"],
+        )
 
     def test_brinquedo_que_ficou_indisponivel_nao_converte_carrinho(self):
         self.adicionar_brinquedo()
@@ -988,7 +1091,7 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(Pedido.objects.count(), 0)
         self.assertIn("detail", response.data)
 
-    def test_falha_no_calculo_da_taxa_impede_criacao_do_pedido(self):
+    def test_google_routes_403_nao_bloqueia_checkout(self):
         self.adicionar_brinquedo()
         self.client.force_authenticate(user=self.usuario)
 
@@ -1002,11 +1105,19 @@ class CarrinhoAPITests(APITestCase):
                 format="json",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertEqual(Pedido.objects.count(), 0)
-        self.assertIn("taxa_entrega", response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertIsNone(pedido.taxa_entrega_retirada_snapshot)
+        self.assertEqual(
+            pedido.taxa_entrega_status_snapshot,
+            Pedido.StatusTaxaEntrega.SUJEITA_ANALISE,
+        )
+        self.assertIn(
+            "Taxa de entrega e retirada: sujeita à análise para este endereço.",
+            response.data["whatsapp_resumo"],
+        )
 
-    def test_configuracao_de_taxa_ausente_retorna_erro_claro_sem_criar_pedido(self):
+    def test_google_routes_sem_chave_nao_bloqueia_checkout(self):
         self.adicionar_brinquedo()
         self.client.force_authenticate(user=self.usuario)
 
@@ -1022,19 +1133,15 @@ class CarrinhoAPITests(APITestCase):
                 format="json",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        self.assertIsNone(pedido.taxa_entrega_retirada_snapshot)
         self.assertEqual(
-            response.data,
-            {
-                "taxa_entrega": (
-                    "O calculo da taxa de entrega e retirada esta "
-                    "temporariamente indisponivel."
-                )
-            },
+            pedido.taxa_entrega_status_snapshot,
+            Pedido.StatusTaxaEntrega.SUJEITA_ANALISE,
         )
 
-    def test_falha_no_calculo_da_taxa_nao_converte_o_carrinho(self):
+    def test_falha_externa_de_rota_converte_carrinho_uma_unica_vez(self):
         self.adicionar_brinquedo()
         carrinho = Carrinho.objects.get()
         self.client.force_authenticate(user=self.usuario)
@@ -1049,9 +1156,10 @@ class CarrinhoAPITests(APITestCase):
                 format="json",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         carrinho.refresh_from_db()
-        self.assertEqual(carrinho.status, Carrinho.Status.ATIVO)
+        self.assertEqual(carrinho.status, Carrinho.Status.CONVERTIDO)
+        self.assertEqual(Pedido.objects.count(), 1)
 
     def test_conversao_exige_cep(self):
         self.adicionar_brinquedo()

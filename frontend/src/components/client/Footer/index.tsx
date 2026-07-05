@@ -65,7 +65,16 @@ export function Footer() {
           <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1.25fr_.75fr_.9fr_.9fr_1.35fr] lg:items-start lg:gap-6">
           <div>
             <Link href="/" className="inline-flex rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#AB2E97]">
-              <Image src="/logo-babyplays-header.png" alt="BabyPlays - Locação de brinquedos" width={240} height={80} className="h-auto w-40 sm:w-44" />
+              <span className="relative block h-24 w-[68px] overflow-hidden">
+                <Image
+                  src="/assets/LogoComEscrita.jpg"
+                  alt="BabyPlays - Locação de brinquedos"
+                  width={1275}
+                  height={990}
+                  sizes="146px"
+                  className="absolute left-1/2 top-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+                />
+              </span>
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-5 text-[#2C1615]/65">
               Brinquedos para criar memórias, diversão e momentos especiais em família.

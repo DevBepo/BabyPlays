@@ -92,11 +92,13 @@ class ItemSelecaoKitPersonalizadoCarrinhoSerializer(serializers.Serializer):
 
 class AdicionarItemCarrinhoSerializer(serializers.Serializer):
     class PeriodoLocacao:
+        TRES_DIAS = "3_dias"
         QUINZE_DIAS = "15_dias"
         TRINTA_DIAS = "30_dias"
         DIARIA = "diaria"
 
         choices = (
+            (TRES_DIAS, "3 dias"),
             (QUINZE_DIAS, "15 dias"),
             (TRINTA_DIAS, "30 dias"),
             (DIARIA, "Diaria"),
@@ -212,6 +214,7 @@ class PedidoSerializer(serializers.ModelSerializer):
             "distancia_total_km_snapshot",
             "valor_por_km_snapshot",
             "taxa_entrega_retirada_snapshot",
+            "taxa_entrega_status_snapshot",
             "total_estimado_snapshot",
             "itens",
             "whatsapp_resumo",
@@ -244,16 +247,23 @@ class ClienteSnapshotPedidoSerializer(serializers.Serializer):
 
 class ValoresPedidoAdminSerializer(serializers.Serializer):
     subtotal_itens_snapshot = serializers.DecimalField(max_digits=9, decimal_places=2)
-    distancia_ida_km_snapshot = serializers.DecimalField(max_digits=10, decimal_places=2)
+    distancia_ida_km_snapshot = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
     distancia_total_km_snapshot = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
+        allow_null=True,
     )
-    valor_por_km_snapshot = serializers.DecimalField(max_digits=8, decimal_places=2)
+    valor_por_km_snapshot = serializers.DecimalField(
+        max_digits=8, decimal_places=2, allow_null=True
+    )
     taxa_entrega_retirada_snapshot = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
+        allow_null=True,
     )
+    taxa_entrega_status_snapshot = serializers.CharField()
     total_estimado_snapshot = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
@@ -824,6 +834,7 @@ class ConverterCarrinhoPedidoSerializer(serializers.Serializer):
         "taxa",
         "frete",
         "taxa_entrega_retirada_snapshot",
+        "taxa_entrega_status_snapshot",
         "total",
         "total_estimado",
         "total_estimado_snapshot",

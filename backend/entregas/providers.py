@@ -1,10 +1,14 @@
 import json
+import logging
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class CepInvalidoError(Exception):
@@ -96,13 +100,62 @@ class GoogleRoutesRotaProvider:
         try:
             with urlopen(request, timeout=self.timeout_segundos) as response:
                 resposta = json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        except HTTPError as exc:
+            self._logar_erro_http(exc)
+            raise RotaProviderError(
+                "Nao foi possivel calcular a rota para este endereco."
+            ) from exc
+        except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "Falha ao chamar Google Routes API: tipo=%s",
+                type(exc).__name__,
+            )
             raise RotaProviderError(
                 "Nao foi possivel calcular a rota para este endereco."
             ) from exc
 
         distancia_metros = self._extrair_distancia_metros(resposta)
         return self._converter_metros_para_km(distancia_metros)
+
+    def _logar_erro_http(self, erro_http):
+        erro_google = {}
+        try:
+            corpo = erro_http.read().decode("utf-8")
+            payload = json.loads(corpo)
+            if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+                erro_google = payload["error"]
+        except (AttributeError, UnicodeDecodeError, json.JSONDecodeError):
+            pass
+
+        motivo = ""
+        detalhes = erro_google.get("details")
+        if isinstance(detalhes, list):
+            for detalhe in detalhes:
+                if isinstance(detalhe, dict) and detalhe.get("reason"):
+                    motivo = str(detalhe["reason"])
+                    break
+
+        google_code = self._sanitizar_valor_log(erro_google.get("code", ""))
+        google_status = self._sanitizar_valor_log(erro_google.get("status", ""))
+        motivo = self._sanitizar_valor_log(motivo)
+        mensagem = self._sanitizar_valor_log(erro_google.get("message", ""), 500)
+        logger.warning(
+            "Google Routes API recusou a chamada: http_status=%s "
+            "google_code=%s google_status=%s reason=%s message=%s",
+            getattr(erro_http, "code", ""),
+            google_code,
+            google_status,
+            motivo,
+            mensagem,
+        )
+
+    @staticmethod
+    def _sanitizar_valor_log(valor, limite=100):
+        texto = str(valor or "").replace("\r", " ").replace("\n", " ")
+        api_key = str(getattr(settings, "GOOGLE_ROUTES_API_KEY", "") or "").strip()
+        if api_key:
+            texto = texto.replace(api_key, "[REDACTED]")
+        return texto[:limite]
 
     def _montar_payload(self, origem, destino):
         return {
