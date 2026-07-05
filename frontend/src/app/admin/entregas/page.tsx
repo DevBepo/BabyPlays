@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/TextArea";
 import {
   atualizarRegraFreteBairro,
   criarRegraFreteBairro,
@@ -209,7 +208,6 @@ export default function EntregasConfigPage() {
             <Input label="Bairro *" value={form.bairro} required onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))} error={erroCampo(fieldErrors, "bairro")} />
             <Input label="Valor da taxa" type="number" min="0" step="0.01" placeholder="A confirmar" value={form.valorTaxa} onChange={(e) => setForm((f) => ({ ...f, valorTaxa: e.target.value }))} error={erroCampo(fieldErrors, "valor_taxa")} />
             <div className="flex items-center pt-7"><Checkbox label="Regra ativa" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} /></div>
-            <div className="md:col-span-3"><Textarea label="Observacao" value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} error={erroCampo(fieldErrors, "observacao")} /></div>
             <p className="text-xs text-zinc-500 md:col-span-2">Valor vazio ou zero será salvo como “a confirmar”, nunca como frete grátis.</p>
             <div className="flex justify-end"><Button type="submit" loading={salvando}>{regraEditando ? "Atualizar regra" : "Salvar regra"}</Button></div>
           </form>
