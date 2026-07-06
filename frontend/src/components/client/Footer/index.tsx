@@ -62,19 +62,27 @@ export function Footer() {
         <span className="pointer-events-none absolute right-[7%] top-5 h-6 w-6 rotate-12 rounded-lg bg-[#EA524B]/12" aria-hidden="true" />
 
         <div className="relative mx-auto max-w-[1600px] px-4 pb-4 pt-6 sm:px-6 sm:pb-5 sm:pt-7">
-          <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1.25fr_.75fr_.9fr_.9fr_1.35fr] lg:items-start lg:gap-6">
+          <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1.45fr_.7fr_.85fr_.85fr_1.35fr] lg:items-start lg:gap-6">
           <div>
-            <Link href="/" className="inline-flex rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#AB2E97]">
-              <span className="relative block h-24 w-[68px] overflow-hidden">
-                <Image
-                  src="/assets/LogoComEscrita.jpg"
-                  alt="BabyPlays - Locação de brinquedos"
-                  width={1275}
-                  height={990}
-                  sizes="146px"
-                  className="absolute left-1/2 top-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
-                />
-              </span>
+            <Link href="/" className="inline-flex items-end gap-2 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#AB2E97]" aria-label="BabyPlays - Locação de brinquedos">
+              <Image
+                src="/assets/BabyPlaysOfficialLogo.png"
+                alt="BabyPlays - Locação de brinquedos"
+                width={1895}
+                height={1643}
+                sizes="(max-width: 639px) 104px, 120px"
+                unoptimized
+                className="h-auto w-[104px] mix-blend-multiply object-contain sm:w-[120px]"
+              />
+              <Image
+                src="/assets/BabyPlaysMascotePagina24.png"
+                alt=""
+                width={683}
+                height={541}
+                sizes="(max-width: 639px) 88px, 96px"
+                unoptimized
+                className="h-auto w-[88px] mix-blend-multiply object-contain sm:w-24"
+              />
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-5 text-[#2C1615]/65">
               Brinquedos para criar memórias, diversão e momentos especiais em família.
