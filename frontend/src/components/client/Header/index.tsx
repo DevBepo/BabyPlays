@@ -159,27 +159,32 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-3 gap-y-2.5 px-4 py-2 sm:min-h-20 sm:px-6 lg:flex-nowrap lg:gap-4">
-        <Link href="/" className="flex shrink-0 cursor-pointer select-none items-center gap-1 sm:gap-2" aria-label="Ir para a página inicial">
-          <span className="relative block h-20 w-24 shrink-0">
-            <Image
-              src="/assets/BabyPlaysOfficialLogo.png"
-              alt="BabyPlays - Locação de brinquedos"
-              priority
-              fill
-              sizes="96px"
-              className="object-contain"
-            />
-          </span>
-          <span className="relative block h-20 w-24 shrink-0">
-            <Image
-              src="/assets/BabyPlaysTiger.png"
-              alt=""
-              fill
-              sizes="96px"
-              className="object-contain"
-            />
-          </span>
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-1 gap-y-2.5 px-4 py-2 sm:min-h-20 sm:gap-x-3 sm:px-6 lg:flex-nowrap lg:gap-4">
+        <Link
+          href="/"
+          className="flex shrink-0 cursor-pointer select-none items-end gap-2"
+          aria-label="Ir para a página inicial"
+        >
+          <Image
+            src="/assets/BabyPlaysTaglinePagina24.png"
+            alt="BabyPlays - Locação de brinquedos"
+            priority
+            unoptimized
+            width={587}
+            height={147}
+            sizes="(max-width: 639px) 112px, 128px"
+            className="h-auto w-28 object-contain sm:w-32"
+          />
+          <Image
+            src="/assets/BabyPlaysMascotePagina24.png"
+            alt=""
+            priority
+            unoptimized
+            width={683}
+            height={541}
+            sizes="(max-width: 639px) 72px, 80px"
+            className="h-auto w-[72px] object-contain sm:w-20"
+          />
         </Link>
 
         <form
