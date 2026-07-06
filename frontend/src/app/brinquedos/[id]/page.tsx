@@ -155,12 +155,12 @@ function BrinquedoDetalheContent() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#F8F9FA] px-4 py-8">
-        <div className="mx-auto max-w-4xl">
+      <main className="min-h-screen bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC] px-4 py-8">
+        <div className="mx-auto max-w-4xl rounded-[2rem] border border-white/80 bg-white/70 p-5 shadow-lg shadow-[#803233]/5 backdrop-blur-sm sm:p-8">
           <div className="animate-pulse space-y-6">
-            <div className="h-64 rounded-lg bg-zinc-200" />
-            <div className="h-10 rounded bg-zinc-200" />
-            <div className="h-6 rounded bg-zinc-200" />
+            <div className="h-64 rounded-3xl bg-white" />
+            <div className="h-10 rounded-xl bg-white" />
+            <div className="h-6 rounded-xl bg-white" />
           </div>
         </div>
       </main>
@@ -169,8 +169,8 @@ function BrinquedoDetalheContent() {
 
   if (notFound || !brinquedo) {
     return (
-      <main className="min-h-screen bg-[#F8F9FA] px-4 py-8">
-        <div className="mx-auto max-w-4xl text-center">
+      <main className="min-h-screen bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC] px-4 py-8">
+        <div className="mx-auto max-w-4xl rounded-[2rem] border border-white/80 bg-white/80 p-8 text-center shadow-lg shadow-[#803233]/5 backdrop-blur-sm">
           <h1 className="text-3xl font-bold text-zinc-900">Brinquedo nao encontrado</h1>
           <p className="mt-2 text-sm text-zinc-500">
             Desculpe, o brinquedo que voce procura nao existe ou foi removido.
@@ -184,13 +184,19 @@ function BrinquedoDetalheContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FFF8EC] px-4 py-6 sm:py-10">
-      <div className="mx-auto max-w-6xl">
+    <div className="relative min-h-screen overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+      <main className="relative px-4 pb-20 pt-6 sm:pb-28 sm:pt-10">
+      <span className="pointer-events-none absolute -left-20 top-28 h-52 w-52 rounded-full bg-[#FAB555]/20" />
+      <span className="pointer-events-none absolute right-[6%] top-20 h-5 w-5 rounded-full bg-[#EA524B]/65" />
+      <span className="pointer-events-none absolute -right-20 top-[42%] h-56 w-56 rotate-12 rounded-[4rem] bg-[#76CFC8]/15" />
+      <span className="pointer-events-none absolute bottom-32 left-[12%] h-10 w-10 rotate-12 rounded-xl bg-[#AB2E97]/8" />
+
+      <div className="relative z-10 mx-auto max-w-6xl">
         <Button
           type="button"
           variant="ghost"
           onClick={() => router.back()}
-          className="mb-6"
+          className="mb-6 rounded-full bg-white/75 px-4 shadow-sm backdrop-blur-sm hover:bg-white"
         >
           ← Voltar
         </Button>
@@ -201,9 +207,9 @@ function BrinquedoDetalheContent() {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:gap-12">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:gap-8">
           <div>
-            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-[#FAB555]/30 bg-white p-4 shadow-sm sm:p-8">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-[2rem] border border-white/90 bg-white/90 p-4 shadow-xl shadow-[#803233]/8 backdrop-blur-sm sm:p-8">
               {imagemUrl ? (
                 <Image
                   src={imagemUrl}
@@ -214,7 +220,7 @@ function BrinquedoDetalheContent() {
                   priority
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-dashed border-[#FAB555]/50 bg-[#FFF8EC] text-sm font-medium text-zinc-400">
+                <div className="flex h-full w-full items-center justify-center rounded-3xl border-2 border-dashed border-[#FAB555]/50 bg-[#FFF8EC] text-sm font-medium text-zinc-400">
                   Sem imagem disponivel
                 </div>
               )}
@@ -224,7 +230,7 @@ function BrinquedoDetalheContent() {
                     type="button"
                     onClick={() => navegarImagem(-1)}
                     aria-label="Imagem anterior"
-                    className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl font-bold text-zinc-700 shadow-md hover:bg-white"
+                    className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white bg-white/90 text-2xl font-bold text-[#803233] shadow-md transition hover:bg-white"
                   >
                     &#8249;
                   </button>
@@ -232,7 +238,7 @@ function BrinquedoDetalheContent() {
                     type="button"
                     onClick={() => navegarImagem(1)}
                     aria-label="Proxima imagem"
-                    className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl font-bold text-zinc-700 shadow-md hover:bg-white"
+                    className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white bg-white/90 text-2xl font-bold text-[#803233] shadow-md transition hover:bg-white"
                   >
                     &#8250;
                   </button>
@@ -252,8 +258,8 @@ function BrinquedoDetalheContent() {
                       onClick={() => setImagemSelecionadaId(item.id)}
                       aria-label={`Ver imagem: ${item.alt_text || brinquedo.nome}`}
                       aria-pressed={selecionada}
-                      className={`aspect-square overflow-hidden rounded-xl border-2 bg-white p-1 transition-colors ${
-                        selecionada ? "border-[#AB2E97]" : "border-transparent hover:border-[#76CFC8]"
+                      className={`aspect-square overflow-hidden rounded-2xl border-2 bg-white/90 p-1.5 shadow-sm transition-all ${
+                        selecionada ? "border-[#AB2E97] shadow-[#AB2E97]/15" : "border-white hover:border-[#76CFC8]"
                       }`}
                     >
                       {itemUrl && (
@@ -273,7 +279,7 @@ function BrinquedoDetalheContent() {
           </div>
 
           {/* Detalhes */}
-          <div className="flex flex-col gap-6 lg:py-2">
+          <div className="flex flex-col gap-6 rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-xl shadow-[#803233]/8 backdrop-blur-sm sm:p-7 lg:p-8">
             <div>
               <div className="mb-3 flex items-center gap-2">
                 {isAvailable ? (
@@ -294,12 +300,12 @@ function BrinquedoDetalheContent() {
               )}
             </div>
 
-            <section className="border-y border-[#FAB555]/35 py-5" aria-labelledby="descricao-brinquedo">
+            <section className="rounded-2xl bg-[#FFF8EC]/80 p-4 sm:p-5" aria-labelledby="descricao-brinquedo">
               <h2 id="descricao-brinquedo" className="text-sm font-bold uppercase tracking-wide text-[#803233]">Sobre o brinquedo</h2>
               <p className="mt-2 whitespace-pre-line text-base leading-7 text-zinc-700">{brinquedo.descricao}</p>
             </section>
 
-            <section className="rounded-2xl border border-[#AB2E97]/15 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="periodos-brinquedo">
+            <section className="rounded-2xl border border-[#AB2E97]/12 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="periodos-brinquedo">
               <div className="space-y-4">
                 <div>
                   <h2 id="periodos-brinquedo" className="mb-3 text-sm font-bold text-[#2C1615]">Escolha o período</h2>
@@ -315,8 +321,8 @@ function BrinquedoDetalheContent() {
                             aria-pressed={selected}
                             className={`flex min-h-16 flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition-colors ${
                               selected
-                                ? "border-[#AB2E97] bg-[#F7EAF5] text-[#803233]"
-                                : "border-zinc-200 bg-white text-zinc-600 hover:border-[#76CFC8]"
+                                ? "border-[#AB2E97] bg-[#F7EAF5] text-[#803233] shadow-sm"
+                                : "border-[#FAB555]/25 bg-[#FFFCF7] text-zinc-600 hover:border-[#76CFC8]"
                             }`}
                           >
                             <span className="text-xs font-semibold">{option.label}</span>
@@ -346,7 +352,7 @@ function BrinquedoDetalheContent() {
                 type="button"
                 onClick={handleAddToCart}
                 disabled={adicionando}
-                className="h-12 w-full rounded-xl bg-[#AB2E97] text-base font-bold text-white shadow-sm transition-colors hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-13 w-full rounded-2xl bg-[#AB2E97] text-base font-bold text-white shadow-lg shadow-[#AB2E97]/20 transition-all hover:-translate-y-0.5 hover:bg-[#803233] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {adicionando ? "Adicionando ao carrinho..." : "Adicionar ao carrinho"}
               </button>
@@ -354,7 +360,7 @@ function BrinquedoDetalheContent() {
               <button
                 type="button"
                 disabled
-                className="h-12 w-full cursor-not-allowed rounded-lg border border-zinc-200 bg-zinc-100 text-sm font-bold text-zinc-500"
+                className="h-13 w-full cursor-not-allowed rounded-2xl border border-zinc-200 bg-zinc-100 text-sm font-bold text-zinc-500"
               >
                 Alugado
               </button>
@@ -363,7 +369,7 @@ function BrinquedoDetalheContent() {
                 type="button"
                 onClick={handleInteresse}
                 disabled={registrandoInteresse}
-                className="h-12 w-full rounded-lg border border-violet-200 bg-violet-50 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+                className="h-13 w-full rounded-2xl border border-violet-200 bg-violet-50 text-sm font-bold text-violet-700 shadow-sm hover:bg-violet-100 disabled:opacity-60"
               >
                 {registrandoInteresse ? "Registrando..." : "Avise-me quando estiver disponivel"}
               </button>
@@ -378,8 +384,9 @@ function BrinquedoDetalheContent() {
           </div>
         </div>
       </div>
+      </main>
       <Footer />
-    </main>
+    </div>
   );
 }
 

@@ -87,7 +87,8 @@ export default function KitFestaDetalhePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FFF8EC] px-4 py-6 sm:py-10">
+    <div className="min-h-screen bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+      <main className="px-4 pb-20 pt-6 sm:pb-28 sm:pt-10">
       <div className="mx-auto max-w-6xl">
         <Button type="button" variant="ghost" onClick={() => router.back()} className="mb-6">← Voltar</Button>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:gap-12">
@@ -131,7 +132,8 @@ export default function KitFestaDetalhePage() {
           </div>
         </div>
       </div>
+      </main>
       <Footer />
-    </main>
+    </div>
   );
 }
