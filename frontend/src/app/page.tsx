@@ -349,6 +349,51 @@ export default function Home() {
       <SubNavbar />
 
       <div className="relative overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+        <section
+          aria-labelledby="home-hero-title"
+          className="relative z-10 mx-auto max-w-[1600px] px-3 pt-4 sm:px-6 sm:pt-5"
+        >
+          <div className="relative min-h-[360px] overflow-hidden rounded-[2rem] border border-white/70 bg-[#FFF4DF] shadow-lg shadow-[#803233]/10 sm:min-h-[300px] lg:min-h-[250px]">
+            <Image
+              src="/assets/hero-bebes-brincando.png"
+              alt="Dois bebês brincando juntos com blocos e brinquedo de encaixe"
+              fill
+              priority
+              sizes="(max-width: 1600px) 100vw, 1600px"
+              className="object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-[#FFF4DF]/90 sm:bg-gradient-to-r sm:from-[#FFF8EC]/95 sm:via-white/15 sm:to-[#E7F7F5]/55" />
+
+            <div className="relative z-10 flex min-h-[360px] flex-col justify-between gap-5 p-5 sm:min-h-[300px] sm:flex-row sm:items-center sm:p-7 lg:min-h-[250px] lg:p-9">
+              <div className="max-w-sm rounded-3xl bg-white/82 p-5 shadow-sm backdrop-blur-[2px] sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F07F40]">
+                  Brincar faz bem
+                </p>
+                <h1
+                  id="home-hero-title"
+                  className="mt-2 text-3xl font-bold leading-[1.05] text-[#AB2E97] [font-family:var(--font-fredoka)] sm:text-4xl"
+                >
+                  Mais diversão para cada fase do brincar
+                </h1>
+                <p className="mt-3 max-w-xs text-sm leading-6 text-[#2C1615]/75">
+                  Brinquedos seguros, higienizados e cheios de imaginação para o seu pequeno explorar.
+                </p>
+              </div>
+
+              <div className="ml-auto flex w-44 items-center justify-center rounded-3xl bg-white/88 p-3 shadow-md shadow-[#803233]/10 backdrop-blur-sm sm:w-52 lg:w-60">
+                <Image
+                  src="/assets/BabyPlaysOfficialLogo.png"
+                  alt="BabyPlays - Locação de brinquedos"
+                  width={1895}
+                  height={1643}
+                  sizes="(max-width: 639px) 152px, (max-width: 1023px) 184px, 216px"
+                  className="h-auto w-full object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
         <span className="pointer-events-none absolute -left-16 top-12 hidden h-48 w-48 rounded-full bg-[#FAB555]/25 sm:block" />
         <span className="pointer-events-none absolute right-[7%] top-28 hidden h-5 w-5 rounded-full bg-[#EA524B]/80 sm:block" />
         <span className="pointer-events-none absolute -right-14 top-[38%] hidden h-44 w-44 rotate-12 rounded-[3rem] bg-[#76CFC8]/18 sm:block" />
