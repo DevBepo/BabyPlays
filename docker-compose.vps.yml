@@ -18,6 +18,9 @@ services:
   backend:
     build:
       context: ./backend
+      args:
+        DJANGO_UID: ${DJANGO_UID:-1000}
+        DJANGO_GID: ${DJANGO_GID:-1000}
     restart: unless-stopped
     env_file:
       - /srv/babyplays/env/backend.env

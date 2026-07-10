@@ -65,6 +65,26 @@ Use a mesma senha no `DATABASE_URL` do `/srv/babyplays/env/backend.env`:
 DATABASE_URL=postgres://babyplays:<senha-forte-gerada-na-vps>@db:5432/babyplays
 ```
 
+## Verificar UID/GID dos volumes
+
+O container do backend roda com o usuario nao-root `django`. Para evitar `Permission denied` em `collectstatic`, uploads e logs, o UID/GID desse usuario dentro da imagem deve bater com o dono dos diretorios persistentes da VPS.
+
+Confira o UID/GID do usuario operacional e os donos/permissoes dos bind mounts:
+
+```bash
+id -u babyplays
+id -g babyplays
+stat -c '%u:%g %a %n' /srv/babyplays/media /srv/babyplays/static /var/log/babyplays
+```
+
+O build do backend usa `DJANGO_UID` e `DJANGO_GID`, com default `1000:1000`. Se o usuario `babyplays` ou os diretorios persistentes usarem outros IDs, exporte esses valores antes do build do backend:
+
+```bash
+export DJANGO_UID=$(id -u babyplays)
+export DJANGO_GID=$(id -g babyplays)
+docker compose -f docker-compose.vps.yml build backend
+```
+
 ## Buildar imagens
 
 Os `build.args` `NEXT_PUBLIC_*` do frontend sao embutidos no build do Next.js. Eles nao sao lidos automaticamente do `env_file` do servico `frontend`, porque `env_file` vale para o ambiente do container em runtime, nao para interpolacao de build args.
