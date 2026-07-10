@@ -560,6 +560,192 @@ class PedidoService:
             }
 
     @staticmethod
+    def _periodo_locacao_do_item(item):
+        return item.snapshot.get("periodo_locacao", {}).get("tipo", "15_dias")
+
+    @staticmethod
+    def _atualizar_item_com_snapshot(item, dados):
+        item.nome_snapshot = dados["nome"]
+        item.preco_unitario_snapshot = dados["preco_unitario"]
+        item.subtotal_snapshot = dados["subtotal"]
+        item.snapshot = dados["snapshot"]
+        item.full_clean()
+        item.save(
+            update_fields=[
+                "nome_snapshot",
+                "preco_unitario_snapshot",
+                "subtotal_snapshot",
+                "snapshot",
+                "atualizado_em",
+            ]
+        )
+        return item
+
+    @staticmethod
+    def _validar_kit_festa_para_checkout(
+        kit_festa,
+        quantidade,
+        data_inicio=None,
+        data_fim=None,
+    ):
+        if not kit_festa.ativo:
+            raise serializers.ValidationError(
+                {
+                    "carrinho": (
+                        f'O kit "{kit_festa.nome}" nao esta mais ativo. '
+                        "Remova-o para continuar."
+                    )
+                }
+            )
+
+        itens = list(
+            kit_festa.itens.select_related("brinquedo").prefetch_related(
+                "unidades_dedicadas__unidade"
+            )
+        )
+        if not itens:
+            raise serializers.ValidationError(
+                {
+                    "carrinho": (
+                        f'O kit "{kit_festa.nome}" nao possui composicao valida.'
+                    )
+                }
+            )
+
+        for item_kit in itens:
+            unidades_disponiveis = sum(
+                1
+                for dedicacao in item_kit.unidades_dedicadas.all()
+                if dedicacao.unidade.status == UnidadeBrinquedo.Status.DISPONIVEL
+                and (
+                    not data_inicio
+                    or not data_fim
+                    or not dedicacao.unidade.reservas.filter(
+                        status=ReservaUnidade.Status.ATIVA,
+                        data_inicio__lt=data_fim,
+                        data_fim__gt=data_inicio,
+                    ).exists()
+                )
+            )
+            quantidade_necessaria = item_kit.quantidade * quantidade
+            if unidades_disponiveis < quantidade_necessaria:
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O kit "{kit_festa.nome}" nao possui unidades '
+                            "disponiveis suficientes. Remova-o para continuar."
+                        )
+                    }
+                )
+
+    @staticmethod
+    def _validar_kit_personalizado_para_checkout(item, itens_validacao):
+        configuracao = item.configuracao_kit_personalizavel
+        if not configuracao.ativo:
+            raise serializers.ValidationError(
+                {
+                    "carrinho": (
+                        f'O kit personalizado "{configuracao.nome}" nao esta '
+                        "mais ativo. Remova-o para continuar."
+                    )
+                }
+            )
+
+        for selecao in itens_validacao:
+            brinquedo = Brinquedo.objects.filter(
+                id=selecao["brinquedo_id"]
+            ).first()
+            quantidade = selecao["quantidade"] * item.quantidade
+            if not brinquedo or not BrinquedoService.disponivel_para_locacao_avulsa(
+                brinquedo,
+                quantidade,
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            "Kit personalizado possui item indisponivel. "
+                            "Remova-o para continuar."
+                        )
+                    }
+                )
+
+    @staticmethod
+    def _revalidar_item_para_checkout(item, data_inicio=None, data_fim=None):
+        if item.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO:
+            if not item.brinquedo.ativo:
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O brinquedo "{item.brinquedo.nome}" nao esta mais '
+                            "exibido no catalogo. Remova-o para continuar."
+                        )
+                    }
+                )
+            if item.brinquedo.indisponivel_catalogo:
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O brinquedo "{item.brinquedo.nome}" esta alugado '
+                            "no catalogo. Remova-o para continuar."
+                        )
+                    }
+                )
+            if not BrinquedoService.disponivel_para_locacao_avulsa(
+                item.brinquedo,
+                item.quantidade,
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "carrinho": (
+                            f'O brinquedo "{item.brinquedo.nome}" nao possui '
+                            "unidades disponiveis para locacao avulsa. "
+                            "Remova-o para continuar."
+                        )
+                    }
+                )
+            dados = CarrinhoService._snapshot_brinquedo(
+                item.brinquedo,
+                item.quantidade,
+                PedidoService._periodo_locacao_do_item(item),
+            )
+            return PedidoService._atualizar_item_com_snapshot(item, dados)
+
+        if item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
+            PedidoService._validar_kit_festa_para_checkout(
+                item.kit_festa,
+                item.quantidade,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+            )
+            dados = CarrinhoService._snapshot_kit_festa(
+                item.kit_festa,
+                item.quantidade,
+                PedidoService._periodo_locacao_do_item(item),
+            )
+            return PedidoService._atualizar_item_com_snapshot(item, dados)
+
+        if item.tipo_item == ItemCarrinho.TipoItem.KIT_PERSONALIZADO:
+            itens_validacao = [
+                {
+                    "brinquedo_id": item_snapshot["brinquedo_id"],
+                    "quantidade": item_snapshot["quantidade"],
+                }
+                for item_snapshot in item.snapshot.get("itens", [])
+            ]
+            PedidoService._validar_kit_personalizado_para_checkout(
+                item,
+                itens_validacao,
+            )
+            dados = CarrinhoService._snapshot_kit_personalizado(
+                item.configuracao_kit_personalizavel,
+                itens_validacao,
+                item.quantidade,
+            )
+            return PedidoService._atualizar_item_com_snapshot(item, dados)
+
+        raise serializers.ValidationError({"carrinho": "Tipo de item invalido."})
+
+    @staticmethod
     @transaction.atomic
     def converter_carrinho(
         carrinho,
@@ -599,7 +785,7 @@ class PedidoService:
             )
 
         itens = list(
-            carrinho.itens.select_related(
+            carrinho.itens.select_for_update().select_related(
                 "brinquedo",
                 "kit_festa",
                 "configuracao_kit_personalizavel",
@@ -610,40 +796,37 @@ class PedidoService:
                 {"carrinho": "Carrinho vazio nao pode ser convertido em pedido."}
             )
 
-        for item in itens:
-            if item.tipo_item != ItemCarrinho.TipoItem.BRINQUEDO:
-                continue
-            if not item.brinquedo.ativo:
-                raise serializers.ValidationError(
-                    {
-                        "carrinho": (
-                            f'O brinquedo "{item.brinquedo.nome}" nao esta mais '
-                            "exibido no catalogo. Remova-o para continuar."
-                        )
-                    }
-                )
-            if item.brinquedo.indisponivel_catalogo:
-                raise serializers.ValidationError(
-                    {
-                        "carrinho": (
-                            f'O brinquedo "{item.brinquedo.nome}" esta alugado '
-                            "no catalogo. Remova-o para continuar."
-                        )
-                    }
-                )
-            if not BrinquedoService.disponivel_para_locacao_avulsa(
-                item.brinquedo,
-                item.quantidade,
-            ):
-                raise serializers.ValidationError(
-                    {
-                        "carrinho": (
-                            f'O brinquedo "{item.brinquedo.nome}" nao possui '
-                            "unidades disponiveis para locacao avulsa. "
-                            "Remova-o para continuar."
-                        )
-                    }
-                )
+        dados_periodo = getattr(request, "data", {}) if request is not None else {}
+        data_inicio_checkout = parse_date(
+            str(
+                dados_cliente.get("data_inicio_locacao")
+                or dados_periodo.get("data_inicio_locacao")
+                or ""
+            )
+        )
+        data_fim_checkout = parse_date(
+            str(
+                dados_cliente.get("data_fim_locacao")
+                or dados_periodo.get("data_fim_locacao")
+                or ""
+            )
+        )
+        if (
+            not data_inicio_checkout
+            or not data_fim_checkout
+            or data_fim_checkout <= data_inicio_checkout
+        ):
+            data_inicio_checkout = None
+            data_fim_checkout = None
+
+        itens = [
+            PedidoService._revalidar_item_para_checkout(
+                item,
+                data_inicio=data_inicio_checkout,
+                data_fim=data_fim_checkout,
+            )
+            for item in itens
+        ]
 
         subtotal = sum(
             (item.subtotal_snapshot for item in itens),

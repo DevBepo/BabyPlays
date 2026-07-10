@@ -29,6 +29,16 @@ def env_bool(name, default=False):
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def env_int(name, default=0):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value.strip())
+    except (TypeError, ValueError) as exc:
+        raise ImproperlyConfigured(f"{name} must be an integer.") from exc
+
+
 def env_list(name, default=None, normalize=False):
     value = os.environ.get(name)
     if value is None:
@@ -99,6 +109,11 @@ def database_config():
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         }
+
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "DATABASE_URL or POSTGRES_DB must be set when DEBUG=False."
+        )
 
     return {
         "ENGINE": "django.db.backends.sqlite3",
@@ -248,6 +263,15 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
     ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": env_str("DRF_THROTTLE_AUTH", "100/min"),
+        "cart": env_str("DRF_THROTTLE_CART", "300/min"),
+        "checkout": env_str("DRF_THROTTLE_CHECKOUT", "100/min"),
+        "delivery": env_str("DRF_THROTTLE_DELIVERY", "120/min"),
+    },
 }
 
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
@@ -264,7 +288,7 @@ USE_X_FORWARDED_HOST = True
 # HSTS is enabled only outside local DEBUG and is emitted for secure requests.
 # Subdomains and preload stay disabled until every final-domain subdomain has
 # been validated over HTTPS.
-SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
+SECURE_HSTS_SECONDS = env_int("SECURE_HSTS_SECONDS", 0 if DEBUG else 31536000)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
 SECURE_CONTENT_TYPE_NOSNIFF = True

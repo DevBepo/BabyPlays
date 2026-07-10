@@ -56,6 +56,7 @@ class SessionAuthenticationCom401(SessionAuthentication):
 @method_decorator(csrf_protect, name="dispatch")
 class CadastroClienteView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         session_key_anterior = request.session.session_key
@@ -73,6 +74,7 @@ class CadastroClienteView(APIView):
 @method_decorator(csrf_protect, name="dispatch")
 class LoginClienteView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         session_key_anterior = request.session.session_key
@@ -90,6 +92,7 @@ class LoginClienteView(APIView):
 @method_decorator(csrf_protect, name="dispatch")
 class LogoutClienteView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "auth"
 
     def post(self, request):
         logout(request)

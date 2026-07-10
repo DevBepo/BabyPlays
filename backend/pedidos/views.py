@@ -56,6 +56,8 @@ class CarrinhoMixin:
 
 
 class CarrinhoAtualView(CarrinhoMixin, APIView):
+    throttle_scope = "cart"
+
     def get(self, request):
         carrinho = self.get_carrinho()
         return Response(
@@ -64,6 +66,8 @@ class CarrinhoAtualView(CarrinhoMixin, APIView):
 
 
 class ItemCarrinhoView(CarrinhoMixin, APIView):
+    throttle_scope = "cart"
+
     def post(self, request):
         carrinho = self.get_carrinho()
         serializer = AdicionarItemCarrinhoSerializer(data=request.data)
@@ -76,6 +80,8 @@ class ItemCarrinhoView(CarrinhoMixin, APIView):
 
 
 class ItemCarrinhoDetalheView(CarrinhoMixin, APIView):
+    throttle_scope = "cart"
+
     def patch(self, request, item_id):
         item = self.get_item_do_carrinho(item_id)
         serializer = AlterarItemCarrinhoSerializer(data=request.data)
@@ -95,6 +101,8 @@ class ItemCarrinhoDetalheView(CarrinhoMixin, APIView):
 
 
 class LimparCarrinhoView(CarrinhoMixin, APIView):
+    throttle_scope = "cart"
+
     def delete(self, request):
         carrinho = self.get_carrinho()
         CarrinhoService.limpar(carrinho)
@@ -103,6 +111,7 @@ class LimparCarrinhoView(CarrinhoMixin, APIView):
 
 class ConverterCarrinhoPedidoView(CarrinhoMixin, APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "checkout"
 
     def post(self, request):
         carrinho = self.get_carrinho()

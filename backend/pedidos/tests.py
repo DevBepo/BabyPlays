@@ -204,17 +204,36 @@ class CarrinhoAPITests(APITestCase):
             preco_15_dias=Decimal("350.00"),
             preco_30_dias=Decimal("520.00"),
         )
-        ItemKitFesta.objects.create(
+        item_kit_brinquedo = ItemKitFesta.objects.create(
             kit=self.kit_festa,
             brinquedo=self.brinquedo,
             quantidade=1,
         )
-        ItemKitFesta.objects.create(
+        item_kit_outro = ItemKitFesta.objects.create(
             kit=self.kit_festa,
             brinquedo=self.outro_brinquedo,
             quantidade=2,
             ordem=1,
         )
+        unidade_kit_brinquedo = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="CAMA-KIT-001",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        DedicacaoUnidadeKit.objects.create(
+            item_kit=item_kit_brinquedo,
+            unidade=unidade_kit_brinquedo,
+        )
+        for indice in range(1, 3):
+            unidade_kit_outro = UnidadeBrinquedo.objects.create(
+                brinquedo=self.outro_brinquedo,
+                codigo=f"PISCINA-KIT-{indice:03d}",
+                status=UnidadeBrinquedo.Status.DISPONIVEL,
+            )
+            DedicacaoUnidadeKit.objects.create(
+                item_kit=item_kit_outro,
+                unidade=unidade_kit_outro,
+            )
         self.configuracao = ConfiguracaoKitPersonalizavel.objects.create(
             nome="Monte seu kit",
             descricao="Escolha os brinquedos.",
@@ -244,6 +263,12 @@ class CarrinhoAPITests(APITestCase):
             UnidadeBrinquedo.objects.create(
                 brinquedo=self.brinquedo,
                 codigo=f"CAMA-BASE-{indice:03d}",
+                status=UnidadeBrinquedo.Status.DISPONIVEL,
+            )
+        for indice in range(1, 3):
+            UnidadeBrinquedo.objects.create(
+                brinquedo=self.outro_brinquedo,
+                codigo=f"PISCINA-BASE-{indice:03d}",
                 status=UnidadeBrinquedo.Status.DISPONIVEL,
             )
 
@@ -830,6 +855,115 @@ class CarrinhoAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("unidades disponiveis", str(response.data).lower())
         self.assertIn("remova-o", str(response.data).lower())
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_checkout_recalcula_preco_do_brinquedo_antes_de_criar_pedido(self):
+        self.adicionar_brinquedo()
+        self.brinquedo.preco_15_dias = Decimal("250.00")
+        self.brinquedo.save(update_fields=["preco_15_dias"])
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        item_pedido = pedido.itens.get()
+        self.assertEqual(pedido.subtotal_itens_snapshot, Decimal("250.00"))
+        self.assertEqual(item_pedido.preco_unitario_snapshot, Decimal("250.00"))
+        self.assertEqual(item_pedido.subtotal_snapshot, Decimal("250.00"))
+
+    def test_checkout_rejeita_kit_festa_inativo_no_carrinho(self):
+        self.adicionar_kit_festa()
+        self.kit_festa.ativo = False
+        self.kit_festa.save(update_fields=["ativo"])
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("kit", str(response.data).lower())
+        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertEqual(Carrinho.objects.get().status, Carrinho.Status.ATIVO)
+
+    def test_checkout_recalcula_preco_do_kit_festa_antes_de_criar_pedido(self):
+        self.adicionar_kit_festa()
+        self.kit_festa.preco_15_dias = Decimal("390.00")
+        self.kit_festa.save(update_fields=["preco_15_dias"])
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get()
+        item_pedido = pedido.itens.get()
+        self.assertEqual(pedido.subtotal_itens_snapshot, Decimal("390.00"))
+        self.assertEqual(item_pedido.preco_unitario_snapshot, Decimal("390.00"))
+        self.assertEqual(
+            item_pedido.snapshot["kit_festa"]["preco_periodo"],
+            "390.00",
+        )
+
+    def test_checkout_rejeita_kit_festa_com_reserva_conflitante_no_periodo(self):
+        self.adicionar_kit_festa()
+        data_inicio = timezone.localdate() + timedelta(days=30)
+        data_fim = data_inicio + timedelta(days=2)
+        unidade_dedicada = DedicacaoUnidadeKit.objects.get(
+            item_kit__kit=self.kit_festa,
+            item_kit__brinquedo=self.brinquedo,
+        ).unidade
+        pedido_existente = Pedido.objects.create(
+            nome_cliente_snapshot="Cliente Existente",
+            telefone_cliente_snapshot="11988888888",
+            email_cliente_snapshot="existente@email.com",
+            data_inicio_locacao=data_inicio,
+            data_fim_locacao=data_fim,
+            subtotal_itens_snapshot=Decimal("350.00"),
+            total_estimado_snapshot=Decimal("350.00"),
+        )
+        ReservaUnidade.objects.create(
+            pedido=pedido_existente,
+            unidade_brinquedo=unidade_dedicada,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            status=ReservaUnidade.Status.ATIVA,
+        )
+
+        response = self.converter_carrinho_em_pedido(
+            data_inicio_locacao=str(data_inicio),
+            data_fim_locacao=str(data_fim),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unidades disponiveis", str(response.data).lower())
+        self.assertEqual(
+            Pedido.objects.filter(carrinho_origem__isnull=False).count(),
+            0,
+        )
+
+    def test_checkout_rejeita_configuracao_kit_personalizado_inativa(self):
+        self.adicionar_kit_personalizado()
+        self.configuracao.ativo = False
+        self.configuracao.save(update_fields=["ativo"])
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("kit personalizado", str(response.data).lower())
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_checkout_revalida_composicao_atual_do_kit_personalizado(self):
+        self.adicionar_kit_personalizado()
+        self.configuracao.modo_elegibilidade = (
+            ConfiguracaoKitPersonalizavel.ModoElegibilidade.BRINQUEDOS
+        )
+        self.configuracao.save(update_fields=["modo_elegibilidade"])
+        self.configuracao.categorias_permitidas.clear()
+        self.configuracao.brinquedos_permitidos.set([self.outro_brinquedo])
+
+        response = self.converter_carrinho_em_pedido()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "nao esta disponivel para esta configuracao",
+            str(response.data).lower(),
+        )
         self.assertEqual(Pedido.objects.count(), 0)
 
     def test_anonimo_nao_consegue_converter_carrinho_em_pedido(self):

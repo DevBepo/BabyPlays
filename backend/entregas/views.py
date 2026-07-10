@@ -20,6 +20,7 @@ from .services import TaxaEntregaRetiradaService
 
 class CalcularTaxaEntregaRetiradaView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "delivery"
 
     def post(self, request):
         serializer = CalcularTaxaEntregaRetiradaSerializer(data=request.data)

@@ -97,7 +97,7 @@ npm.cmd run build
 
 Segredos, arquivos `.env`, bancos locais, logs, uploads e artefatos de build nao sao versionados. Use variaveis protegidas do provedor para homologacao e producao. Dados reais de clientes e exports de producao nao fazem parte deste repositorio.
 
-Consulte [`docs/DEPLOY.md`](docs/DEPLOY.md) para configuracao de ambientes e [`docs/SECURITY_CHECKLIST.md`](docs/SECURITY_CHECKLIST.md) para controles de seguranca.
+Consulte [`SECURITY.md`](SECURITY.md) para reporte responsavel de vulnerabilidades, [`docs/OPEN_SOURCE_SECURITY.md`](docs/OPEN_SOURCE_SECURITY.md) para a checklist antes de tornar o repositorio publico, [`docs/PRIVACY_LGPD.md`](docs/PRIVACY_LGPD.md) para a politica tecnica preliminar de privacidade, [`docs/DEPLOY.md`](docs/DEPLOY.md) para configuracao de ambientes e [`docs/SECURITY_CHECKLIST.md`](docs/SECURITY_CHECKLIST.md) para controles de seguranca.
 
 ## Status
 
