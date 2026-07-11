@@ -75,8 +75,10 @@ services:
         condition: service_started
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./infra/nginx/babyplays.conf:/etc/nginx/conf.d/default.conf:ro
+      - /srv/babyplays/certs:/etc/nginx/certs:ro
       - /srv/babyplays/media:/srv/babyplays/media:ro
       - /srv/babyplays/static:/srv/babyplays/static:ro
       - /var/log/babyplays:/var/log/nginx

@@ -116,6 +116,53 @@ docker compose -f docker-compose.vps.yml up -d
 docker compose -f docker-compose.vps.yml ps
 ```
 
+## Instalar Cloudflare Origin Certificate
+
+Esta configuracao usa Cloudflare Origin Certificate para o Nginx da VPS. Esse certificado deve ser criado no painel da Cloudflare em `SSL/TLS -> Origin Server -> Create Certificate` para:
+
+- `babyplays.com.br`
+- `*.babyplays.com.br`
+
+Nao commite certificado, chave privada ou qualquer material TLS no repositorio.
+
+Crie o diretorio seguro na VPS:
+
+```bash
+sudo mkdir -p /srv/babyplays/certs
+sudo chown root:root /srv/babyplays/certs
+sudo chmod 700 /srv/babyplays/certs
+```
+
+Salve o bloco `Origin Certificate` em:
+
+```bash
+sudo nano /srv/babyplays/certs/origin.pem
+```
+
+Salve o bloco `Private Key` em:
+
+```bash
+sudo nano /srv/babyplays/certs/origin.key
+```
+
+Proteja as permissoes:
+
+```bash
+sudo chown root:root /srv/babyplays/certs/origin.pem /srv/babyplays/certs/origin.key
+sudo chmod 644 /srv/babyplays/certs/origin.pem
+sudo chmod 600 /srv/babyplays/certs/origin.key
+```
+
+Valide sem imprimir o conteudo dos arquivos:
+
+```bash
+sudo openssl x509 -in /srv/babyplays/certs/origin.pem -noout -subject -issuer -dates
+sudo openssl rsa -in /srv/babyplays/certs/origin.key -check -noout
+sudo ls -l /srv/babyplays/certs
+```
+
+Cloudflare Origin Certificate nao e confiavel diretamente pelo navegador quando o registro esta `DNS only`. Ele deve ser usado com Cloudflare `Proxied` e modo SSL/TLS `Full strict`. Antes dessa troca, use `curl -k` ou `--resolve` apenas para validar tecnicamente a VPS.
+
 ## Migrations e static
 
 Nao rode `migrate` nem `collectstatic` automaticamente no start do container. Execute de forma controlada:
@@ -156,6 +203,9 @@ Nginx:
 docker compose -f docker-compose.vps.yml exec nginx nginx -t
 curl -I -H 'Host: www.babyplays.com.br' http://127.0.0.1/
 curl -I -H 'Host: api.babyplays.com.br' http://127.0.0.1/api/auth/csrf/
+curl -k -I --resolve www.babyplays.com.br:443:127.0.0.1 https://www.babyplays.com.br/
+curl -k -I --resolve api.babyplays.com.br:443:127.0.0.1 https://api.babyplays.com.br/api/auth/csrf/
+curl -k -I --resolve babyplays.com.br:443:127.0.0.1 https://babyplays.com.br/
 ```
 
 ## Logs
@@ -201,7 +251,11 @@ Durante a migracao inicial, o redirect de `babyplays.com.br` para `www.babyplays
 
 ## HTTPS
 
-Esta primeira proposta versiona Nginx HTTP para validacao inicial sem certificados reais. Antes de producao real, configure certificados validos na VPS, teste renovacao automatica e so depois habilite redirecionamento HTTPS/HSTS de forma gradual.
+Esta proposta versiona Nginx HTTP e HTTPS para validacao inicial com Cloudflare Origin Certificate. Os certificados reais ficam somente na VPS em `/srv/babyplays/certs` e sao montados no container Nginx como read-only.
+
+Mantenha HTTP e HTTPS funcionando durante a validacao inicial. Nao habilite redirecionamento HTTPS obrigatorio nem HSTS ate validar Cloudflare, DNS, subdominios, cookies, login, checkout e rollback.
+
+Para producao com Cloudflare, configure os registros `www`, `api` e raiz como `Proxied` e use SSL/TLS `Full strict`. O Origin Certificate nao substitui um certificado publico quando o registro esta `DNS only`.
 
 Durante a migracao inicial, mantenha HSTS desligado no frontend com `FRONTEND_HSTS_SECONDS=0` ou sem definir a variavel em `/srv/babyplays/env/frontend.env`. O Next.js so emite `Strict-Transport-Security` quando `FRONTEND_HSTS_SECONDS` e maior que zero. Depois de validar HTTPS, DNS, subdominios e rollback, habilite de forma gradual, por exemplo `FRONTEND_HSTS_SECONDS=31536000`, seguido de novo build/redeploy do frontend.
 
