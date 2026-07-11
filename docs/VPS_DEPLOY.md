@@ -203,4 +203,6 @@ Durante a migracao inicial, o redirect de `babyplays.com.br` para `www.babyplays
 
 Esta primeira proposta versiona Nginx HTTP para validacao inicial sem certificados reais. Antes de producao real, configure certificados validos na VPS, teste renovacao automatica e so depois habilite redirecionamento HTTPS/HSTS de forma gradual.
 
+Durante a migracao inicial, mantenha HSTS desligado no frontend com `FRONTEND_HSTS_SECONDS=0` ou sem definir a variavel em `/srv/babyplays/env/frontend.env`. O Next.js so emite `Strict-Transport-Security` quando `FRONTEND_HSTS_SECONDS` e maior que zero. Depois de validar HTTPS, DNS, subdominios e rollback, habilite de forma gradual, por exemplo `FRONTEND_HSTS_SECONDS=31536000`, seguido de novo build/redeploy do frontend.
+
 Login e CSRF em fluxo cross-subdomain (`www.babyplays.com.br` chamando `api.babyplays.com.br`) precisam ser validados com HTTPS. Como os cookies usam `SameSite=None`, os navegadores exigem `Secure=True`; em HTTP puro, esse fluxo nao representa a validacao final.

@@ -34,6 +34,17 @@ const contentSecurityPolicy = [
   }`,
 ].join("; ");
 
+const hstsSeconds = (() => {
+  const rawValue = process.env.FRONTEND_HSTS_SECONDS?.trim();
+
+  if (!rawValue) {
+    return 0;
+  }
+
+  const parsedValue = Number(rawValue);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+})();
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -51,11 +62,11 @@ const securityHeaders = [
     key: "X-Frame-Options",
     value: "DENY",
   },
-  ...(process.env.NODE_ENV === "production"
+  ...(hstsSeconds > 0
     ? [
         {
           key: "Strict-Transport-Security",
-          value: "max-age=31536000",
+          value: `max-age=${hstsSeconds}`,
         },
       ]
     : []),

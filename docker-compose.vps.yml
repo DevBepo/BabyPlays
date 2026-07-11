@@ -43,12 +43,13 @@ services:
   frontend:
     build:
       context: ./frontend
-      # Build args NEXT_PUBLIC_* sao resolvidos no build pelo ambiente do
-      # comando docker compose, nao pelo env_file runtime abaixo.
+      # Build args NEXT_PUBLIC_* e FRONTEND_HSTS_SECONDS sao resolvidos no
+      # build pelo ambiente do comando docker compose, nao pelo env_file runtime abaixo.
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api.babyplays.com.br}
         NEXT_PUBLIC_BABYPLAYS_WHATSAPP: ${NEXT_PUBLIC_BABYPLAYS_WHATSAPP:-}
         NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL: ${NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL:-}
+        FRONTEND_HSTS_SECONDS: ${FRONTEND_HSTS_SECONDS:-0}
     restart: unless-stopped
     env_file:
       - /srv/babyplays/env/frontend.env
