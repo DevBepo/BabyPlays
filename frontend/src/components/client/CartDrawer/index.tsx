@@ -10,9 +10,8 @@ export function CartDrawer() {
   const pathname = usePathname();
   const previousPathname = useRef(pathname);
   const { closeCart, isCartOpen } = useCart();
-  const routeChanged = previousPathname.current !== pathname;
   const isOverlayRoute = pathname !== "/" && !pathname.startsWith("/admin");
-  const shouldShowDrawer = isOverlayRoute && isCartOpen && !routeChanged;
+  const shouldShowDrawer = isOverlayRoute && isCartOpen;
 
   useEffect(() => {
     if (previousPathname.current !== pathname) {
@@ -20,24 +19,6 @@ export function CartDrawer() {
       closeCart();
     }
   }, [closeCart, pathname]);
-
-  useEffect(() => {
-    if (!shouldShowDrawer) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeCart();
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [closeCart, shouldShowDrawer]);
 
   if (!shouldShowDrawer) return null;
 

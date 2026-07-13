@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Footer } from "@/components/client/Footer";
+import { Header } from "@/components/client/Header";
+import { SubNavbar } from "@/components/client/SubNavBar";
 import { useCart } from "@/hooks/useCart";
 import { adicionarAoCarrinho } from "@/services/cart";
 import { listarKitsFesta } from "@/services/catalogo";
@@ -87,19 +89,21 @@ export default function KitFestaDetalhePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
-      <main className="px-4 pb-20 pt-6 sm:pb-28 sm:pt-10">
+    <div className="min-h-screen overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
+      <Header />
+      <SubNavbar />
+      <main className="px-3 pb-16 pt-4 sm:px-6 sm:pb-24 sm:pt-8">
       <div className="mx-auto max-w-6xl">
         <Button type="button" variant="ghost" onClick={() => router.back()} className="mb-6">← Voltar</Button>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:gap-12">
-          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-[#FAB555]/30 bg-white p-4 shadow-sm sm:p-8">
+          <div className="flex aspect-[4/3] max-h-[480px] items-center justify-center overflow-hidden rounded-3xl border border-[#FAB555]/30 bg-white p-3 shadow-sm sm:aspect-square sm:max-h-none sm:p-8">
             {imagemUrl ? <Image src={imagemUrl} alt={kit.nome} width={720} height={720} priority className="h-full w-full object-contain" /> : <div className="text-sm text-zinc-400">Sem imagem disponível</div>}
           </div>
 
-          <div className="flex flex-col gap-6 lg:py-2">
+          <div className="flex min-w-0 flex-col gap-5 rounded-3xl border border-white/80 bg-white/70 p-4 shadow-sm sm:gap-6 sm:p-6 lg:bg-transparent lg:p-0 lg:py-2 lg:shadow-none">
             <div>
               <div className="mb-3 flex items-center gap-2"><Badge variant={disponivel ? "success" : "default"}>{disponivel ? "Disponível" : "Indisponível"}</Badge><Badge variant="brand">Kit Festa</Badge></div>
-              <h1 className="text-3xl font-bold leading-tight text-[#2C1615] sm:text-4xl [font-family:var(--font-fredoka)]">{kit.nome}</h1>
+              <h1 className="break-words text-2xl font-bold leading-tight text-[#2C1615] sm:text-4xl [font-family:var(--font-fredoka)]">{kit.nome}</h1>
               <p className="mt-2 text-sm font-medium text-zinc-500">{totalItens} item{totalItens === 1 ? "" : "s"} no kit</p>
             </div>
 

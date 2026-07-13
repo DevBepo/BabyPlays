@@ -17,7 +17,7 @@ export function Card({
     none: "p-0",
     sm: "p-4",
     md: "p-6",
-    lg: "p-8",
+    lg: "p-4 sm:p-6 lg:p-8",
   };
 
   return (

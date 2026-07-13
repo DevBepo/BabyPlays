@@ -159,10 +159,10 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white">
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-1 gap-y-2.5 px-4 py-2 sm:min-h-20 sm:gap-x-3 sm:px-6 lg:flex-nowrap lg:gap-4">
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-1 gap-y-2 px-3 py-2 sm:min-h-20 sm:gap-x-3 sm:px-6 lg:flex-nowrap lg:gap-4">
         <Link
           href="/"
-          className="flex shrink-0 cursor-pointer select-none items-end gap-2"
+          className="flex shrink-0 cursor-pointer select-none items-end gap-1.5 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97] sm:gap-2"
           aria-label="Ir para a página inicial"
         >
           <Image
@@ -172,8 +172,8 @@ export function Header({
             unoptimized
             width={587}
             height={147}
-            sizes="(max-width: 639px) 112px, 128px"
-            className="h-auto w-28 object-contain sm:w-32"
+            sizes="(max-width: 359px) 92px, (max-width: 639px) 104px, 128px"
+            className="h-auto w-[92px] object-contain min-[360px]:w-[104px] sm:w-32"
           />
           <Image
             src="/assets/BabyPlaysMascotePagina24.png"
@@ -182,8 +182,8 @@ export function Header({
             unoptimized
             width={683}
             height={541}
-            sizes="(max-width: 639px) 72px, 80px"
-            className="h-auto w-[72px] object-contain sm:w-20"
+            sizes="(max-width: 359px) 56px, (max-width: 639px) 64px, 80px"
+            className="h-auto w-14 object-contain min-[360px]:w-16 sm:w-20"
           />
         </Link>
 
@@ -193,6 +193,7 @@ export function Header({
         >
           <input
             type="text"
+            aria-label="Buscar brinquedos e kits"
             placeholder="Buscar brinquedos e kits"
             value={currentSearchQuery}
             onChange={(e) => handleSearchQueryChange(e.target.value)}
@@ -304,7 +305,8 @@ export function Header({
               </div>
               <Link 
                 href="/login" 
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-600"
+                aria-label="Entrar ou criar conta"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97] sm:h-10 sm:w-10"
               >
                 <IconUser />
               </Link>
@@ -319,7 +321,7 @@ export function Header({
               type="button"
               onClick={() => void handleCartClick()}
               aria-label="Ver carrinho de compras"
-              className="group relative flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors hover:text-teal-600"
+              className="group relative flex h-11 w-11 items-center justify-center rounded-full bg-zinc-50 text-zinc-700 transition-colors hover:text-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97] sm:h-10 sm:w-10"
             >
               <IconCart />
               {quantidadeCarrinho > 0 && (

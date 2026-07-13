@@ -23,13 +23,6 @@ const IconClock = () => (
   </svg>
 );
 
-const IconCheck = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    <path d="m9 12 2 2 4-4" />
-  </svg>
-);
-
 const IconHelp = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
@@ -66,13 +59,13 @@ export function SubNavbar() {
   return (
     <nav className="w-full border-b border-zinc-200 bg-white">
       {/* Container com scroll horizontal em telas menores (overflow-x-auto) */}
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center overflow-x-auto overscroll-x-contain scroll-smooth px-4 scrollbar-hide sm:h-12 sm:px-6">
+      <div className="mx-auto flex h-12 max-w-[1600px] items-center overflow-x-auto overscroll-x-contain scroll-smooth scroll-px-3 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-6">
         <ul className="flex min-w-max items-center gap-3 whitespace-nowrap pr-4 sm:gap-6 sm:pr-0 lg:gap-7">
           {navItems.map((item, index) => (
             <li key={index}>
               <Link
                 href={item.href}
-                className="group flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full bg-[#FFF9F7] px-3.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-[#F7EAF5] hover:text-[#AB2E97] sm:min-h-0 sm:bg-transparent sm:px-0 sm:hover:bg-transparent [font-family:var(--font-fredoka)]"
+                className="group flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full bg-[#FFF9F7] px-3.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-[#F7EAF5] hover:text-[#AB2E97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#AB2E97] sm:min-h-0 sm:bg-transparent sm:px-0 sm:hover:bg-transparent [font-family:var(--font-fredoka)]"
               >
                 {/* O ícone fica mais claro por padrão, e escurece no hover junto com o texto */}
                 <span className="text-zinc-400 transition-colors group-hover:text-[#AB2E97]">
