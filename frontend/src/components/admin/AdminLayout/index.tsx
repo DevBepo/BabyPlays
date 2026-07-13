@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useLayoutEffect, useState } from "react";
+import { ReactNode, useEffect, useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import { AdminSidebar } from "../AdminSideBar";
 import { useAuth } from "@/hooks/useAuth";
@@ -100,7 +100,29 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   });
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
+
+  useEffect(() => {
+    if (!menuOpen || !window.matchMedia("(max-width: 1023px)").matches) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
 
   const handleLogout = async () => {
     setLogoutLoading(true);
@@ -204,12 +226,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-zinc-900 font-sans antialiased">
-      <AdminSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-[#F8F9FA] text-zinc-900 font-sans antialiased">
+      {menuOpen ? (
+        <button
+          type="button"
+          aria-label="Fechar menu administrativo"
+          className="fixed inset-0 z-30 bg-zinc-950/45 backdrop-blur-[1px] lg:hidden"
+          onClick={() => setMenuOpen(false)}
+        />
+      ) : null}
 
-      <div className="pl-64 flex flex-col min-h-screen">
-        <header className="h-20 bg-white border-b border-zinc-200 px-6 flex items-center justify-between sticky top-0 z-20">
-          <span className="relative block h-16 w-12 overflow-hidden">
+      <AdminSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+
+      <div className="flex min-h-screen min-w-0 flex-col lg:pl-64">
+        <header className="sticky top-0 z-20 flex h-20 min-w-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 sm:px-6">
+          <button
+            type="button"
+            aria-controls="admin-navigation"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(true)}
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 lg:hidden"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+            Menu
+          </button>
+
+          <span className="relative hidden h-16 w-12 shrink-0 overflow-hidden lg:block">
             <Image
               src="/assets/LogoComEscrita.jpg"
               alt="BabyPlays - Locação de brinquedos"
@@ -221,12 +265,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             />
           </span>
 
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col text-right">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex min-w-0 flex-col text-right">
               <span className="text-xs font-semibold text-zinc-800">
                 Modo Administrador
               </span>
-              <span className="text-[11px] text-zinc-500 font-normal">
+              <span className="max-w-[110px] truncate text-[11px] font-normal text-zinc-500 sm:max-w-60">
                 {access.admin.email}
               </span>
               {logoutError ? (
@@ -239,17 +283,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               type="button"
               onClick={handleLogout}
               disabled={logoutLoading}
-              className="h-8 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-10 shrink-0 rounded-md border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {logoutLoading ? "Saindo..." : "Sair"}
             </button>
-            <div className="w-8 h-8 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 font-semibold text-xs select-none">
+            <div className="hidden h-8 w-8 shrink-0 select-none items-center justify-center rounded-full border border-teal-100 bg-teal-50 text-xs font-semibold text-teal-700 sm:flex">
               ADM
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-5 max-w-1600px w-full mx-auto animate-in fade-in duration-300">
+        <main className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 p-4 animate-in fade-in duration-300 sm:p-5 lg:p-6">
           {children}
         </main>
       </div>

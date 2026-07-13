@@ -250,8 +250,8 @@ export default function CategoriasAdminPage() {
             </Button>
           ) : null}
         </div>
-        <form onSubmit={handleSubmit} className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div className="md:col-span-2">
+        <form onSubmit={handleSubmit} className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,2fr)_minmax(160px,1fr)]">
+          <div>
             <Input
               label="Nome *"
               value={form.nome}
@@ -279,11 +279,13 @@ export default function CategoriasAdminPage() {
                 setForm((atual) => ({ ...atual, descricao: event.target.value }))
               }
               error={erroCampo(fieldErrors, "descricao")}
+              rows={4}
+              className="min-h-[112px] max-h-[280px] leading-6"
             />
           </div>
 
-          <div className="md:col-span-2 flex justify-end">
-            <Button type="submit" loading={salvando}>
+          <div className="flex md:col-span-2 md:justify-end">
+            <Button className="w-full md:w-auto" type="submit" loading={salvando}>
               {categoriaEditando ? "Atualizar categoria" : "Salvar categoria"}
             </Button>
           </div>

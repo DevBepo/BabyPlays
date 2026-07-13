@@ -180,7 +180,7 @@ export default function AdminContratoPage() {
               label="Texto do contrato"
               value={texto}
               onChange={(event) => setTexto(event.target.value)}
-              className="min-h-[420px] font-mono text-sm leading-6"
+              className="min-h-[300px] font-mono text-sm leading-6 sm:min-h-[420px]"
               required
             />
 
@@ -188,7 +188,7 @@ export default function AdminContratoPage() {
               <p className="text-sm text-zinc-500">
                 Ultima atualizacao: {formatDateTime(atualizadoEm)}
               </p>
-              <Button type="submit" loading={saving}>
+              <Button className="w-full sm:w-auto" type="submit" loading={saving}>
                 Salvar contrato
               </Button>
             </div>

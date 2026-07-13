@@ -230,10 +230,6 @@ export default function ListaBrinquedosAdmin() {
     ...categoriasOptions,
   ];
 
-  useEffect(() => {
-    setQuantidadeVisivel(QUANTIDADE_INICIAL);
-  }, [busca, categoriaFiltro, statusFiltro]);
-
   async function carregarBrinquedos() {
     setLoading(true);
     setErro(null);
@@ -429,6 +425,7 @@ export default function ListaBrinquedosAdmin() {
     setBusca("");
     setCategoriaFiltro("todas");
     setStatusFiltro("todos");
+    setQuantidadeVisivel(QUANTIDADE_INICIAL);
   }
 
   function fecharFormulario() {
@@ -605,7 +602,7 @@ export default function ListaBrinquedosAdmin() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="primary" onClick={abrirNovoBrinquedo}>
+          <Button className="w-full sm:w-auto" variant="primary" onClick={abrirNovoBrinquedo}>
             Novo Brinquedo
           </Button>
         </div>
@@ -637,17 +634,15 @@ export default function ListaBrinquedosAdmin() {
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="md:col-span-2 rounded-xl border border-zinc-200 bg-white p-4">
-                <Input
-                  label="Nome *"
-                  value={form.nome}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, nome: event.target.value }))
-                  }
-                  error={erroCampo(fieldErrors, "nome")}
-                  required
-                />
-              </div>
+              <Input
+                label="Nome *"
+                value={form.nome}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, nome: event.target.value }))
+                }
+                error={erroCampo(fieldErrors, "nome")}
+                required
+              />
               <Select
                 label="Categoria *"
                 options={categoriasOptions}
@@ -675,7 +670,7 @@ export default function ListaBrinquedosAdmin() {
                   Preencha apenas os periodos que estarao disponiveis para locacao.
                 </p>
               </div>
-              <div className="grid grid-cols-1 gap-3 md:col-span-2 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:p-4 xl:grid-cols-4">
               <Input
                 label="Diaria (R$)"
                 type="number"
@@ -739,8 +734,8 @@ export default function ListaBrinquedosAdmin() {
             <Textarea
               label="Descricao do brinquedo *"
               placeholder="Explique o brinquedo, a idade recomendada e seus principais beneficios."
-              rows={5}
-              className="min-h-[132px] leading-6"
+              rows={4}
+              className="min-h-[112px] max-h-[320px] leading-6"
               value={form.descricao}
               onChange={(event) =>
                 setForm((current) => ({
@@ -1007,21 +1002,28 @@ export default function ListaBrinquedosAdmin() {
               type="search"
               value={busca}
               placeholder="Digite o nome do brinquedo"
-              onChange={(event) => setBusca(event.target.value)}
+              onChange={(event) => {
+                setBusca(event.target.value);
+                setQuantidadeVisivel(QUANTIDADE_INICIAL);
+              }}
             />
             <Select
               label="Categoria"
               value={categoriaFiltro}
               options={categoriasFiltroOptions}
-              onChange={(event) => setCategoriaFiltro(event.target.value)}
+              onChange={(event) => {
+                setCategoriaFiltro(event.target.value);
+                setQuantidadeVisivel(QUANTIDADE_INICIAL);
+              }}
             />
             <Select
               label="Status"
               value={statusFiltro}
               options={STATUS_CATALOGO_OPTIONS}
-              onChange={(event) =>
-                setStatusFiltro(event.target.value as StatusCatalogoFiltro)
-              }
+              onChange={(event) => {
+                setStatusFiltro(event.target.value as StatusCatalogoFiltro);
+                setQuantidadeVisivel(QUANTIDADE_INICIAL);
+              }}
             />
             <Button
               type="button"
@@ -1191,7 +1193,7 @@ export default function ListaBrinquedosAdmin() {
                             type="button"
                             disabled={estaAlterando}
                             onClick={() => void handleAlternarStatusBrinquedo(brinquedo)}
-                            className="text-zinc-500 transition-colors hover:text-zinc-900 disabled:opacity-50"
+                            className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-50"
                           >
                             Ocultar
                           </button>
@@ -1200,7 +1202,7 @@ export default function ListaBrinquedosAdmin() {
                           <Link
                             href={`/brinquedos/${brinquedo.id}`}
                             target="_blank"
-                            className="text-teal-700 transition-colors hover:text-teal-900"
+                            className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-teal-700 transition-colors hover:bg-teal-50 hover:text-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
                           >
                             Ver na loja
                           </Link>
@@ -1209,7 +1211,7 @@ export default function ListaBrinquedosAdmin() {
                           type="button"
                           disabled={estaAlterando || brinquedoRemovendo === brinquedo.id}
                           onClick={() => void handleRemoverBrinquedo(brinquedo)}
-                          className="text-red-600 transition-colors hover:text-red-800 disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
                         >
                           {brinquedoRemovendo === brinquedo.id ? "Removendo..." : "Remover"}
                         </button>
