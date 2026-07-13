@@ -22,7 +22,7 @@ export function Button({
 }: ButtonProps) {
   // Classe padrão que todos os botões vão compartilhar
   const baseStyles =
-    "inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 tracking-wide";
+    "inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2";
 
   // Variação de cor dos botões, que pode ser editada depois.
   const variants = {
@@ -36,9 +36,9 @@ export function Button({
 
   // Variação de tamanho do botão
   const sizes = {
-    sm: "px-4 py-2 text-sm gap-1.5",
-    md: "px-6 py-3 text-base gap-2",
-    lg: "px-8 py-4 text-lg gap-3",
+    sm: "min-h-10 px-4 py-2 text-sm gap-1.5",
+    md: "min-h-11 px-6 py-3 text-base gap-2",
+    lg: "min-h-12 px-8 py-4 text-lg gap-3",
   };
 
   // Tratamento de estados

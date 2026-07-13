@@ -169,14 +169,14 @@ export default function PedidosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Gestao de Pedidos</h1>
           <p className="text-sm text-zinc-500 mt-1">
             Acompanhe as locacoes de brinquedos e kits.
           </p>
         </div>
-        <Button variant="primary">Exportar relatorio</Button>
+        <Button className="w-full sm:w-auto" variant="primary">Exportar relatorio</Button>
       </div>
 
       <form
@@ -199,7 +199,7 @@ export default function PedidosPage() {
             onChange={(event) => setStatus(event.target.value)}
           />
         </div>
-        <Button type="submit" variant="secondary" className="h-10 px-6" loading={loading}>
+        <Button type="submit" variant="secondary" className="w-full px-6 sm:w-auto" loading={loading}>
           Filtrar
         </Button>
       </form>

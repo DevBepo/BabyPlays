@@ -163,15 +163,15 @@ export default function NovoKitFestaPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Novo kit festa</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Selecione os brinquedos e defina os dados do pacote.
           </p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={() => router.back()}>
           Voltar
         </Button>
       </div>
@@ -190,23 +190,25 @@ export default function NovoKitFestaPage() {
             <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">
               Dados do kit festa
             </h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,2fr)_minmax(160px,1fr)]">
+              <div>
                 <Input label="Nome *" placeholder="Ex: Kit Festa Safari" value={nome} onChange={(e) => setNome(e.target.value)} error={erroCampo(fieldErrors, "nome")} required />
               </div>
-              <Input label="Diaria (R$)" type="number" step="0.01" min="0" value={precoDiaria} onChange={(e) => setPrecoDiaria(e.target.value)} error={erroCampo(fieldErrors, "preco_diaria")} />
-              <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={preco15Dias} onChange={(e) => setPreco15Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_15_dias")} />
-              <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={preco30Dias} onChange={(e) => setPreco30Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_30_dias")} />
               <Input label="Ordem de exibicao" type="number" step="1" min="0" value={ordem} onChange={(e) => setOrdem(e.target.value)} error={erroCampo(fieldErrors, "ordem")} />
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:p-4 lg:grid-cols-3">
+                <Input label="Diaria (R$)" type="number" step="0.01" min="0" value={precoDiaria} onChange={(e) => setPrecoDiaria(e.target.value)} error={erroCampo(fieldErrors, "preco_diaria")} />
+                <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={preco15Dias} onChange={(e) => setPreco15Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_15_dias")} />
+                <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={preco30Dias} onChange={(e) => setPreco30Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_30_dias")} />
+              </div>
             </div>
             <div className="mt-6">
-              <Textarea label="Descricao completa *" placeholder="Descreva o tema, ocasiao indicada e principais itens..." value={descricao} onChange={(e) => setDescricao(e.target.value)} error={erroCampo(fieldErrors, "descricao")} required />
+              <Textarea label="Descricao completa *" rows={4} className="min-h-[112px] max-h-[320px] leading-6" placeholder="Descreva o tema, ocasiao indicada e principais itens..." value={descricao} onChange={(e) => setDescricao(e.target.value)} error={erroCampo(fieldErrors, "descricao")} required />
             </div>
           </section>
 
           {/* SESSÃO 2: SELEÇÃO DE BRINQUEDOS */}
           <section>
-            <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800 flex justify-between items-center">
+            <h2 className="mb-4 flex flex-col gap-2 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800 sm:flex-row sm:items-center sm:justify-between">
               Composição do Kit *
               <span className="text-sm bg-teal-50 text-teal-700 px-3 py-1 rounded-full">
                 {Object.values(quantidadesSelecionadas).reduce((a, b) => a + b, 0)} itens selecionados
@@ -236,9 +238,9 @@ export default function NovoKitFestaPage() {
                         <p className="text-sm font-bold text-zinc-800 line-clamp-2 leading-tight">{brinquedo.nome}</p>
                         
                         <div className="mt-2 flex items-center gap-3">
-                          <button type="button" onClick={() => alterarQuantidade(brinquedo.id, -1)} className="w-7 h-7 bg-zinc-100 rounded flex items-center justify-center font-bold text-zinc-600 hover:bg-zinc-200">-</button>
+                          <button type="button" aria-label={`Diminuir quantidade de ${brinquedo.nome}`} onClick={() => alterarQuantidade(brinquedo.id, -1)} className="flex h-10 w-10 items-center justify-center rounded bg-zinc-100 font-bold text-zinc-600 hover:bg-zinc-200">-</button>
                           <span className="text-sm font-bold text-zinc-900 w-4 text-center">{qtd}</span>
-                          <button type="button" onClick={() => alterarQuantidade(brinquedo.id, 1)} className="w-7 h-7 bg-teal-50 rounded flex items-center justify-center font-bold text-teal-700 hover:bg-teal-100">+</button>
+                          <button type="button" aria-label={`Aumentar quantidade de ${brinquedo.nome}`} onClick={() => alterarQuantidade(brinquedo.id, 1)} className="flex h-10 w-10 items-center justify-center rounded bg-teal-50 font-bold text-teal-700 hover:bg-teal-100">+</button>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1">
                           {(unidadesPorBrinquedo[brinquedo.id] || []).map((unidade) => (
@@ -282,9 +284,9 @@ export default function NovoKitFestaPage() {
             <Checkbox label="Ativo no catalogo" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
           </div>
 
-          <div className="mt-2 flex items-center justify-end gap-4 border-t border-zinc-100 pt-4">
-            <Button type="button" variant="ghost" onClick={() => router.back()}>Cancelar</Button>
-            <Button type="submit" variant="primary" loading={loading} disabled={loading}>Guardar kit festa</Button>
+          <div className="mt-2 flex flex-col-reverse gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
+            <Button className="w-full sm:w-auto" type="button" variant="ghost" onClick={() => router.back()}>Cancelar</Button>
+            <Button className="w-full sm:w-auto" type="submit" variant="primary" loading={loading} disabled={loading}>Guardar kit festa</Button>
           </div>
         </form>
       </Card>

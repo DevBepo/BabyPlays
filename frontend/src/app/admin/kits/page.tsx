@@ -307,17 +307,17 @@ export default function GestaoKitsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Gestão de Kits Festa</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Cadastre e edite os seus pacotes prontos usando a caixinha de brinquedos.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 sm:justify-end">
           {/* Botão configurado para ir para a página de Novo Kit */}
-          <Link href="/admin/kits/novo">
-            <Button type="button" variant="primary">
+          <Link href="/admin/kits/novo" className="w-full sm:w-auto">
+            <Button type="button" variant="primary" className="w-full sm:w-auto">
               Novo Kit Festa
             </Button>
           </Link>
@@ -334,25 +334,25 @@ export default function GestaoKitsPage() {
             
             <section>
               <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">1. Dados do Kit (Edição)</h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(160px,1fr)]">
+                <div>
                   <Input label="Nome *" value={form.nome} onChange={(e) => setForm((c) => ({ ...c, nome: e.target.value }))} error={erroCampo(fieldErrors, "nome")} required />
                 </div>
-                <div className="grid gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 md:col-span-2 sm:grid-cols-3">
+                <Input label="Ordem" type="number" step="1" min="0" value={form.ordem} onChange={(e) => setForm((c) => ({ ...c, ordem: e.target.value }))} error={erroCampo(fieldErrors, "ordem")} />
+                <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:p-4 lg:grid-cols-3">
                 <Input label="Diária (R$)" type="number" step="0.01" min="0" value={form.preco_diaria} onChange={(e) => setForm((c) => ({ ...c, preco_diaria: e.target.value }))} error={erroCampo(fieldErrors, "preco_diaria")} />
                 <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={form.preco_15_dias} onChange={(e) => setForm((c) => ({ ...c, preco_15_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_15_dias")} />
                 <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={form.preco_30_dias} onChange={(e) => setForm((c) => ({ ...c, preco_30_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_30_dias")} />
                 </div>
-                <Input label="Ordem" type="number" step="1" min="0" value={form.ordem} onChange={(e) => setForm((c) => ({ ...c, ordem: e.target.value }))} error={erroCampo(fieldErrors, "ordem")} />
               </div>
               <div className="mt-6">
-                <Textarea label="Descrição do kit *" rows={5} className="min-h-[132px] leading-6" placeholder="Explique o tema, a ocasião e os principais itens do kit." value={form.descricao} onChange={(e) => setForm((c) => ({ ...c, descricao: e.target.value }))} error={erroCampo(fieldErrors, "descricao")} required />
+                <Textarea label="Descrição do kit *" rows={4} className="min-h-[112px] max-h-[320px] leading-6" placeholder="Explique o tema, a ocasião e os principais itens do kit." value={form.descricao} onChange={(e) => setForm((c) => ({ ...c, descricao: e.target.value }))} error={erroCampo(fieldErrors, "descricao")} required />
               </div>
             </section>
 
             {/* A NOVA CAIXINHA DE EDIÇÃO (IGUAL À DE CRIAÇÃO) */}
             <section>
-              <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800 flex justify-between items-center">
+              <h2 className="mb-4 flex flex-col gap-2 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800 sm:flex-row sm:items-center sm:justify-between">
                 2. Composição do Kit (Caixinha) *
                 <span className="text-sm font-normal text-teal-600 bg-teal-50 px-3 py-1 rounded-full">
                   {Object.values(quantidadesSelecionadas).reduce((a, b) => a + b, 0)} itens no kit
@@ -383,9 +383,9 @@ export default function GestaoKitsPage() {
                         <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3">
                           <span className="text-xs font-semibold text-zinc-600">Quantidade:</span>
                           <div className="flex items-center gap-3 bg-zinc-100 rounded-lg p-1">
-                            <button type="button" onClick={() => handleDecrementar(brinquedo.id)} className={`w-6 h-6 flex items-center justify-center rounded-md font-bold transition-colors ${qtd > 0 ? 'bg-white text-red-500 shadow-sm hover:bg-red-50' : 'text-zinc-400 cursor-not-allowed'}`}>-</button>
+                            <button type="button" aria-label={`Diminuir quantidade de ${brinquedo.nome}`} onClick={() => handleDecrementar(brinquedo.id)} className={`flex h-10 w-10 items-center justify-center rounded-md font-bold transition-colors ${qtd > 0 ? 'bg-white text-red-500 shadow-sm hover:bg-red-50' : 'text-zinc-400 cursor-not-allowed'}`}>-</button>
                             <span className="w-4 text-center text-sm font-black text-zinc-800">{qtd}</span>
-                            <button type="button" onClick={() => handleIncrementar(brinquedo.id)} className="w-6 h-6 flex items-center justify-center rounded-md bg-white shadow-sm text-teal-600 hover:bg-teal-50 font-bold transition-colors">+</button>
+                            <button type="button" aria-label={`Aumentar quantidade de ${brinquedo.nome}`} onClick={() => handleIncrementar(brinquedo.id)} className="flex h-10 w-10 items-center justify-center rounded-md bg-white font-bold text-teal-600 shadow-sm transition-colors hover:bg-teal-50">+</button>
                           </div>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1">
@@ -437,9 +437,9 @@ export default function GestaoKitsPage() {
               </div>
             </section>
 
-            <div className="flex justify-end gap-3 border-t border-zinc-100 pt-4">
-              <Button type="button" variant="ghost" onClick={fecharFormulario}>Cancelar</Button>
-              <Button type="submit" variant="primary" loading={salvando}>Salvar Edição do Kit</Button>
+            <div className="flex flex-col-reverse gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
+              <Button className="w-full sm:w-auto" type="button" variant="ghost" onClick={fecharFormulario}>Cancelar</Button>
+              <Button className="w-full sm:w-auto" type="submit" variant="primary" loading={salvando}>Salvar Edição do Kit</Button>
             </div>
           </form>
         </Card>
@@ -504,7 +504,7 @@ export default function GestaoKitsPage() {
                       </div>
                     </div>
                     <div className="border-t border-zinc-200 pt-3">
-                      <button type="button" disabled={kitAlterandoStatus === kit.id || kitRemovendo === kit.id} onClick={() => void handleRemoverKit(kit)} className="text-xs font-semibold text-red-600 transition-colors hover:text-red-800 disabled:opacity-50">
+                      <button type="button" disabled={kitAlterandoStatus === kit.id || kitRemovendo === kit.id} onClick={() => void handleRemoverKit(kit)} className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50">
                         {kitRemovendo === kit.id ? "Removendo..." : "Remover kit"}
                       </button>
                     </div>

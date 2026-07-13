@@ -108,7 +108,7 @@ function LoadingCarousel() {
   return (
     <div className="flex gap-4 overflow-hidden">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="h-[356px] w-[280px] shrink-0 animate-pulse rounded-3xl border border-[#AB2E97]/10 bg-white/80 shadow-sm sm:w-[288px]">
+        <div key={index} className="h-[356px] w-full shrink-0 animate-pulse rounded-3xl border border-[#AB2E97]/10 bg-white/80 shadow-sm sm:w-[288px]">
           <div className="h-48 bg-[#FFF4DF]" />
           <div className="space-y-3 p-4">
             <div className="h-4 w-24 rounded bg-[#F7EAF5]" />
@@ -180,8 +180,8 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
   };
 
   return (
-    <article className="group flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-3xl border border-[#FAB555]/35 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#F07F40]/45 hover:shadow-lg hover:shadow-[#803233]/10">
-      <Link href={`/kits/${kit.id}`} aria-label={`Ver detalhes de ${kit.nome}`} className="relative aspect-square overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97]">
+    <article className="group flex h-full w-full flex-col overflow-hidden rounded-3xl border border-[#FAB555]/35 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#F07F40]/45 hover:shadow-lg hover:shadow-[#803233]/10">
+      <Link href={`/kits/${kit.id}`} aria-label={`Ver detalhes de ${kit.nome}`} className="relative aspect-[4/3] overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97] sm:aspect-square">
         {imagemUrl ? (
           <Image
             src={imagemUrl}
@@ -199,7 +199,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
           <Badge variant="brand" className="normal-case tracking-normal bg-[#FFF4DF] text-[#803233]">Kit festa</Badge>
           <span className="text-xs font-semibold text-zinc-500">{totalItens} item{totalItens === 1 ? "" : "s"}</span>
         </div>
-        <h3 className="mt-3 line-clamp-2 text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
+        <h3 className="mt-3 break-words text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
           <Link href={`/kits/${kit.id}`} className="rounded-sm transition-colors hover:text-[#AB2E97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AB2E97]">{kit.nome}</Link>
         </h3>
         <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-500">{kit.descricao}</p>
@@ -218,7 +218,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
                     key={option.tipo}
                     type="button"
                     onClick={() => setPeriodoSelecionado(option.tipo)}
-                    className={`inline-flex min-h-8 items-center justify-center rounded-full border px-3 text-[11px] font-bold leading-none transition-colors sm:h-7 sm:min-h-0 sm:px-2.5 ${selected ? "border-[#F07F40] bg-[#FFF1E8] text-[#803233]" : "border-zinc-200 bg-white text-zinc-600 hover:border-[#FAB555]"}`}
+                    className={`inline-flex min-h-10 items-center justify-center rounded-full border px-3 text-xs font-bold leading-none transition-colors sm:h-9 sm:min-h-0 sm:px-2.5 sm:text-[11px] ${selected ? "border-[#F07F40] bg-[#FFF1E8] text-[#803233]" : "border-zinc-200 bg-white text-zinc-600 hover:border-[#FAB555]"}`}
                   >
                     {option.label}
                   </button>
@@ -246,7 +246,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 }
 
 export default function Home() {
-  const { isCartOpen } = useCart();
+  const { closeCart, isCartOpen } = useCart();
   const brinquedosCarouselRef = useRef<HTMLDivElement | null>(null);
   const kitsCarouselRef = useRef<HTMLDivElement | null>(null);
   
@@ -351,33 +351,51 @@ export default function Home() {
       <div className="relative overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
         <section
           aria-labelledby="home-hero-title"
-          className="relative z-10 mx-auto max-w-[1600px] px-3 pt-4 sm:px-6 sm:pt-5"
+          className="relative z-10 mx-auto max-w-[1600px] px-3 pt-3 sm:px-6 sm:pt-5"
         >
-          <div className="relative min-h-[360px] overflow-hidden rounded-[2rem] border border-white/70 bg-[#FFF4DF] shadow-lg shadow-[#803233]/10 sm:min-h-[300px] lg:min-h-[250px]">
-            <Image
-              src="/assets/hero-bebes-brincando.png"
-              alt="Dois bebês brincando juntos com blocos e brinquedo de encaixe"
-              fill
-              priority
-              sizes="(max-width: 1600px) 100vw, 1600px"
-              className="object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-[#FFF4DF]/90 sm:bg-gradient-to-r sm:from-[#FFF8EC]/95 sm:via-white/15 sm:to-[#E7F7F5]/55" />
+          <div className="relative overflow-hidden rounded-3xl border border-white/70 bg-white shadow-lg shadow-[#803233]/10 sm:min-h-[300px] sm:rounded-[2rem] sm:bg-[#FFF4DF] lg:min-h-[250px]">
+            <div className="relative h-[184px] bg-[#FFF4DF] min-[375px]:h-[200px] sm:absolute sm:inset-0 sm:h-auto">
+              <Image
+                src="/assets/hero-bebes-brincando.png"
+                alt="Dois bebês brincando juntos com blocos e brinquedo de encaixe"
+                fill
+                priority
+                sizes="(max-width: 639px) calc(100vw - 24px), (max-width: 1600px) 100vw, 1600px"
+                className="object-cover object-[52%_52%] sm:object-center"
+              />
+              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white/90 to-transparent sm:hidden" />
+            </div>
+            <div className="absolute inset-0 hidden bg-gradient-to-r from-[#FFF8EC]/95 via-white/15 to-[#E7F7F5]/55 sm:block" />
 
-            <div className="relative z-10 flex min-h-[360px] flex-col justify-between gap-5 p-5 sm:min-h-[300px] sm:flex-row sm:items-center sm:p-7 lg:min-h-[250px] lg:p-9">
-              <div className="max-w-sm rounded-3xl bg-white/82 p-5 shadow-sm backdrop-blur-[2px] sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
-                <h1
-                  id="home-hero-title"
-                  className="text-3xl font-bold leading-[1.05] text-[#AB2E97] [font-family:var(--font-fredoka)] sm:text-4xl"
-                >
-                  Mais diversão para cada fase do brincar
-                </h1>
-                <p className="mt-3 max-w-xs text-sm leading-6 text-[#2C1615]/75">
-                  Brinquedos seguros, higienizados e cheios de imaginação para o seu pequeno explorar.
-                </p>
+            <div className="relative z-10 bg-gradient-to-br from-white via-[#FFF9F7] to-[#F1FBF9] p-4 sm:flex sm:min-h-[300px] sm:items-center sm:justify-between sm:gap-5 sm:bg-none sm:p-7 lg:min-h-[250px] lg:p-9">
+              <div className="w-full sm:max-w-sm">
+                <div className="flex items-center gap-3 min-[375px]:gap-4 sm:block">
+                  <div className="flex h-[84px] w-24 shrink-0 items-center justify-center rounded-2xl border border-[#AB2E97]/10 bg-white p-2 shadow-sm shadow-[#803233]/10 min-[375px]:h-24 min-[375px]:w-28 sm:hidden">
+                    <Image
+                      src="/assets/BabyPlaysOfficialLogo.png"
+                      alt="BabyPlays - Locação de brinquedos"
+                      width={1895}
+                      height={1643}
+                      sizes="(max-width: 374px) 96px, 112px"
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h1
+                      id="home-hero-title"
+                      className="text-[1.35rem] font-bold leading-[1.08] text-[#AB2E97] [font-family:var(--font-fredoka)] min-[375px]:text-2xl sm:text-4xl sm:leading-[1.05]"
+                    >
+                      Mais diversão pra cada fase do brincar
+                    </h1>
+                    <p className="mt-2 max-w-xs text-sm leading-5 text-[#2C1615]/75 sm:mt-3 sm:leading-6">
+                      <span className="sm:hidden">Brinquedos seguros e higienizados.</span>
+                      <span className="hidden sm:inline">Brinquedos seguros, higienizados e cheios de imaginação para o seu pequeno explorar.</span>
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="ml-auto flex w-44 items-center justify-center rounded-3xl bg-white/88 p-3 shadow-md shadow-[#803233]/10 backdrop-blur-sm sm:w-52 lg:w-60">
+              <div className="ml-auto hidden w-52 items-center justify-center rounded-3xl bg-white/88 p-3 shadow-md shadow-[#803233]/10 backdrop-blur-sm sm:flex lg:w-60">
                 <Image
                   src="/assets/BabyPlaysOfficialLogo.png"
                   alt="BabyPlays - Locação de brinquedos"
@@ -397,7 +415,7 @@ export default function Home() {
         <span className="pointer-events-none absolute bottom-28 left-[12%] hidden h-24 w-24 rounded-full bg-[#AB2E97]/8 sm:block" />
 
       {/* A MÁGICA ACONTECE AQUI: LAYOUT DE 3 COLUNAS */}
-      <div className={`relative mx-auto flex max-w-[1600px] flex-col gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-5 lg:grid lg:gap-6 ${isCartOpen ? "lg:grid-cols-[240px_minmax(0,1fr)_280px] xl:grid-cols-[260px_minmax(0,1fr)_340px]" : "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
+      <div className={`relative mx-auto flex max-w-[1600px] flex-col gap-4 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 lg:grid lg:gap-6 ${isCartOpen ? "lg:grid-cols-[240px_minmax(0,1fr)_280px] xl:grid-cols-[260px_minmax(0,1fr)_340px]" : "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
         
         {/* COLUNA 1: FILTROS (Importado do nosso novo componente) */}
         <SidebarFilters
@@ -508,7 +526,22 @@ export default function Home() {
         </div>
 
         {/* COLUNA 3: CARRINHO */}
-        {isCartOpen ? <SidebarCart /> : null}
+        {isCartOpen ? (
+          <>
+            <div className="lg:hidden">
+              <button
+                type="button"
+                aria-label="Fechar carrinho"
+                onClick={closeCart}
+                className="fixed inset-0 z-50 cursor-default bg-[#2C1615]/30 backdrop-blur-[1px]"
+              />
+              <SidebarCart variant="drawer" />
+            </div>
+            <div className="hidden lg:block">
+              <SidebarCart />
+            </div>
+          </>
+        ) : null}
 
       </div>
       </div>

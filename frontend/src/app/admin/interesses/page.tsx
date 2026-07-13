@@ -50,9 +50,9 @@ export default function InteressesAdminPage() {
                 </div>
                 <p className="mt-1 text-sm text-zinc-600">{item.cliente_nome} · {item.cliente_telefone}</p>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => void concluir(item.id, "contatado")}>Marcar contato</Button>
-                <Button size="sm" variant="outline" onClick={() => void concluir(item.id, "cancelado")}>Cancelar</Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button className="w-full sm:w-auto" size="sm" onClick={() => void concluir(item.id, "contatado")}>Marcar contato</Button>
+                <Button className="w-full sm:w-auto" size="sm" variant="outline" onClick={() => void concluir(item.id, "cancelado")}>Cancelar</Button>
               </div>
             </div>
           ))}

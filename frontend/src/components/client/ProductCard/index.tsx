@@ -120,7 +120,7 @@ export function ProductCard({
   };
 
   return (
-    <article className="group relative flex h-full min-h-[356px] w-full flex-col overflow-hidden rounded-3xl border border-[#AB2E97]/15 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#AB2E97]/30 hover:shadow-lg hover:shadow-[#803233]/10">
+    <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-3xl border border-[#AB2E97]/15 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#AB2E97]/30 hover:shadow-lg hover:shadow-[#803233]/10">
       <div className="absolute left-3 top-3 z-10">
         {isAvailable ? (
           <Badge variant="success" className="normal-case tracking-normal bg-[#E8F8F6] text-[#2C1615]">
@@ -136,7 +136,7 @@ export function ProductCard({
       <Link
         href={`/brinquedos/${id}`}
         aria-label={`Ver detalhes de ${nome}`}
-        className="aspect-square w-full overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97]"
+        className="aspect-[4/3] w-full overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97] sm:aspect-square"
       >
         {imagemUrl ? (
           <img
@@ -152,7 +152,7 @@ export function ProductCard({
       </Link>
 
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="line-clamp-2 text-sm font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
+        <h3 className="break-words text-base font-bold leading-5 text-[#2C1615] [font-family:var(--font-fredoka)]">
           <Link href={`/brinquedos/${id}`} className="rounded-sm transition-colors hover:text-[#AB2E97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AB2E97]">
             {nome}
           </Link>
@@ -192,7 +192,7 @@ export function ProductCard({
                     type="button"
                     onClick={() => setPeriodoSelecionado(option.tipo)}
                     aria-pressed={selected}
-                    className={`inline-flex min-h-8 items-center justify-center rounded-full border px-3 text-[11px] font-bold leading-none transition-colors sm:h-7 sm:min-h-0 sm:px-2.5 ${
+                    className={`inline-flex min-h-10 items-center justify-center rounded-full border px-3 text-xs font-bold leading-none transition-colors sm:h-9 sm:min-h-0 sm:px-2.5 sm:text-[11px] ${
                       selected
                         ? "border-[#AB2E97] bg-[#F7EAF5] text-[#803233]"
                         : "border-zinc-200 bg-white text-zinc-600 hover:border-[#76CFC8]"

@@ -14,6 +14,8 @@ import { resolveMediaUrl } from "@/lib/media-url";
 import type { BrinquedoCatalogo, PeriodoLocacao } from "@/types/catalogo";
 import Image from "next/image";
 import { Footer } from "@/components/client/Footer";
+import { Header } from "@/components/client/Header";
+import { SubNavbar } from "@/components/client/SubNavBar";
 
 function formatPrice(value: string) {
   const numberValue = Number(value);
@@ -185,11 +187,13 @@ function BrinquedoDetalheContent() {
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-gradient-to-b from-[#FFF4DF] via-[#F1FBF9] to-[#FFF8EC]">
-      <main className="relative px-4 pb-20 pt-6 sm:pb-28 sm:pt-10">
-      <span className="pointer-events-none absolute -left-20 top-28 h-52 w-52 rounded-full bg-[#FAB555]/20" />
-      <span className="pointer-events-none absolute right-[6%] top-20 h-5 w-5 rounded-full bg-[#EA524B]/65" />
-      <span className="pointer-events-none absolute -right-20 top-[42%] h-56 w-56 rotate-12 rounded-[4rem] bg-[#76CFC8]/15" />
-      <span className="pointer-events-none absolute bottom-32 left-[12%] h-10 w-10 rotate-12 rounded-xl bg-[#AB2E97]/8" />
+      <Header />
+      <SubNavbar />
+      <main className="relative px-3 pb-16 pt-4 sm:px-6 sm:pb-24 sm:pt-8">
+      <span className="pointer-events-none absolute -left-20 top-28 hidden h-52 w-52 rounded-full bg-[#FAB555]/20 sm:block" />
+      <span className="pointer-events-none absolute right-[6%] top-20 hidden h-5 w-5 rounded-full bg-[#EA524B]/65 sm:block" />
+      <span className="pointer-events-none absolute -right-20 top-[42%] hidden h-56 w-56 rotate-12 rounded-[4rem] bg-[#76CFC8]/15 md:block" />
+      <span className="pointer-events-none absolute bottom-32 left-[12%] hidden h-10 w-10 rotate-12 rounded-xl bg-[#AB2E97]/8 sm:block" />
 
       <div className="relative z-10 mx-auto max-w-6xl">
         <Button
@@ -209,7 +213,7 @@ function BrinquedoDetalheContent() {
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:gap-8">
           <div>
-            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-[2rem] border border-white/90 bg-white/90 p-4 shadow-xl shadow-[#803233]/8 backdrop-blur-sm sm:p-8">
+            <div className="relative flex aspect-[4/3] max-h-[480px] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/90 bg-white/90 p-3 shadow-xl shadow-[#803233]/8 backdrop-blur-sm sm:aspect-square sm:max-h-none sm:rounded-[2rem] sm:p-8">
               {imagemUrl ? (
                 <Image
                   src={imagemUrl}
@@ -279,7 +283,7 @@ function BrinquedoDetalheContent() {
           </div>
 
           {/* Detalhes */}
-          <div className="flex flex-col gap-6 rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-xl shadow-[#803233]/8 backdrop-blur-sm sm:p-7 lg:p-8">
+          <div className="flex min-w-0 flex-col gap-5 rounded-3xl border border-white/90 bg-white/85 p-4 shadow-xl shadow-[#803233]/8 backdrop-blur-sm sm:gap-6 sm:rounded-[2rem] sm:p-7 lg:p-8">
             <div>
               <div className="mb-3 flex items-center gap-2">
                 {isAvailable ? (
@@ -291,7 +295,7 @@ function BrinquedoDetalheContent() {
                 )}
               </div>
 
-              <h1 className="text-3xl font-bold leading-tight text-[#2C1615] sm:text-4xl [font-family:var(--font-fredoka)]">{brinquedo.nome}</h1>
+              <h1 className="break-words text-2xl font-bold leading-tight text-[#2C1615] sm:text-4xl [font-family:var(--font-fredoka)]">{brinquedo.nome}</h1>
 
               {brinquedo.categoria && (
                 <p className="mt-2 text-sm text-zinc-600">
@@ -338,7 +342,7 @@ function BrinquedoDetalheContent() {
                   )}
                 </div>
 
-                <div className="flex items-end justify-between gap-4 border-t border-zinc-100 pt-4">
+                <div className="flex flex-col gap-1 border-t border-zinc-100 pt-4 min-[360px]:flex-row min-[360px]:items-end min-[360px]:justify-between min-[360px]:gap-4">
                   <p className="text-xs font-medium text-zinc-500">Total do período selecionado</p>
                   <p className="text-2xl font-black text-[#2C1615]">
                     {periodoAtual ? formatPrice(periodoAtual.preco) : "Sob consulta"}

@@ -152,15 +152,15 @@ export default function NovoBrinquedo() {
   }
 
   return (
-    <div className="max-w-4xl">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="w-full max-w-5xl">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Novo brinquedo</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Preencha os dados abaixo e anexe uma foto principal.
           </p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={() => router.back()}>
           Voltar
         </Button>
       </div>
@@ -253,17 +253,15 @@ export default function NovoBrinquedo() {
             <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">
               Informacoes basicas
             </h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="md:col-span-2 rounded-xl border border-zinc-200 bg-white p-4">
-                <Input
-                  label="Nome *"
-                  placeholder="Ex: Cadeira de Balanco Fisher Price"
-                  value={nome}
-                  onChange={(event) => setNome(event.target.value)}
-                  error={erroCampo(fieldErrors, "nome")}
-                  required
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Input
+                label="Nome *"
+                placeholder="Ex: Cadeira de Balanco Fisher Price"
+                value={nome}
+                onChange={(event) => setNome(event.target.value)}
+                error={erroCampo(fieldErrors, "nome")}
+                required
+              />
 
               <Select
                 label="Categoria *"
@@ -291,7 +289,7 @@ export default function NovoBrinquedo() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:col-span-2 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:p-4 xl:grid-cols-4">
               <Input
                 label="Diaria (R$)"
                 type="number"
@@ -343,8 +341,8 @@ export default function NovoBrinquedo() {
           <Textarea
             label="Descricao do brinquedo *"
             placeholder="Explique o brinquedo, a idade recomendada e seus principais beneficios."
-            rows={5}
-            className="min-h-[132px] leading-6"
+            rows={4}
+            className="min-h-[112px] max-h-[320px] leading-6"
             value={descricao}
             onChange={(event) => setDescricao(event.target.value)}
             error={erroCampo(fieldErrors, "descricao")}
@@ -368,13 +366,14 @@ export default function NovoBrinquedo() {
             </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-end gap-4 border-t border-zinc-100 pt-4">
-            <Button type="button" variant="ghost" onClick={() => router.back()}>
+          <div className="mt-2 flex flex-col-reverse gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
+            <Button className="w-full sm:w-auto" type="button" variant="ghost" onClick={() => router.back()}>
               Cancelar
             </Button>
             <Button
               type="submit"
               variant="primary"
+              className="w-full sm:w-auto"
               loading={loading}
               disabled={loading || categoriasLoading || categoriasOptions.length === 0}
             >

@@ -3,10 +3,20 @@ import { HTMLAttributes, ThHTMLAttributes, TdHTMLAttributes } from "react";
 
 export function Table({ className = "", children, ...rest }: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-zinc-200 shadow-sm bg-white">
-      <table className={`w-full text-sm text-left text-zinc-600 ${className}`} {...rest}>
-        {children}
-      </table>
+    <div className="w-full min-w-0">
+      <p className="mb-2 text-xs font-medium text-zinc-500 md:hidden">
+        Deslize a tabela para o lado para ver todas as informações.
+      </p>
+      <div
+        role="region"
+        aria-label="Tabela com rolagem horizontal"
+        tabIndex={0}
+        className="w-full overflow-x-auto overscroll-x-contain rounded-xl border border-zinc-200 bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+      >
+        <table className={`w-full min-w-[680px] text-left text-sm text-zinc-600 md:min-w-full ${className}`} {...rest}>
+          {children}
+        </table>
+      </div>
     </div>
   );
 }
@@ -41,7 +51,7 @@ export function Tr({ className = "", children, ...rest }: HTMLAttributes<HTMLTab
 // A Célula de Cabeçalho (Th)
 export function Th({ className = "", children, ...rest }: ThHTMLAttributes<HTMLTableHeaderCellElement>) {
   return (
-    <th className={`px-6 py-4 font-semibold tracking-wide ${className}`} {...rest}>
+    <th className={`px-4 py-3 font-semibold tracking-wide md:px-6 md:py-4 ${className}`} {...rest}>
       {children}
     </th>
   );
@@ -50,7 +60,7 @@ export function Th({ className = "", children, ...rest }: ThHTMLAttributes<HTMLT
 // A Célula de Dados (Td)
 export function Td({ className = "", children, ...rest }: TdHTMLAttributes<HTMLTableDataCellElement>) {
   return (
-    <td className={`px-6 py-4 whitespace-nowrap text-zinc-800 ${className}`} {...rest}>
+    <td className={`whitespace-nowrap px-4 py-3 text-zinc-800 md:px-6 md:py-4 ${className}`} {...rest}>
       {children}
     </td>
   );

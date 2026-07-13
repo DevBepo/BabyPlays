@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
-import { removerItemCarrinho, converterCarrinhoEmPedido } from "@/services/cart";
+import {
+  atualizarQuantidadeItem,
+  removerItemCarrinho,
+  converterCarrinhoEmPedido,
+  type ItemCarrinho,
+} from "@/services/cart";
 import { obterContratoVigente } from "@/services/contrato";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal"; // Importando o nosso Modal
@@ -68,6 +73,8 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const router = useRouter();
   const { carrinho, closeCart, refreshCart, cartLoading } = useCart();
   const { user, cliente, isAuthenticated } = useAuth();
+  const panelRef = useRef<HTMLElement>(null);
+  const panelTitleId = useId();
   
   // Estados de Datas e Contrato
   const [contratoAceito, setContratoAceito] = useState(false);
@@ -83,6 +90,7 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
   const [loadingPedido, setLoadingPedido] = useState(false);
+  const [itemAtualizando, setItemAtualizando] = useState<number | null>(null);
   const [checkoutError, setCheckoutError] = useState<CheckoutError | null>(null);
   const [whatsappManualUrl, setWhatsappManualUrl] = useState<string | null>(null);
   const finalizacaoEmAndamento = useRef(false);
@@ -103,6 +111,53 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
       .catch((err) => console.error("Erro ao carregar o contrato vigente:", err));
   }, [isAuthenticated, cliente, user]);
 
+  useEffect(() => {
+    if (variant !== "drawer") return;
+
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const getFocusableElements = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+
+    const firstFocusableElement = getFocusableElements()[0];
+    if (firstFocusableElement) firstFocusableElement.focus();
+    else panelRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeCart();
+        return;
+      }
+
+      if (event.key === "Tab") {
+        const focusableElements = getFocusableElements();
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (event.shiftKey && document.activeElement === firstElement) {
+          event.preventDefault();
+          lastElement?.focus();
+        } else if (!event.shiftKey && document.activeElement === lastElement) {
+          event.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [closeCart, variant]);
+
   // Derivações do carrinho
   const itens = carrinho?.itens || [];
   const quantidadeTotal = itens.reduce((acc, item) => acc + item.quantidade, 0);
@@ -114,6 +169,26 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
       await refreshCart();
     } catch (err) {
       console.error("Erro ao remover item", err);
+    }
+  };
+
+  const handleAtualizarQuantidade = async (
+    item: ItemCarrinho,
+    quantidade: number,
+  ) => {
+    if (quantidade < 1 || itemAtualizando === item.id) return;
+
+    setItemAtualizando(item.id);
+    setCheckoutError(null);
+    try {
+      await atualizarQuantidadeItem(item.id, quantidade);
+      await refreshCart();
+    } catch {
+      setCheckoutError({
+        message: "Não foi possível atualizar a quantidade deste item. Tente novamente.",
+      });
+    } finally {
+      setItemAtualizando(null);
     }
   };
 
@@ -191,8 +266,14 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
 
   if (cartLoading) {
     return (
-      <aside className={variant === "drawer"
-        ? "fixed bottom-3 right-3 top-20 z-[60] w-[min(calc(100vw-24px),420px)] animate-pulse rounded-xl border border-zinc-200 bg-white p-5 shadow-2xl"
+      <aside
+        ref={panelRef}
+        role={variant === "drawer" ? "dialog" : undefined}
+        aria-modal={variant === "drawer" ? true : undefined}
+        aria-label={variant === "drawer" ? "Carregando carrinho" : undefined}
+        tabIndex={variant === "drawer" ? -1 : undefined}
+        className={variant === "drawer"
+        ? "fixed inset-x-0 bottom-0 top-16 z-[60] w-full animate-pulse rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl sm:bottom-3 sm:left-auto sm:right-3 sm:top-20 sm:w-[min(calc(100vw-24px),420px)] sm:rounded-2xl sm:p-5"
         : "w-full animate-pulse self-start rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-[104px] lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto"}
       >
         <div className="h-6 bg-zinc-100 rounded w-1/2 mb-8"></div>
@@ -204,16 +285,20 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   return (
     <>
       <aside
-        id="reserva"
+        ref={panelRef}
+        id={variant === "catalog" ? "reserva" : undefined}
+        role={variant === "drawer" ? "dialog" : undefined}
+        aria-modal={variant === "drawer" ? true : undefined}
+        aria-labelledby={panelTitleId}
         className={`custom-scrollbar flex flex-col gap-4 overflow-y-auto bg-white p-4 sm:gap-6 sm:p-5 ${
           variant === "drawer"
-            ? "fixed bottom-3 right-3 top-20 z-[60] w-[min(calc(100vw-24px),420px)] rounded-xl border border-zinc-200 shadow-2xl"
+            ? "fixed inset-x-0 bottom-0 top-16 z-[60] w-full rounded-t-3xl border border-zinc-200 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:bottom-3 sm:left-auto sm:right-3 sm:top-20 sm:w-[min(calc(100vw-24px),420px)] sm:rounded-2xl"
             : "w-full self-start rounded-xl border border-zinc-200 shadow-sm lg:sticky lg:top-[104px] lg:max-h-[calc(100dvh-120px)]"
         }`}
       >
         
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
-          <h2 className="text-base font-bold text-zinc-900 sm:text-lg">Seu carrinho ({quantidadeTotal})</h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white pb-3">
+          <h2 id={panelTitleId} className="text-base font-bold text-zinc-900 sm:text-lg">Seu carrinho ({quantidadeTotal})</h2>
           <button
             type="button"
             onClick={closeCart}
@@ -246,16 +331,43 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
                   )}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col pr-7">
-                  <h3 className="line-clamp-2 text-sm font-bold leading-snug text-zinc-800">{item.nome_snapshot}</h3>
-                  <span className="text-[11px] text-zinc-500 mt-0.5">
-                    {item.quantidade}x • {item.snapshot.periodo_locacao?.label || "15 dias"}
+                  <h3 className="break-words text-sm font-bold leading-snug text-zinc-800">{item.nome_snapshot}</h3>
+                  <span className="mt-0.5 text-xs text-zinc-500">
+                    Período: {item.snapshot.periodo_locacao?.label || "15 dias"}
                   </span>
-                  <span className="text-sm font-bold text-zinc-900 mt-1">
-                    R$ {item.subtotal_snapshot.replace(".", ",")}
-                  </span>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="inline-flex items-center rounded-xl border border-zinc-200 bg-white" aria-label={`Quantidade de ${item.nome_snapshot}`}>
+                      <button
+                        type="button"
+                        onClick={() => void handleAtualizarQuantidade(item, item.quantidade - 1)}
+                        disabled={item.quantidade <= 1 || itemAtualizando === item.id}
+                        aria-label={`Diminuir quantidade de ${item.nome_snapshot}`}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-l-xl text-lg font-bold text-zinc-600 transition-colors hover:bg-[#F7EAF5] hover:text-[#AB2E97] disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-7 text-center text-sm font-bold text-zinc-900" aria-live="polite">
+                        {item.quantidade}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void handleAtualizarQuantidade(item, item.quantidade + 1)}
+                        disabled={itemAtualizando === item.id}
+                        aria-label={`Aumentar quantidade de ${item.nome_snapshot}`}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-r-xl text-lg font-bold text-zinc-600 transition-colors hover:bg-[#E8F8F6] hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="text-sm font-bold text-zinc-900">
+                      R$ {item.subtotal_snapshot.replace(".", ",")}
+                    </span>
+                  </div>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => handleRemoverItem(item.id)}
+                  aria-label={`Remover ${item.nome_snapshot} do carrinho`}
                   className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 hover:bg-red-50 hover:text-red-500 sm:right-2 sm:top-2 sm:h-auto sm:w-auto sm:p-1"
                 >
                   ✕
@@ -285,20 +397,20 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
 
           {expandirDados && (
             <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Nome Completo *" value={nome} onChange={(e) => setNome(e.target.value)} className="col-span-2 min-h-11 py-2 text-sm" />
-                <Input placeholder="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-2 min-h-11 py-2 text-sm" />
-                <Input placeholder="Telefone *" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="col-span-2 min-h-11 py-2 text-sm" />
+              <div className="grid gap-3">
+                <Input label="Nome completo" placeholder="Seu nome" autoComplete="name" value={nome} onChange={(e) => setNome(e.target.value)} className="min-h-12 py-2 text-base" />
+                <Input label="E-mail" placeholder="voce@exemplo.com" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="min-h-12 py-2 text-base" />
+                <Input label="Telefone (WhatsApp)" placeholder="(51) 99999-9999" type="tel" autoComplete="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="min-h-12 py-2 text-base" />
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
-                <div className="col-span-1">
-                  <Input placeholder="CEP *" value={cep} onChange={(e) => setCep(e.target.value)} maxLength={9} className="min-h-11 py-2 text-sm" />
+              <div className="mt-2 grid gap-3 min-[360px]:grid-cols-2 min-[430px]:grid-cols-3">
+                <div>
+                  <Input label="CEP" placeholder="00000-000" autoComplete="postal-code" inputMode="numeric" value={cep} onChange={(e) => setCep(e.target.value)} maxLength={9} className="min-h-12 py-2 text-base" />
                 </div>
-                <div className="col-span-1">
-                  <Input placeholder="Número *" value={numero} onChange={(e) => setNumero(e.target.value)} className="min-h-11 py-2 text-sm" />
+                <div>
+                  <Input label="Número" placeholder="123" autoComplete="address-line2" inputMode="numeric" value={numero} onChange={(e) => setNumero(e.target.value)} className="min-h-12 py-2 text-base" />
                 </div>
-                <div className="col-span-2 min-[430px]:col-span-1">
-                  <Input placeholder="Comp." value={complemento} onChange={(e) => setComplemento(e.target.value)} className="min-h-11 py-2 text-sm" />
+                <div className="min-[360px]:col-span-2 min-[430px]:col-span-1">
+                  <Input label="Complemento" placeholder="Apto, bloco..." autoComplete="address-line3" value={complemento} onChange={(e) => setComplemento(e.target.value)} className="min-h-12 py-2 text-base" />
                 </div>
               </div>
             </div>
@@ -308,7 +420,7 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
         <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
           <h3 className="text-sm font-bold text-zinc-800">Resumo do pedido</h3>
           <div className="flex justify-between text-sm text-zinc-600">
-            <span>Subtotal ({quantidadeTotal} itens)</span>
+            <span>Subtotal ({quantidadeTotal} {quantidadeTotal === 1 ? "item" : "itens"})</span>
             <span>R$ {subtotal.toFixed(2).replace(".", ",")}</span>
           </div>
           <div className="flex justify-between text-sm text-zinc-600">
@@ -354,8 +466,8 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="flex flex-col items-stretch gap-2 min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-1">
               <input 
                 type="checkbox" 
                 checked={contratoAceito} 
@@ -367,7 +479,7 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
             <button 
               type="button" 
               onClick={() => setModalContratoAberto(true)} 
-              className="min-h-10 shrink-0 rounded-lg px-2 text-xs font-bold text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:underline"
+              className="min-h-11 shrink-0 rounded-lg px-3 text-sm font-bold text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:underline"
             >
               Ver contrato
             </button>
@@ -404,11 +516,11 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
             {contratoVigente?.texto ? contratoVigente.texto : "A carregar o texto do contrato..."}
           </div>
         </div>
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={() => setModalContratoAberto(false)}
-            className="px-4 py-2.5 rounded-xl font-bold text-zinc-600 bg-zinc-50 hover:bg-zinc-100 transition-colors"
+            className="min-h-11 rounded-xl bg-zinc-50 px-4 py-2.5 font-bold text-zinc-600 transition-colors hover:bg-zinc-100"
           >
             Voltar
           </button>
@@ -418,7 +530,7 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
               setContratoAceito(true);
               setModalContratoAberto(false);
             }}
-            className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition-colors"
+            className="min-h-11 rounded-xl bg-teal-600 px-6 py-2.5 font-bold text-white transition-colors hover:bg-teal-700"
           >
             Aceitar Contrato
           </button>

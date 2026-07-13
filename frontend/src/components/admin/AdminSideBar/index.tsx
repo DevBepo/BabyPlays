@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 
@@ -142,15 +143,47 @@ const menuItems = [
   { label: "Entregas", icon: <IconDelivery />, href: "/admin/entregas" },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col border-r border-zinc-200 bg-white text-zinc-600">
-      <div className="flex h-20 shrink-0 flex-col justify-center border-b border-zinc-100 px-6">
-        <span className="mt-1 text-[10px] font-bold uppercase tracking-widest text-teal-600">
-          Ambiente de Gestão
-        </span> 
+    <aside
+      id="admin-navigation"
+      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,88vw)] flex-col border-r border-zinc-200 bg-white text-zinc-600 shadow-xl transition-transform duration-200 ease-out lg:z-30 lg:w-64 lg:translate-x-0 lg:shadow-none ${
+        open ? "visible translate-x-0" : "invisible -translate-x-full lg:visible"
+      }`}
+    >
+      <div className="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-zinc-100 px-5 lg:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="relative h-14 w-10 shrink-0 overflow-hidden lg:hidden">
+            <Image
+              src="/assets/LogoComEscrita.jpg"
+              alt="BabyPlays - Locação de brinquedos"
+              width={1275}
+              height={990}
+              sizes="40px"
+              className="absolute left-1/2 top-1/2 h-16 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+            />
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600">
+            Ambiente de Gestão
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 lg:hidden"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+          Fechar
+        </button>
       </div>
 
       {/* Navegação */}
@@ -165,8 +198,9 @@ export function AdminSidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={onClose}
                   className={`
-                    flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200
+                    flex min-h-11 items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600
                     ${
                       isActive
                         ? "bg-teal-50 text-teal-700 font-bold"
@@ -190,7 +224,7 @@ export function AdminSidebar() {
       {/* Rodapé da Sidebar */}
       <div className="flex items-center justify-between border-t border-zinc-100 bg-zinc-50 p-4 text-xs text-zinc-500">
         <span>Admin v1.0</span>
-        <Link href="/" className="font-medium text-teal-600 hover:underline">
+        <Link href="/" onClick={onClose} className="rounded font-medium text-teal-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600">
           Ver Loja
         </Link>
       </div>
