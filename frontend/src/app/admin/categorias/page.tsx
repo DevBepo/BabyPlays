@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/TextArea";
+
 import {
   atualizarCategoria,
   criarCategoria,
@@ -52,6 +53,7 @@ export default function CategoriasAdminPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
+
   const [form, setForm] = useState(FORM_INICIAL);
   const [categoriaEditando, setCategoriaEditando] = useState<CategoriaCatalogo | null>(null);
   const [categoriaExcluindoId, setCategoriaExcluindoId] = useState<number | null>(null);
@@ -70,7 +72,6 @@ export default function CategoriasAdminPage() {
 
       try {
         const dados = await listarCategorias();
-
         if (active) {
           setCategorias(dados);
         }
@@ -143,7 +144,6 @@ export default function CategoriasAdminPage() {
   async function alternarAtivo(categoria: CategoriaCatalogo) {
     setErro(null);
     setSucesso(null);
-
     try {
       const atualizada = await atualizarCategoria(categoria.id, {
         ativo: !(categoria.ativo ?? true),
@@ -220,8 +220,8 @@ export default function CategoriasAdminPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Categorias</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Categorias</h1>
+          <p className="mt-1 text-xs sm:text-sm text-zinc-500">
             Cadastre categorias reais para usar no formulario de brinquedos.
           </p>
         </div>
@@ -239,19 +239,20 @@ export default function CategoriasAdminPage() {
         </div>
       ) : null}
 
-      <section className="rounded-lg border border-zinc-200 bg-white p-5">
+      <section className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">
             {categoriaEditando ? "Editar categoria" : "Nova categoria"}
           </h2>
           {categoriaEditando ? (
-            <Button type="button" variant="ghost" size="sm" onClick={cancelarEdicao}>
+            <Button className="w-full sm:w-auto" type="button" variant="ghost" size="sm" onClick={cancelarEdicao}>
               Cancelar edicao
             </Button>
           ) : null}
         </div>
-        <form onSubmit={handleSubmit} className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,2fr)_minmax(160px,1fr)]">
-          <div>
+
+        <form onSubmit={handleSubmit} className="mt-5 grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Nome *"
               value={form.nome}
@@ -261,31 +262,28 @@ export default function CategoriasAdminPage() {
               error={erroCampo(fieldErrors, "nome") || erroCampo(fieldErrors, "slug")}
               required
             />
+            <div className="flex items-center pt-2 sm:pt-7">
+              <Checkbox
+                label="Ativa"
+                checked={form.ativo}
+                onChange={(event) => setForm((atual) => ({ ...atual, ativo: event.target.checked }))}
+              />
+            </div>
           </div>
+          
+          <Textarea
+            label="Descricao"
+            value={form.descricao}
+            onChange={(event) =>
+              setForm((atual) => ({ ...atual, descricao: event.target.value }))
+            }
+            error={erroCampo(fieldErrors, "descricao")}
+            rows={4}
+            className="min-h-[112px] max-h-[280px] leading-6"
+          />
 
-          <div className="flex items-center pt-7">
-            <Checkbox
-              label="Ativa"
-              checked={form.ativo}
-              onChange={(event) => setForm((atual) => ({ ...atual, ativo: event.target.checked }))}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <Textarea
-              label="Descricao"
-              value={form.descricao}
-              onChange={(event) =>
-                setForm((atual) => ({ ...atual, descricao: event.target.value }))
-              }
-              error={erroCampo(fieldErrors, "descricao")}
-              rows={4}
-              className="min-h-[112px] max-h-[280px] leading-6"
-            />
-          </div>
-
-          <div className="flex md:col-span-2 md:justify-end">
-            <Button className="w-full md:w-auto" type="submit" loading={salvando}>
+          <div className="flex justify-end">
+            <Button className="w-full sm:w-auto" type="submit" loading={salvando}>
               {categoriaEditando ? "Atualizar categoria" : "Salvar categoria"}
             </Button>
           </div>
@@ -303,8 +301,8 @@ export default function CategoriasAdminPage() {
             Carregando categorias...
           </div>
         ) : categoriasOrdenadas.length === 0 ? (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
-            Nenhuma categoria cadastrada ainda.
+          <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500">
+            Nenhuma categoria cadastrada.
           </div>
         ) : (
           <Table>
@@ -312,7 +310,8 @@ export default function CategoriasAdminPage() {
               <Tr>
                 <Th>Nome</Th>
                 <Th>Status</Th>
-                <Th className="text-right">Acoes</Th>
+                <Th>Descrição</Th>
+                <Th className="text-right">Ações</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -321,20 +320,21 @@ export default function CategoriasAdminPage() {
                   <Td>
                     <div className="flex flex-col">
                       <span className="font-semibold text-zinc-900">{categoria.nome}</span>
-                      <span className="mt-0.5 max-w-md truncate text-xs text-zinc-400">
-                        {categoria.descricao || "Sem descricao"}
-                      </span>
+                      <span className="text-xs text-zinc-500 font-mono">{categoria.slug}</span>
                     </div>
                   </Td>
                   <Td>
-                    {categoria.ativo !== false ? (
+                    {categoria.ativo ? (
                       <Badge variant="success">Ativa</Badge>
                     ) : (
                       <Badge variant="default">Inativa</Badge>
                     )}
                   </Td>
+                  <Td className="max-w-xs whitespace-normal text-sm text-zinc-600">
+                    {categoria.descricao || "-"}
+                  </Td>
                   <Td className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 flex-wrap sm:flex-nowrap">
                       <Button
                         type="button"
                         size="sm"
@@ -346,17 +346,16 @@ export default function CategoriasAdminPage() {
                       <Button
                         type="button"
                         size="sm"
-                        variant={categoria.ativo !== false ? "outline" : "secondary"}
+                        variant={categoria.ativo ? "outline" : "secondary"}
                         onClick={() => void alternarAtivo(categoria)}
                       >
-                        {categoria.ativo !== false ? "Desativar" : "Ativar"}
+                        {categoria.ativo ? "Desativar" : "Ativar"}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="danger"
                         loading={categoriaExcluindoId === categoria.id}
-                        disabled={categoriaExcluindoId === categoria.id}
                         onClick={() => void handleExcluir(categoria)}
                       >
                         Excluir

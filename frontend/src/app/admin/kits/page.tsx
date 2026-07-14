@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/TextArea";
+
 import {
   atualizarAdminKitFesta,
   criarAdminKitFesta,
@@ -87,6 +88,7 @@ export default function GestaoKitsPage() {
   const [kitEmEdicao, setKitEmEdicao] = useState<number | null>(null);
   const [kitRemovendo, setKitRemovendo] = useState<number | null>(null);
   const [kitAlterandoStatus, setKitAlterandoStatus] = useState<number | null>(null);
+
   const [form, setForm] = useState<KitFormState>(initialForm);
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
   const [removerImagemAtual, setRemoverImagemAtual] = useState(false);
@@ -94,7 +96,6 @@ export default function GestaoKitsPage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
 
-  // A Mágica da "Caixinha" na Edição
   const [brinquedosDisponiveis, setBrinquedosDisponiveis] = useState<BrinquedoCatalogo[]>([]);
   const [carregandoBrinquedos, setCarregandoBrinquedos] = useState(false);
   const [quantidadesSelecionadas, setQuantidadesSelecionadas] = useState<Record<number, number>>({});
@@ -143,7 +144,6 @@ export default function GestaoKitsPage() {
     return () => { if (imagemPreviewUrl) URL.revokeObjectURL(imagemPreviewUrl); };
   }, [imagemPreviewUrl]);
 
-  // Função chamada ao clicar em "Editar" num Kit
   async function abrirEdicao(kit: AdminKitFesta) {
     setForm(formFromKit(kit));
     setKitEmEdicao(kit.id);
@@ -154,20 +154,20 @@ export default function GestaoKitsPage() {
     setSucesso(null);
     setFormAberto(true);
 
-    // Carrega a prateleira de brinquedos
     setCarregandoBrinquedos(true);
     try {
       const todos = await listarBrinquedos();
       const lista = todos;
       setBrinquedosDisponiveis(lista);
+
       const pares = await Promise.all(
         lista.map(async (brinquedo: BrinquedoCatalogo) => [brinquedo.id, await listarUnidadesBrinquedo(brinquedo.id)] as const),
       );
       setUnidadesPorBrinquedo(Object.fromEntries(pares));
       
-      // Carrega os brinquedos que já estão salvos neste kit para a "Caixinha"
       const mapQtd: Record<number, number> = {};
       const mapUnidades: Record<number, number[]> = {};
+
       kit.itens.forEach(item => {
         if (item.brinquedo && item.brinquedo.id) {
           mapQtd[item.brinquedo.id] = item.quantidade;
@@ -177,7 +177,7 @@ export default function GestaoKitsPage() {
       setQuantidadesSelecionadas(mapQtd);
       setUnidadesSelecionadas(mapUnidades);
     } catch (err) {
-      console.error("Erro ao carregar brinquedos na edição", err);
+      console.error("Erro ao carregar brinquedos na edi o", err);
     } finally {
       setCarregandoBrinquedos(false);
     }
@@ -262,7 +262,6 @@ export default function GestaoKitsPage() {
         }
         setSucesso("Kit festa criado com sucesso.");
       }
-
       await carregarKitsFesta();
       fecharFormulario();
     } catch (error) {
@@ -309,13 +308,12 @@ export default function GestaoKitsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Gestão de Kits Festa</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Gestão de Kits Festa</h1>
+          <p className="mt-1 text-xs sm:text-sm text-zinc-500">
             Cadastre e edite os seus pacotes prontos usando a caixinha de brinquedos.
           </p>
         </div>
-        <div className="flex items-center gap-3 sm:justify-end">
-          {/* Botão configurado para ir para a página de Novo Kit */}
+        <div className="flex w-full items-center sm:w-auto sm:justify-end">
           <Link href="/admin/kits/novo" className="w-full sm:w-auto">
             <Button type="button" variant="primary" className="w-full sm:w-auto">
               Novo Kit Festa
@@ -327,11 +325,9 @@ export default function GestaoKitsPage() {
       {sucesso && <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">{sucesso}</div>}
       {erro && <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">{erro}</div>}
 
-      {/* FORMULÁRIO DE EDIÇÃO INLINE */}
       {formAberto && (
         <Card padding="lg" className="border-teal-500 ring-1 ring-teal-500 shadow-md">
           <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-            
             <section>
               <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">1. Dados do Kit (Edição)</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(160px,1fr)]">
@@ -339,10 +335,11 @@ export default function GestaoKitsPage() {
                   <Input label="Nome *" value={form.nome} onChange={(e) => setForm((c) => ({ ...c, nome: e.target.value }))} error={erroCampo(fieldErrors, "nome")} required />
                 </div>
                 <Input label="Ordem" type="number" step="1" min="0" value={form.ordem} onChange={(e) => setForm((c) => ({ ...c, ordem: e.target.value }))} error={erroCampo(fieldErrors, "ordem")} />
-                <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:p-4 lg:grid-cols-3">
-                <Input label="Diária (R$)" type="number" step="0.01" min="0" value={form.preco_diaria} onChange={(e) => setForm((c) => ({ ...c, preco_diaria: e.target.value }))} error={erroCampo(fieldErrors, "preco_diaria")} />
-                <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={form.preco_15_dias} onChange={(e) => setForm((c) => ({ ...c, preco_15_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_15_dias")} />
-                <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={form.preco_30_dias} onChange={(e) => setForm((c) => ({ ...c, preco_30_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_30_dias")} />
+                
+                <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 sm:grid-cols-2 md:col-span-2 sm:p-4 lg:grid-cols-3">
+                  <Input label="Diária (R$)" type="number" step="0.01" min="0" value={form.preco_diaria} onChange={(e) => setForm((c) => ({ ...c, preco_diaria: e.target.value }))} error={erroCampo(fieldErrors, "preco_diaria")} />
+                  <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={form.preco_15_dias} onChange={(e) => setForm((c) => ({ ...c, preco_15_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_15_dias")} />
+                  <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={form.preco_30_dias} onChange={(e) => setForm((c) => ({ ...c, preco_30_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_30_dias")} />
                 </div>
               </div>
               <div className="mt-6">
@@ -350,11 +347,10 @@ export default function GestaoKitsPage() {
               </div>
             </section>
 
-            {/* A NOVA CAIXINHA DE EDIÇÃO (IGUAL À DE CRIAÇÃO) */}
             <section>
               <h2 className="mb-4 flex flex-col gap-2 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800 sm:flex-row sm:items-center sm:justify-between">
                 2. Composição do Kit (Caixinha) *
-                <span className="text-sm font-normal text-teal-600 bg-teal-50 px-3 py-1 rounded-full">
+                <span className="text-sm font-normal text-teal-600 bg-teal-50 px-3 py-1 rounded-full w-fit">
                   {Object.values(quantidadesSelecionadas).reduce((a, b) => a + b, 0)} itens no kit
                 </span>
               </h2>
@@ -400,7 +396,7 @@ export default function GestaoKitsPage() {
                                   onChange={() => alternarUnidade(brinquedo.id, unidade.id)}
                                 />
                                 <span>{unidade.codigo}</span>
-                                <span className="text-zinc-400">· {unidade.status_label}</span>
+                                <span className="text-zinc-400">({unidade.status_label})</span>
                               </label>
                             );
                           })}
@@ -431,7 +427,6 @@ export default function GestaoKitsPage() {
                   )}
                 </div>
               </div>
-
               <div className="mt-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4">
                 <Checkbox label="Ativo no catálogo" checked={form.ativo} onChange={(e) => setForm((c) => ({ ...c, ativo: e.target.checked }))} />
               </div>
@@ -468,16 +463,14 @@ export default function GestaoKitsPage() {
                       <div className="flex h-full min-h-48 items-center justify-center text-xs font-medium text-zinc-400">Sem imagem</div>
                     )}
                   </div>
-
-                  <div className="min-w-0 p-5">
+                  <div className="min-w-0 p-4 sm:p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Kit Festa</p>
-                        <h3 className="mt-1 text-xl font-bold leading-tight text-zinc-900">{kit.nome}</h3>
+                        <h3 className="mt-1 text-lg sm:text-xl font-bold leading-tight text-zinc-900">{kit.nome}</h3>
                       </div>
                       {kit.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="default">Inativo</Badge>}
                     </div>
-
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">{kit.descricao || "Sem descrição cadastrada."}</p>
                     <div className="mt-4 rounded-xl bg-zinc-50 px-3 py-2.5">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Composição</p>
@@ -492,19 +485,18 @@ export default function GestaoKitsPage() {
                       ))}
                     </div>
                   </div>
-
                   <div className="flex flex-col justify-between gap-4 border-t border-zinc-100 bg-zinc-50/60 p-4 md:col-start-2 xl:col-start-auto xl:border-l xl:border-t-0">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Ações</p>
-                      <div className="mt-3 grid gap-2">
-                        <Button type="button" size="sm" variant="primary" onClick={() => abrirEdicao(kit)}>Editar kit</Button>
-                        <Button type="button" size="sm" variant="outline" loading={kitAlterandoStatus === kit.id} disabled={kitRemovendo === kit.id} onClick={() => void handleAlternarStatusKit(kit)}>
+                      <div className="mt-3 flex flex-col gap-2">
+                        <Button className="w-full" type="button" size="sm" variant="primary" onClick={() => abrirEdicao(kit)}>Editar kit</Button>
+                        <Button className="w-full" type="button" size="sm" variant="outline" loading={kitAlterandoStatus === kit.id} disabled={kitRemovendo === kit.id} onClick={() => void handleAlternarStatusKit(kit)}>
                           {kit.ativo ? "Ocultar do catálogo" : "Reativar kit"}
                         </Button>
                       </div>
                     </div>
                     <div className="border-t border-zinc-200 pt-3">
-                      <button type="button" disabled={kitAlterandoStatus === kit.id || kitRemovendo === kit.id} onClick={() => void handleRemoverKit(kit)} className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50">
+                      <button type="button" disabled={kitAlterandoStatus === kit.id || kitRemovendo === kit.id} onClick={() => void handleRemoverKit(kit)} className="flex w-full min-h-10 items-center justify-center rounded-lg px-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50">
                         {kitRemovendo === kit.id ? "Removendo..." : "Remover kit"}
                       </button>
                     </div>

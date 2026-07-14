@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+
 import {
   confirmarAdminPedido,
   iniciarLocacaoAdminPedido,
@@ -93,6 +94,7 @@ function getAdminActionErrorMessage(error: unknown) {
     }
 
     const messages = collectErrorMessages(error.data);
+
     if (messages.length > 0) {
       return messages.join(" ");
     }
@@ -109,6 +111,7 @@ function formatDate(value: string | null) {
   }
 
   const date = new Date(`${value}T00:00:00`);
+
   if (Number.isNaN(date.getTime())) {
     return value;
   }
@@ -124,6 +127,7 @@ function formatDateTime(value: string | null) {
   }
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) {
     return value;
   }
@@ -166,6 +170,7 @@ function getEnderecoLinhaCidade(pedido: AdminPedidoDetail) {
   const endereco = pedido.endereco_entrega;
   const cidadeUf = [endereco.cidade, endereco.uf].filter(Boolean).join("/");
   const partes = [endereco.bairro, cidadeUf].filter(Boolean);
+
   return partes.length > 0 ? partes.join(" - ") : "-";
 }
 
@@ -244,7 +249,9 @@ const actionConfig: Record<
 export default function DetalhePedidoPage() {
   const params = useParams();
   const router = useRouter();
+
   const pedidoId = getPedidoId(params.id);
+
   const [pedido, setPedido] = useState<AdminPedidoDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -358,6 +365,7 @@ export default function DetalhePedidoPage() {
     const fim = window.prompt("Data final (AAAA-MM-DD)", pedido.data_fim_locacao ?? "");
     if (!fim) return;
     const evento = window.prompt("Data do evento (AAAA-MM-DD, opcional)", pedido.data_evento_pretendida ?? "");
+
     await recarregarApos(
       () => atualizarDatasAdminPedido(pedidoId, {
         data_inicio_locacao: inicio,
@@ -382,7 +390,7 @@ export default function DetalhePedidoPage() {
 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+      <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
         <div>
           <button
             onClick={() => router.push("/admin/pedidos")}
@@ -404,14 +412,14 @@ export default function DetalhePedidoPage() {
         </div>
 
         {pedido && (
-          <div className="flex flex-wrap items-center gap-3 self-start rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:self-auto">
-            <Button variant="outline" onClick={() => void handleDefinirDatas()}>Definir datas</Button>
-            <Button variant="outline" onClick={() => void handleRenovar()}>Renovar</Button>
+          <div className="flex w-full flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center xl:self-start">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => void handleDefinirDatas()}>Definir datas</Button>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => void handleRenovar()}>Renovar</Button>
             <select
               aria-label="Alterar status do pedido"
               value={pedido.status}
               onChange={(event) => void handleAlterarStatus(event.target.value)}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700"
+              className="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 sm:w-auto sm:h-10"
             >
               <option value="aguardando_analise">Aguardando analise</option>
               <option value="reservado">Reservado</option>
@@ -423,6 +431,7 @@ export default function DetalhePedidoPage() {
             {acoesDisponiveis.length > 0 ? (
               acoesDisponiveis.map((acao) => (
                 <Button
+                  className="w-full sm:w-auto"
                   key={acao}
                   variant="outline"
                   loading={executingAction === acao}
@@ -437,9 +446,6 @@ export default function DetalhePedidoPage() {
                 Nenhuma acao disponivel
               </span>
             )}
-            <span className="text-xs font-medium text-zinc-500">
-              O backend valida cada acao
-            </span>
           </div>
         )}
       </div>
@@ -541,7 +547,7 @@ export default function DetalhePedidoPage() {
                     {pedido.valores.taxa_entrega_status_snapshot === "calculada"
                       ? formatCurrency(pedido.valores.taxa_entrega_retirada_snapshot)
                       : pedido.valores.taxa_entrega_status_snapshot === "sujeita_analise"
-                        ? "Sujeita à análise"
+                        ? "Sujeita análise"
                         : "A confirmar"}
                   </span>
                 </div>
@@ -595,7 +601,7 @@ export default function DetalhePedidoPage() {
                   {pedido.reservas.map((reserva) => (
                     <div
                       key={reserva.id}
-                      className="grid grid-cols-1 gap-2 py-4 text-sm first:pt-0 last:pb-0 sm:grid-cols-4"
+                      className="grid grid-cols-1 gap-3 py-4 text-sm first:pt-0 last:pb-0 sm:grid-cols-2 xl:grid-cols-4"
                     >
                       <div>
                         <span className="block text-xs font-semibold text-zinc-400">

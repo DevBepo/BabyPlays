@@ -79,7 +79,7 @@ function AdminAccessFeedback({
   action?: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#F8F9FA] px-6 text-zinc-900 flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-[#F8F9FA] px-6 text-zinc-900">
       <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
         <h1 className="text-xl font-bold text-zinc-900">{title}</h1>
         <p className="mt-3 text-sm leading-6 text-zinc-600">{message}</p>
@@ -101,6 +101,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
 
   useEffect(() => {
@@ -226,7 +227,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F8F9FA] text-zinc-900 font-sans antialiased">
+    <div className="min-h-screen overflow-x-hidden bg-[#F8F9FA] font-sans text-zinc-900 antialiased">
       {menuOpen ? (
         <button
           type="button"
@@ -236,9 +237,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         />
       ) : null}
 
-      <AdminSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <AdminSidebar
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
 
-      <div className="flex min-h-screen min-w-0 flex-col lg:pl-64">
+      <div
+        className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-200 ease-out ${
+          isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"
+        }`}
+      >
         <header className="sticky top-0 z-20 flex h-20 min-w-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 sm:px-6">
           <button
             type="button"
@@ -247,7 +257,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             onClick={() => setMenuOpen(true)}
             className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 lg:hidden"
           >
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
             Menu
@@ -293,7 +311,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 p-4 animate-in fade-in duration-300 sm:p-5 lg:p-6">
+        <main className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 animate-in fade-in duration-300 p-4 sm:p-5 lg:p-6">
           {children}
         </main>
       </div>

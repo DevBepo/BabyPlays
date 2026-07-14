@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+
 import {
   atualizarRegraFreteBairro,
   criarRegraFreteBairro,
@@ -59,8 +60,10 @@ export default function EntregasConfigPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>();
+
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+
   const [formAberto, setFormAberto] = useState(false);
   const [regraEditando, setRegraEditando] = useState<RegraFreteBairro | null>(null);
   const [form, setForm] = useState(FORM_INICIAL);
@@ -126,6 +129,7 @@ export default function EntregasConfigPage() {
     setErro(null);
     setSucesso(null);
     setFieldErrors(undefined);
+
     const payload = {
       uf: form.uf,
       cidade: form.cidade,
@@ -134,13 +138,16 @@ export default function EntregasConfigPage() {
       ativo: form.ativo,
       observacao: form.observacao,
     };
+
     try {
       const salva = regraEditando
         ? await atualizarRegraFreteBairro(regraEditando.id, payload)
         : await criarRegraFreteBairro(payload);
+
       setRegras((atuais) => regraEditando
         ? atuais.map((item) => item.id === salva.id ? salva : item)
         : [...atuais, salva]);
+
       setSucesso(regraEditando ? "Regra atualizada com sucesso." : "Regra criada com sucesso.");
       fecharFormulario();
     } catch (error) {
@@ -185,37 +192,46 @@ export default function EntregasConfigPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Frete por bairro</h1>
           <p className="mt-1 text-sm text-zinc-500">Configure valores de entrega e retirada por cidade e bairro.</p>
         </div>
-        <Button type="button" onClick={abrirNovaRegra}>Nova regra</Button>
+        <Button className="w-full sm:w-auto" type="button" onClick={abrirNovaRegra}>Nova regra</Button>
       </div>
 
       {erro && <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">{erro}</div>}
       {sucesso && <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">{sucesso}</div>}
 
       {formAberto && (
-        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+        <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">{regraEditando ? "Editar regra" : "Nova regra"}</h2>
             <Button type="button" variant="ghost" size="sm" onClick={fecharFormulario}>Cancelar</Button>
           </div>
-          <form onSubmit={salvar} className="mt-5 grid gap-5 md:grid-cols-3">
+          
+          <form onSubmit={salvar} className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Input label="UF *" value={form.uf} maxLength={2} required onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))} error={erroCampo(fieldErrors, "uf")} />
             <Input label="Cidade *" value={form.cidade} required onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} error={erroCampo(fieldErrors, "cidade")} />
             <Input label="Bairro *" value={form.bairro} required onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))} error={erroCampo(fieldErrors, "bairro")} />
             <Input label="Valor da taxa" type="number" min="0" step="0.01" placeholder="A confirmar" value={form.valorTaxa} onChange={(e) => setForm((f) => ({ ...f, valorTaxa: e.target.value }))} error={erroCampo(fieldErrors, "valor_taxa")} />
-            <div className="flex items-center pt-7"><Checkbox label="Regra ativa" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} /></div>
-            <p className="text-xs text-zinc-500 md:col-span-2">Valor vazio ou zero será salvo como “a confirmar”, nunca como frete grátis.</p>
-            <div className="flex justify-end"><Button type="submit" loading={salvando}>{regraEditando ? "Atualizar regra" : "Salvar regra"}</Button></div>
+            <div className="flex items-center pt-2 sm:pt-7">
+              <Checkbox label="Regra ativa" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
+            </div>
+            
+            <p className="text-xs text-zinc-500 sm:col-span-2 lg:col-span-3">Valor vazio ou zero será salvo como "a confirmar", nunca como frete grátis.</p>
+            
+            <div className="flex justify-end sm:col-span-2 lg:col-span-3">
+              <Button type="submit" loading={salvando} className="w-full sm:w-auto">
+                {regraEditando ? "Atualizar regra" : "Salvar regra"}
+              </Button>
+            </div>
           </form>
         </section>
       )}
 
       <section className="flex flex-col gap-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
           <Input aria-label="Buscar por cidade ou bairro" placeholder="Buscar por cidade ou bairro" value={busca} onChange={(e) => setBusca(e.target.value)} />
           <Select aria-label="Filtrar por status" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} options={FILTROS_STATUS} />
         </div>
@@ -226,15 +242,39 @@ export default function EntregasConfigPage() {
           <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500">{regras.length === 0 ? "Nenhuma regra de frete cadastrada." : "Nenhuma regra encontrada para os filtros informados."}</div>
         ) : (
           <Table>
-            <Thead><Tr><Th>Localidade</Th><Th>Taxa</Th><Th>Status</Th><Th>Observacao</Th><Th className="text-right">Acoes</Th></Tr></Thead>
+            <Thead>
+              <Tr>
+                <Th>Localidade</Th>
+                <Th>Taxa</Th>
+                <Th>Status</Th>
+                <Th>Observacao</Th>
+                <Th className="text-right">Acoes</Th>
+              </Tr>
+            </Thead>
             <Tbody>
               {regrasFiltradas.map((regra) => (
                 <Tr key={regra.id}>
-                  <Td><div className="flex flex-col"><span className="font-semibold text-zinc-900">{regra.bairro}</span><span className="text-xs text-zinc-500">{regra.cidade}/{regra.uf}</span></div></Td>
-                  <Td><div className="flex flex-col"><span className="font-semibold">{formatarValor(regra.valor_taxa)}</span><span className="text-xs text-zinc-400">{regra.status_taxa === "calculada" ? "Valor definido" : "A confirmar"}</span></div></Td>
+                  <Td>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-zinc-900">{regra.bairro}</span>
+                      <span className="text-xs text-zinc-500">{regra.cidade}/{regra.uf}</span>
+                    </div>
+                  </Td>
+                  <Td>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{formatarValor(regra.valor_taxa)}</span>
+                      <span className="text-xs text-zinc-400">{regra.status_taxa === "calculada" ? "Valor definido" : "A confirmar"}</span>
+                    </div>
+                  </Td>
                   <Td>{regra.ativo ? <Badge variant="success">Ativa</Badge> : <Badge variant="default">Inativa</Badge>}</Td>
-                  <Td className="max-w-xs whitespace-normal text-sm text-zinc-600">{regra.observacao || "—"}</Td>
-                  <Td className="text-right"><div className="flex justify-end gap-2"><Button type="button" size="sm" variant="outline" onClick={() => editar(regra)}>Editar</Button><Button type="button" size="sm" variant={regra.ativo ? "outline" : "secondary"} onClick={() => void alternarAtivo(regra)}>{regra.ativo ? "Desativar" : "Ativar"}</Button><Button type="button" size="sm" variant="danger" loading={excluindoId === regra.id} onClick={() => void excluir(regra)}>Remover</Button></div></Td>
+                  <Td className="max-w-xs whitespace-normal text-sm text-zinc-600">{regra.observacao || " "}</Td>
+                  <Td className="text-right">
+                    <div className="flex justify-end gap-2 flex-wrap sm:flex-nowrap">
+                      <Button type="button" size="sm" variant="outline" onClick={() => editar(regra)}>Editar</Button>
+                      <Button type="button" size="sm" variant={regra.ativo ? "outline" : "secondary"} onClick={() => void alternarAtivo(regra)}>{regra.ativo ? "Desativar" : "Ativar"}</Button>
+                      <Button type="button" size="sm" variant="danger" loading={excluindoId === regra.id} onClick={() => void excluir(regra)}>Remover</Button>
+                    </div>
+                  </Td>
                 </Tr>
               ))}
             </Tbody>

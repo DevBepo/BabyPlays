@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/TextArea";
+
 import { criarAdminKitFesta, uploadImagemAdminKitFesta } from "@/services/adminKits";
 import { listarBrinquedos, listarUnidadesBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
@@ -29,11 +30,11 @@ function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
 
 export default function NovoKitFestaPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
 
-  // Dados do Kit
   const [nome, setNome] = useState("");
   const [precoDiaria, setPrecoDiaria] = useState("");
   const [preco15Dias, setPreco15Dias] = useState("");
@@ -43,7 +44,6 @@ export default function NovoKitFestaPage() {
   const [ativo, setAtivo] = useState(true);
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
 
-  // Estados para os Brinquedos do Kit
   const [brinquedosDisponiveis, setBrinquedosDisponiveis] = useState<BrinquedoCatalogo[]>([]);
   const [carregandoBrinquedos, setCarregandoBrinquedos] = useState(true);
   const [quantidadesSelecionadas, setQuantidadesSelecionadas] = useState<Record<number, number>>({});
@@ -61,14 +61,13 @@ export default function NovoKitFestaPage() {
     };
   }, [imagemPreviewUrl]);
 
-  // Busca os brinquedos cadastrados no backend ao carregar a página
   useEffect(() => {
     async function carregarBrinquedos() {
       try {
         const dados = await listarBrinquedos();
-        // Se a API retornar objeto com results (paginação), pega o array, senão pega direto
         const lista = dados;
         setBrinquedosDisponiveis(lista);
+
         const pares = await Promise.all(
           lista.map(async (brinquedo: BrinquedoCatalogo) => [brinquedo.id, await listarUnidadesBrinquedo(brinquedo.id)] as const),
         );
@@ -87,9 +86,11 @@ export default function NovoKitFestaPage() {
     const disponiveis = (unidadesPorBrinquedo[id] || []).filter(
       (unidade) => unidade.status === "disponivel" && !atuais.includes(unidade.id),
     );
+
     const novas = delta > 0
       ? (disponiveis[0] ? [...atuais, disponiveis[0].id] : atuais)
       : atuais.slice(0, -1);
+
     setUnidadesSelecionadas((prev) => ({ ...prev, [id]: novas }));
     setQuantidadesSelecionadas((prev) => {
       const proximo = { ...prev };
@@ -104,6 +105,7 @@ export default function NovoKitFestaPage() {
     const novas = atuais.includes(unidadeId)
       ? atuais.filter((id) => id !== unidadeId)
       : [...atuais, unidadeId];
+
     setUnidadesSelecionadas((prev) => ({ ...prev, [brinquedoId]: novas }));
     setQuantidadesSelecionadas((prev) => {
       const proximo = { ...prev };
@@ -119,7 +121,6 @@ export default function NovoKitFestaPage() {
     setErro(null);
     setFieldErrors(undefined);
 
-    // Formata os brinquedos selecionados para enviar ao backend
     const itensParaEnviar = Object.entries(quantidadesSelecionadas).map(([id, qtd]) => ({
       brinquedo_id: Number(id),
       quantidade: qtd,
@@ -133,7 +134,6 @@ export default function NovoKitFestaPage() {
     }
 
     try {
-      // Usamos "as any" aqui caso o seu types/adminKits.ts ainda não tenha a propriedade itens_enviados
       const kitCriado = await criarAdminKitFesta({
         nome,
         descricao,
@@ -166,8 +166,8 @@ export default function NovoKitFestaPage() {
     <div className="mx-auto w-full max-w-5xl">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Novo kit festa</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Novo kit festa</h1>
+          <p className="mt-1 text-xs sm:text-sm text-zinc-500">
             Selecione os brinquedos e defina os dados do pacote.
           </p>
         </div>
@@ -185,7 +185,6 @@ export default function NovoKitFestaPage() {
       <Card padding="lg">
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
           
-          {/* SESSÃO 1: DADOS BÁSICOS */}
           <section>
             <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">
               Dados do kit festa
@@ -195,7 +194,8 @@ export default function NovoKitFestaPage() {
                 <Input label="Nome *" placeholder="Ex: Kit Festa Safari" value={nome} onChange={(e) => setNome(e.target.value)} error={erroCampo(fieldErrors, "nome")} required />
               </div>
               <Input label="Ordem de exibicao" type="number" step="1" min="0" value={ordem} onChange={(e) => setOrdem(e.target.value)} error={erroCampo(fieldErrors, "ordem")} />
-              <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:p-4 lg:grid-cols-3">
+              
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 sm:grid-cols-2 md:col-span-2 sm:p-4 lg:grid-cols-3">
                 <Input label="Diaria (R$)" type="number" step="0.01" min="0" value={precoDiaria} onChange={(e) => setPrecoDiaria(e.target.value)} error={erroCampo(fieldErrors, "preco_diaria")} />
                 <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={preco15Dias} onChange={(e) => setPreco15Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_15_dias")} />
                 <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={preco30Dias} onChange={(e) => setPreco30Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_30_dias")} />
@@ -206,11 +206,10 @@ export default function NovoKitFestaPage() {
             </div>
           </section>
 
-          {/* SESSÃO 2: SELEÇÃO DE BRINQUEDOS */}
           <section>
             <h2 className="mb-4 flex flex-col gap-2 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800 sm:flex-row sm:items-center sm:justify-between">
               Composição do Kit *
-              <span className="text-sm bg-teal-50 text-teal-700 px-3 py-1 rounded-full">
+              <span className="text-sm bg-teal-50 text-teal-700 px-3 py-1 rounded-full w-fit">
                 {Object.values(quantidadesSelecionadas).reduce((a, b) => a + b, 0)} itens selecionados
               </span>
             </h2>
@@ -223,7 +222,7 @@ export default function NovoKitFestaPage() {
                 <p className="text-sm text-zinc-500 mt-1">Você precisa cadastrar brinquedos antes de montar um kit.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto p-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto p-2">
                 {brinquedosDisponiveis.map((brinquedo) => {
                   const qtd = quantidadesSelecionadas[brinquedo.id] || 0;
                   const imgUrl = brinquedo.imagem_principal?.url ? resolveMediaUrl(brinquedo.imagem_principal.url) : null;
@@ -263,7 +262,6 @@ export default function NovoKitFestaPage() {
             )}
           </section>
 
-          {/* SESSÃO 3: IMAGEM DO KIT E ATIVO */}
           <section>
             <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">
               Imagem do kit
