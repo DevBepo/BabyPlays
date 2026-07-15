@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { MouseEvent } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 
@@ -42,6 +43,16 @@ export function Footer() {
   const whatsappUrl = "https://wa.me/5551981177297?text=Ol%C3%A1%2C%20quero%20conhecer%20mais%20dos%20produtos%20da%20Baby%20Plays!";
   const instagramUrl = "https://www.instagram.com/babyplays.brinquedos?igsh=OGY4NmY3Znp6bnAx";
 
+  const handleLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== "/") {
+      window.setTimeout(() => window.scrollTo({ top: 0, left: 0 }), 0);
+      return;
+    }
+
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleCartShortcut = () => {
     openCart();
 
@@ -64,7 +75,7 @@ export function Footer() {
         <div className="relative mx-auto max-w-[1600px] px-4 pb-4 pt-6 sm:px-6 sm:pb-5 sm:pt-7">
           <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1.45fr_.7fr_.85fr_.85fr_1.35fr] lg:items-start lg:gap-6">
           <div>
-            <Link href="/" className="inline-flex items-end gap-2 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#AB2E97]" aria-label="BabyPlays - Locação de brinquedos">
+            <Link href="/" onClick={handleLogoClick} className="inline-flex items-end gap-2 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#AB2E97]" aria-label="BabyPlays - ir para a pagina inicial">
               <Image
                 src="/assets/BabyPlaysOfficialLogo.png"
                 alt="BabyPlays - Locação de brinquedos"

@@ -26,7 +26,7 @@ const steps = [
   {
     number: "3",
     title: "Confirme pelo WhatsApp",
-    text: "A BabyPlays confirma disponibilidade, datas, entrega ou retirada e os próximos passos pelo WhatsApp.",
+    text: "A BabyPlays confirma as datas, entrega ou retirada e os próximos passos pelo WhatsApp.",
     accent: "bg-[#76CFC8] text-[#2C1615]",
     surface: "border-[#76CFC8]/50 bg-[#E8F8F6]",
     decoration: "bg-[#AB2E97]/12",
@@ -251,8 +251,8 @@ export default function ComoFuncionaPage() {
                 Onde atendemos?
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700">
-                Na confirmação pelo WhatsApp, a BabyPlays também valida
-                disponibilidade, datas e entrega na sua região.
+                Na confirmação pelo WhatsApp, a BabyPlays também combina
+                datas, entrega e atendimento na sua região.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {cities.map((city, index) => (
