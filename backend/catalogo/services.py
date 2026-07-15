@@ -8,6 +8,7 @@ from .models import (
     ConfiguracaoKitPersonalizavel,
     DedicacaoUnidadeKit,
     ImagemBrinquedo,
+    ImagemKitFesta,
     InteresseDisponibilidade,
     ItemKitFesta,
     KitFesta,
@@ -233,6 +234,113 @@ class ImagemBrinquedoService:
                 transaction.on_commit(lambda: storage.delete(nome_arquivo))
 
 
+class ImagemKitFestaService:
+    @staticmethod
+    def _excluir_arquivos_salvos(instancias):
+        for instancia in instancias:
+            arquivo = instancia.imagem
+            if arquivo and getattr(arquivo, "_committed", False) and arquivo.name:
+                arquivo.storage.delete(arquivo.name)
+
+    @staticmethod
+    def criar_imagens(kit_festa, arquivos, definir_primeira_como_principal=False):
+        arquivos = list(arquivos)
+        if not arquivos:
+            raise ValidationError({"imagens": "Nenhuma imagem foi enviada."})
+
+        instancias = []
+        try:
+            with transaction.atomic():
+                kit_festa = KitFesta.objects.select_for_update().get(pk=kit_festa.pk)
+                imagens_existentes = list(
+                    ImagemKitFesta.objects.select_for_update()
+                    .filter(kit=kit_festa)
+                    .order_by("-principal", "ordem", "id")
+                )
+                tem_principal = any(imagem.principal for imagem in imagens_existentes)
+                primeira_e_principal = definir_primeira_como_principal or not tem_principal
+                maior_ordem = (
+                    ImagemKitFesta.objects.filter(kit=kit_festa)
+                    .aggregate(maior=Max("ordem"))["maior"]
+                    or 0
+                )
+
+                for indice, arquivo in enumerate(arquivos):
+                    imagem = ImagemKitFesta(
+                        kit=kit_festa,
+                        imagem=arquivo,
+                        principal=primeira_e_principal and indice == 0,
+                        ordem=maior_ordem + indice + 1,
+                    )
+                    imagem.full_clean(validate_constraints=False)
+                    instancias.append(imagem)
+
+                if primeira_e_principal:
+                    ImagemKitFesta.objects.filter(
+                        kit=kit_festa,
+                        principal=True,
+                    ).update(principal=False)
+
+                for imagem in instancias:
+                    imagem.save()
+        except Exception:
+            ImagemKitFestaService._excluir_arquivos_salvos(instancias)
+            raise
+
+        return instancias
+
+    @staticmethod
+    def definir_principal(kit_festa, imagem_id):
+        with transaction.atomic():
+            kit_festa = KitFesta.objects.select_for_update().get(pk=kit_festa.pk)
+            imagem = ImagemKitFesta.objects.select_for_update().get(
+                pk=imagem_id,
+                kit=kit_festa,
+                ativo=True,
+            )
+            ImagemKitFesta.objects.filter(
+                kit=kit_festa,
+                principal=True,
+            ).exclude(pk=imagem.pk).update(principal=False)
+            if not imagem.principal:
+                imagem.principal = True
+                imagem.save(update_fields=["principal", "atualizado_em"])
+        return imagem
+
+    @staticmethod
+    def remover_imagem(kit_festa, imagem_id):
+        with transaction.atomic():
+            kit_festa = KitFesta.objects.select_for_update().get(pk=kit_festa.pk)
+            imagem = ImagemKitFesta.objects.select_for_update().get(
+                pk=imagem_id,
+                kit=kit_festa,
+            )
+            era_principal = imagem.principal
+            storage = imagem.imagem.storage
+            nome_arquivo = imagem.imagem.name
+            imagem.delete()
+
+            if era_principal:
+                proxima = (
+                    ImagemKitFesta.objects.select_for_update()
+                    .filter(kit=kit_festa, ativo=True)
+                    .order_by("ordem", "id")
+                    .first()
+                )
+                if proxima:
+                    proxima.principal = True
+                    proxima.save(update_fields=["principal", "atualizado_em"])
+
+            if nome_arquivo:
+                transaction.on_commit(lambda: storage.delete(nome_arquivo))
+
+    @staticmethod
+    def remover_todas(kit_festa):
+        imagens = list(ImagemKitFesta.objects.filter(kit=kit_festa))
+        for imagem in imagens:
+            ImagemKitFestaService.remover_imagem(kit_festa, imagem.id)
+
+
 class UnidadeBrinquedoOperacaoService:
     STATUS_LIBERAVEIS = {
         UnidadeBrinquedo.Status.HIGIENIZACAO,
@@ -311,7 +419,16 @@ class KitFestaService:
     @staticmethod
     def list_all():
         return KitFesta.objects.prefetch_related(
-            Prefetch("itens", queryset=KitFestaService._itens_otimizados())
+            Prefetch("itens", queryset=KitFestaService._itens_otimizados()),
+            Prefetch(
+                "imagens",
+                queryset=ImagemKitFesta.objects.filter(ativo=True).order_by(
+                    "-principal",
+                    "ordem",
+                    "id",
+                ),
+                to_attr="imagens_publicas",
+            ),
         )
 
     @staticmethod

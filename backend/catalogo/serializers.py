@@ -9,6 +9,7 @@ from .models import (
     ConfiguracaoKitPersonalizavel,
     DedicacaoUnidadeKit,
     ImagemBrinquedo,
+    ImagemKitFesta,
     InteresseDisponibilidade,
     ItemKitFesta,
     KitFesta,
@@ -109,6 +110,25 @@ class ImagemBrinquedoPublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ImagemBrinquedo
+        fields = ("id", "url", "alt_text", "principal", "ordem")
+        read_only_fields = fields
+
+    def get_url(self, obj):
+        if not obj.imagem:
+            return None
+
+        url = obj.imagem.url
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+
+class ImagemKitFestaPublicSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ImagemKitFesta
         fields = ("id", "url", "alt_text", "principal", "ordem")
         read_only_fields = fields
 
@@ -430,6 +450,8 @@ class KitFestaPublicSerializer(serializers.ModelSerializer):
     itens = ItemKitFestaPublicSerializer(many=True, read_only=True)
     periodos_disponiveis = serializers.SerializerMethodField()
     imagem_url = serializers.SerializerMethodField()
+    imagem_principal = serializers.SerializerMethodField()
+    imagens = serializers.SerializerMethodField()
 
     class Meta:
         model = KitFesta
@@ -438,6 +460,8 @@ class KitFestaPublicSerializer(serializers.ModelSerializer):
             "nome",
             "descricao",
             "imagem_url",
+            "imagem_principal",
+            "imagens",
             "preco_aluguel",
             "preco_diaria",
             "preco_15_dias",
@@ -451,15 +475,63 @@ class KitFestaPublicSerializer(serializers.ModelSerializer):
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
 
-    def get_imagem_url(self, obj):
-        if not obj.imagem:
+    def get_url_absoluta(self, obj, arquivo):
+        if not arquivo:
             return None
-
-        url = obj.imagem.url
+        url = arquivo.url
         request = self.context.get("request")
         if request:
             return request.build_absolute_uri(url)
         return url
+
+    def get_imagens_ativas(self, obj):
+        imagens = getattr(obj, "imagens_publicas", None)
+        if imagens is not None:
+            return imagens
+        return obj.imagens.filter(ativo=True).order_by("-principal", "ordem", "id")
+
+    def get_imagem_principal(self, obj):
+        imagens = self.get_imagens_ativas(obj)
+        for imagem in imagens:
+            if imagem.principal:
+                return ImagemKitFestaPublicSerializer(
+                    imagem,
+                    context=self.context,
+                ).data
+        if imagens:
+            return ImagemKitFestaPublicSerializer(
+                imagens[0],
+                context=self.context,
+            ).data
+        if obj.imagem:
+            return {
+                "id": 0,
+                "url": self.get_url_absoluta(obj, obj.imagem),
+                "alt_text": obj.nome,
+                "principal": True,
+                "ordem": 0,
+            }
+        return None
+
+    def get_imagens(self, obj):
+        view = self.context.get("view")
+        principal = self.get_imagem_principal(obj)
+        if getattr(view, "action", None) == "list":
+            return [principal] if principal else []
+
+        imagens = ImagemKitFestaPublicSerializer(
+            self.get_imagens_ativas(obj),
+            many=True,
+            context=self.context,
+        ).data
+        if imagens:
+            return imagens
+        return [principal] if principal else []
+
+    def get_imagem_url(self, obj):
+        principal = self.get_imagem_principal(obj)
+        return principal["url"] if principal else None
+
 
 class ItemKitFestaWriteSerializer(serializers.Serializer):
     brinquedo_id = serializers.IntegerField(min_value=1)
@@ -483,6 +555,8 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
     itens_enviados = ItemKitFestaWriteSerializer(many=True, write_only=True, required=False)
     periodos_disponiveis = serializers.SerializerMethodField()
     imagem_url = serializers.SerializerMethodField()
+    imagem_principal = serializers.SerializerMethodField()
+    imagens = serializers.SerializerMethodField()
 
     class Meta:
         model = KitFesta
@@ -491,6 +565,8 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
             "nome",
             "descricao",
             "imagem_url",
+            "imagem_principal",
+            "imagens",
             "preco_aluguel",
             "preco_diaria",
             "preco_15_dias",
@@ -498,7 +574,6 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
             "permite_diaria",
             "periodos_disponiveis",
             "ativo",
-            "ordem",
             "itens",
             "itens_enviados", 
             "criado_em",
@@ -510,14 +585,58 @@ class KitFestaAdminSerializer(serializers.ModelSerializer):
     def get_periodos_disponiveis(self, obj):
         return periodos_locacao_disponiveis(obj)
 
-    def get_imagem_url(self, obj):
-        if not obj.imagem:
+    def get_url_absoluta(self, obj, arquivo):
+        if not arquivo:
             return None
-        url = obj.imagem.url
+        url = arquivo.url
         request = self.context.get("request")
         if request:
             return request.build_absolute_uri(url)
         return url
+
+    def get_imagens_ativas(self, obj):
+        imagens = getattr(obj, "imagens_publicas", None)
+        if imagens is not None:
+            return imagens
+        return obj.imagens.filter(ativo=True).order_by("-principal", "ordem", "id")
+
+    def get_imagem_principal(self, obj):
+        imagens = self.get_imagens_ativas(obj)
+        for imagem in imagens:
+            if imagem.principal:
+                return ImagemKitFestaPublicSerializer(
+                    imagem,
+                    context=self.context,
+                ).data
+        if imagens:
+            return ImagemKitFestaPublicSerializer(
+                imagens[0],
+                context=self.context,
+            ).data
+        if obj.imagem:
+            return {
+                "id": 0,
+                "url": self.get_url_absoluta(obj, obj.imagem),
+                "alt_text": obj.nome,
+                "principal": True,
+                "ordem": 0,
+            }
+        return None
+
+    def get_imagens(self, obj):
+        imagens = ImagemKitFestaPublicSerializer(
+            self.get_imagens_ativas(obj),
+            many=True,
+            context=self.context,
+        ).data
+        if imagens:
+            return imagens
+        principal = self.get_imagem_principal(obj)
+        return [principal] if principal else []
+
+    def get_imagem_url(self, obj):
+        principal = self.get_imagem_principal(obj)
+        return principal["url"] if principal else None
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

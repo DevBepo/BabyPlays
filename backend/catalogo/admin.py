@@ -7,6 +7,7 @@ from .models import (
     ConfiguracaoKitPersonalizavel,
     DedicacaoUnidadeKit,
     ImagemBrinquedo,
+    ImagemKitFesta,
     InteresseDisponibilidade,
     ItemKitFesta,
     KitFesta,
@@ -171,6 +172,31 @@ class ItemKitFestaInline(admin.TabularInline):
     ordering = ("ordem", "id")
 
 
+class ImagemKitFestaInline(admin.TabularInline):
+    model = ImagemKitFesta
+    extra = 1
+    fields = ("imagem", "alt_text", "principal", "ordem", "ativo", "atualizado_em")
+    readonly_fields = ("atualizado_em",)
+
+
+@admin.register(ImagemKitFesta)
+class ImagemKitFestaAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "kit",
+        "principal",
+        "ordem",
+        "ativo",
+        "criado_em",
+        "atualizado_em",
+    )
+    list_filter = ("ativo", "principal", "criado_em")
+    search_fields = ("kit__nome", "alt_text")
+    readonly_fields = ("criado_em", "atualizado_em")
+    ordering = ("kit__nome", "-principal", "ordem", "id")
+    list_select_related = ("kit",)
+
+
 @admin.register(DedicacaoUnidadeKit)
 class DedicacaoUnidadeKitAdmin(admin.ModelAdmin):
     list_display = ("unidade", "item_kit", "criado_em")
@@ -199,14 +225,13 @@ class KitFestaAdmin(admin.ModelAdmin):
         "preco_15_dias",
         "preco_30_dias",
         "ativo",
-        "ordem",
         "quantidade_itens",
         "criado_em",
         "atualizado_em",
     )
     list_filter = ("ativo", "criado_em", "atualizado_em")
     search_fields = ("nome", "descricao", "itens__brinquedo__nome")
-    ordering = ("ordem", "nome")
+    ordering = ("nome", "id")
     readonly_fields = ("criado_em", "atualizado_em", "quantidade_itens")
     fields = (
         "nome",
@@ -216,12 +241,11 @@ class KitFestaAdmin(admin.ModelAdmin):
         "preco_15_dias",
         "preco_30_dias",
         "ativo",
-        "ordem",
         "quantidade_itens",
         "criado_em",
         "atualizado_em",
     )
-    inlines = (ItemKitFestaInline,)
+    inlines = (ImagemKitFestaInline, ItemKitFestaInline)
 
     @admin.display(description="Itens")
     def quantidade_itens(self, obj):
