@@ -25,6 +25,7 @@ from .models import (
     ConfiguracaoKitPersonalizavel,
     DedicacaoUnidadeKit,
     ImagemBrinquedo,
+    ImagemKitFesta,
     ItemKitFesta,
     KitFesta,
     RegraCategoriaKitPersonalizavel,
@@ -1999,6 +2000,18 @@ class KitFestaAPITests(APITestCase):
             content_type=f"image/{formato.lower()}",
         )
 
+    def criar_imagem_kit(self, **kwargs):
+        dados = {
+            "kit": self.kit,
+            "imagem": self.imagem_upload(),
+            "principal": False,
+        }
+        dados.update(kwargs)
+        imagem = ImagemKitFesta(**dados)
+        imagem.full_clean()
+        imagem.save()
+        return imagem
+
     def test_usuario_anonimo_lista_apenas_kits_ativos(self):
         KitFesta.objects.create(
             nome="Kit Inativo",
@@ -2121,7 +2134,8 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("/media/catalogo/kits-festa/", response.data["url"])
         self.kit.refresh_from_db()
-        self.assertTrue(self.kit.imagem)
+        self.assertEqual(self.kit.imagens.count(), 1)
+        self.assertTrue(self.kit.imagens.first().principal)
 
     def test_usuario_anonimo_nao_consegue_enviar_imagem_do_kit(self):
         response = self.client.post(
@@ -2133,6 +2147,7 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.kit.refresh_from_db()
         self.assertFalse(self.kit.imagem)
+        self.assertEqual(self.kit.imagens.count(), 0)
 
     def test_upload_de_imagem_do_kit_valida_arquivo(self):
         self.client.force_authenticate(user=self.usuario_admin)
@@ -2151,8 +2166,9 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.kit.refresh_from_db()
         self.assertFalse(self.kit.imagem)
+        self.assertEqual(self.kit.imagens.count(), 0)
 
-    def test_api_publica_retorna_imagem_do_kit(self):
+    def test_api_publica_retorna_imagem_legada_do_kit_como_fallback(self):
         self.kit.imagem = self.imagem_upload()
         self.kit.full_clean()
         self.kit.save(update_fields=["imagem"])
@@ -2161,8 +2177,35 @@ class KitFestaAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("/media/catalogo/kits-festa/", response.data["imagem_url"])
+        self.assertEqual(response.data["imagem_principal"]["id"], 0)
+        self.assertEqual(len(response.data["imagens"]), 1)
+
+    def test_api_publica_retorna_galeria_de_imagens_do_kit(self):
+        imagem_ordem_2 = self.criar_imagem_kit(
+            imagem=self.imagem_upload("ordem-2.jpg"),
+            ordem=2,
+        )
+        imagem_ordem_1 = self.criar_imagem_kit(
+            imagem=self.imagem_upload("ordem-1.jpg"),
+            ordem=1,
+        )
+        imagem_principal = self.criar_imagem_kit(
+            imagem=self.imagem_upload("principal.jpg"),
+            principal=True,
+            ordem=99,
+        )
+
+        response = self.client.get(f"{self.kits_url}{self.kit.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imagem_principal"]["id"], imagem_principal.id)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data["imagens"]],
+            [imagem_principal.id, imagem_ordem_1.id, imagem_ordem_2.id],
+        )
 
     def test_usuario_admin_remove_imagem_do_kit(self):
+        self.criar_imagem_kit(principal=True)
         self.kit.imagem = self.imagem_upload()
         self.kit.full_clean()
         self.kit.save(update_fields=["imagem"])
@@ -2173,6 +2216,62 @@ class KitFestaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.kit.refresh_from_db()
         self.assertFalse(self.kit.imagem)
+        self.assertEqual(self.kit.imagens.count(), 0)
+
+    def test_usuario_admin_envia_multiplas_imagens_do_kit(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.kits_url}{self.kit.id}/imagens/",
+            {
+                "principal": "true",
+                "imagens": [
+                    self.imagem_upload("principal.jpg"),
+                    self.imagem_upload("adicional.jpg"),
+                ],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data["imagens"]), 2)
+        self.assertEqual(self.kit.imagens.count(), 2)
+        self.assertEqual(self.kit.imagens.filter(principal=True).count(), 1)
+
+    def test_usuario_admin_remove_imagem_individual_do_kit_e_promove_proxima(self):
+        principal = self.criar_imagem_kit(principal=True, ordem=1)
+        adicional = self.criar_imagem_kit(
+            imagem=self.imagem_upload("adicional.jpg"),
+            ordem=2,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.delete(
+            f"{self.kits_url}{self.kit.id}/imagens/{principal.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ImagemKitFesta.objects.filter(pk=principal.pk).exists())
+        adicional.refresh_from_db()
+        self.assertTrue(adicional.principal)
+
+    def test_usuario_admin_define_imagem_principal_do_kit(self):
+        principal = self.criar_imagem_kit(principal=True)
+        adicional = self.criar_imagem_kit(
+            imagem=self.imagem_upload("adicional.jpg"),
+            ordem=2,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(
+            f"{self.kits_url}{self.kit.id}/imagens/{adicional.id}/principal/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        principal.refresh_from_db()
+        adicional.refresh_from_db()
+        self.assertFalse(principal.principal)
+        self.assertTrue(adicional.principal)
 
     def test_usuario_admin_lista_kits_ativos_e_inativos(self):
         kit_inativo = KitFesta.objects.create(

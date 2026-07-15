@@ -62,6 +62,12 @@ export function listarKitsFesta(): Promise<KitFestaCatalogo[]> {
   return apiGet<KitFestaCatalogo[]>(CATALOGO_ENDPOINTS.kitsFesta);
 }
 
+export function obterKitFesta(kitId: number): Promise<KitFestaCatalogo> {
+  return apiGet<KitFestaCatalogo>(
+    `${CATALOGO_ENDPOINTS.kitsFesta}${kitId}/`,
+  );
+}
+
 export type InteresseDisponibilidade = {
   id: number;
   brinquedo: number;
@@ -239,6 +245,55 @@ export function definirImagemPrincipalBrinquedo(
 ): Promise<ImagemBrinquedo> {
   return apiPost<ImagemBrinquedo>(
     `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/imagens/${imagemId}/principal/`,
+    {},
+  );
+}
+
+type UploadImagemKitFestaResponse = {
+  mensagem: string;
+  id: number;
+  url: string;
+  imagens: ImagemBrinquedo[];
+};
+
+export async function uploadImagensKitFesta(
+  kitId: number,
+  arquivos: File[],
+  primeiraComoPrincipal = false,
+): Promise<UploadImagemKitFestaResponse> {
+  const csrfToken = await getCsrfToken();
+  const formData = new FormData();
+  arquivos.forEach((arquivo) => formData.append("imagens", arquivo));
+  formData.append("principal", String(primeiraComoPrincipal));
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/kits-festa/${kitId}/imagens/`, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": csrfToken,
+    },
+    credentials: "include",
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error("Falha ao enviar as imagens do kit festa.");
+  return response.json() as Promise<UploadImagemKitFestaResponse>;
+}
+
+export function removerImagemKitFesta(
+  kitId: number,
+  imagemId: number,
+): Promise<void> {
+  return apiDelete<void>(
+    `${CATALOGO_ENDPOINTS.kitsFesta}${kitId}/imagens/${imagemId}/`,
+  );
+}
+
+export function definirImagemPrincipalKitFesta(
+  kitId: number,
+  imagemId: number,
+): Promise<ImagemBrinquedo> {
+  return apiPost<ImagemBrinquedo>(
+    `${CATALOGO_ENDPOINTS.kitsFesta}${kitId}/imagens/${imagemId}/principal/`,
     {},
   );
 }

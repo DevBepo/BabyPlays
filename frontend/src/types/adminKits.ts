@@ -1,10 +1,12 @@
-import type { ItemKitFesta, PeriodoLocacaoDisponivel } from "@/types/catalogo";
+import type { ImagemBrinquedo, ItemKitFesta, PeriodoLocacaoDisponivel } from "@/types/catalogo";
 
 export type AdminKitFesta = {
   id: number;
   nome: string;
   descricao: string;
   imagem_url: string | null;
+  imagem_principal: ImagemBrinquedo | null;
+  imagens: ImagemBrinquedo[];
   preco_aluguel: string;
   preco_diaria: string | null;
   preco_15_dias: string | null;

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { InlineCategoryModal } from "@/components/admin/InlineCategoryModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -34,6 +35,7 @@ export default function NovoBrinquedo() {
   const [erro, setErro] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
   const [categorias, setCategorias] = useState<CategoriaCatalogo[]>([]);
+  const [categoriaModalAberta, setCategoriaModalAberta] = useState(false);
 
   const [nome, setNome] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
@@ -76,6 +78,15 @@ export default function NovoBrinquedo() {
     value: String(categoria.id),
     label: categoria.nome,
   }));
+
+  function handleCategoriaCriada(categoria: CategoriaCatalogo) {
+    setCategorias((atuais) =>
+      [...atuais.filter((item) => item.id !== categoria.id), categoria].sort((a, b) =>
+        a.nome.localeCompare(b.nome),
+      ),
+    );
+    setCategoriaId(String(categoria.id));
+  }
 
   useEffect(() => {
     let active = true;
@@ -263,22 +274,31 @@ export default function NovoBrinquedo() {
                 required
               />
 
-              <Select
-                label="Categoria *"
-                options={categoriasOptions}
-                value={categoriaId}
-                onChange={(event) => setCategoriaId(event.target.value)}
-                disabled={categoriasLoading || categoriasOptions.length === 0}
-                error={erroCampo(fieldErrors, "categoria")}
-                required
-                placeholder={
-                  categoriasLoading
-                    ? "Carregando categorias..."
-                    : categoriasOptions.length === 0
-                      ? "Cadastre uma categoria antes de criar brinquedos."
-                      : "Selecione uma categoria..."
-                }
-              />
+              <div className="flex flex-col gap-2">
+                <Select
+                  label="Categoria *"
+                  options={categoriasOptions}
+                  value={categoriaId}
+                  onChange={(event) => setCategoriaId(event.target.value)}
+                  disabled={categoriasLoading || categoriasOptions.length === 0}
+                  error={erroCampo(fieldErrors, "categoria")}
+                  required
+                  placeholder={
+                    categoriasLoading
+                      ? "Carregando categorias..."
+                      : categoriasOptions.length === 0
+                        ? "Cadastre uma categoria antes de criar brinquedos."
+                        : "Selecione uma categoria..."
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setCategoriaModalAberta(true)}
+                  className="w-fit rounded-lg px-2 py-1 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                >
+                  Nova categoria
+                </button>
+              </div>
 
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-zinc-700">
@@ -382,6 +402,11 @@ export default function NovoBrinquedo() {
           </div>
         </form>
       </Card>
+      <InlineCategoryModal
+        isOpen={categoriaModalAberta}
+        onClose={() => setCategoriaModalAberta(false)}
+        onCreated={handleCategoriaCriada}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+
 import { listarPedidosAdmin } from "@/services/adminPedidos";
 import type { ApiError } from "@/types/api";
 import type {
@@ -55,6 +56,7 @@ function formatDate(value: string | null) {
   }
 
   const date = new Date(`${value}T00:00:00`);
+
   if (Number.isNaN(date.getTime())) {
     return value;
   }
@@ -102,6 +104,7 @@ const renderStatusBadge = (status: AdminPedidoListItem["status"]) => {
 
 export default function PedidosPage() {
   const router = useRouter();
+
   const [pedidos, setPedidos] = useState<AdminPedidoListItem[]>([]);
   const [metadata, setMetadata] = useState<AdminPedidosPaginatedResponse | null>(null);
   const [busca, setBusca] = useState("");
@@ -110,6 +113,7 @@ export default function PedidosPage() {
     busca: "",
     status: "todos",
   });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,6 +157,7 @@ export default function PedidosPage() {
 
   const totalPedidos = metadata?.count ?? pedidos.length;
   const hasFiltros = Boolean(filtrosAplicados.busca || filtrosAplicados.status !== "todos");
+
   const emptyTitle = hasFiltros
     ? "Nenhum pedido encontrado para os filtros informados."
     : "Nenhum pedido administrativo encontrado.";
@@ -172,7 +177,7 @@ export default function PedidosPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Gestao de Pedidos</h1>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="mt-1 text-sm text-zinc-500">
             Acompanhe as locacoes de brinquedos e kits.
           </p>
         </div>
@@ -181,9 +186,9 @@ export default function PedidosPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-4 rounded-xl border border-zinc-200 flex flex-col sm:flex-row gap-4 items-end shadow-sm"
+        className="grid grid-cols-1 gap-3 bg-white p-4 rounded-xl border border-zinc-200 shadow-sm sm:grid-cols-[1fr_200px_auto] sm:items-end"
       >
-        <div className="flex-1 w-full">
+        <div className="w-full">
           <Input
             placeholder="Buscar por nome do cliente ou numero do pedido..."
             className="h-10"
@@ -191,7 +196,7 @@ export default function PedidosPage() {
             onChange={(event) => setBusca(event.target.value)}
           />
         </div>
-        <div className="w-full sm:w-64">
+        <div className="w-full">
           <Select
             options={statusSelectOptions}
             className="h-10"
@@ -199,7 +204,7 @@ export default function PedidosPage() {
             onChange={(event) => setStatus(event.target.value)}
           />
         </div>
-        <Button type="submit" variant="secondary" className="w-full px-6 sm:w-auto" loading={loading}>
+        <Button type="submit" variant="secondary" className="h-10 w-full sm:w-auto px-6" loading={loading}>
           Filtrar
         </Button>
       </form>

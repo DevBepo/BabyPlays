@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-
 const IconDashboard = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -131,6 +130,24 @@ const IconDelivery = () => (
   </svg>
 );
 
+const IconExternalLink = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+
 const menuItems = [
   { label: "Visão Geral", icon: <IconDashboard />, href: "/admin" },
   { label: "Agenda", icon: <IconAgenda />, href: "/admin/agenda" },
@@ -146,20 +163,37 @@ const menuItems = [
 interface AdminSidebarProps {
   open: boolean;
   onClose: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
+export function AdminSidebar({
+  open,
+  onClose,
+  isCollapsed,
+  onToggleCollapse,
+}: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside
       id="admin-navigation"
-      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,88vw)] flex-col border-r border-zinc-200 bg-white text-zinc-600 shadow-xl transition-transform duration-200 ease-out lg:z-30 lg:w-64 lg:translate-x-0 lg:shadow-none ${
+      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,88vw)] flex-col border-r border-zinc-200 bg-white text-zinc-600 shadow-xl transition-all duration-200 ease-out lg:z-30 lg:translate-x-0 lg:shadow-none ${
+        isCollapsed ? "lg:w-20" : "lg:w-64"
+      } ${
         open ? "visible translate-x-0" : "invisible -translate-x-full lg:visible"
       }`}
     >
-      <div className="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-zinc-100 px-5 lg:px-6">
-        <div className="flex min-w-0 items-center gap-2">
+      <div
+        className={`flex h-20 shrink-0 items-center border-b border-zinc-100 transition-all ${
+          isCollapsed ? "justify-center px-0" : "justify-between px-5 lg:px-6"
+        }`}
+      >
+        <div
+          className={`flex min-w-0 items-center gap-2 ${
+            isCollapsed ? "hidden lg:hidden" : ""
+          }`}
+        >
           <span className="relative h-14 w-10 shrink-0 overflow-hidden lg:hidden">
             <Image
               src="/assets/LogoComEscrita.jpg"
@@ -174,19 +208,66 @@ export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
             Ambiente de Gestão
           </span>
         </div>
+
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className={`hidden h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-600 lg:flex ${
+            isCollapsed ? "" : "-mr-2"
+          }`}
+          title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          {isCollapsed ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={onClose}
           className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 lg:hidden"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <path d="m6 6 12 12M18 6 6 18" />
           </svg>
           Fechar
         </button>
       </div>
 
-      {/* Navegação */}
       <nav className="flex-1 overflow-y-auto px-4 py-6">
         <ul className="flex flex-col gap-1.5">
           {menuItems.map((item) => {
@@ -199,21 +280,25 @@ export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
                 <Link
                   href={item.href}
                   onClick={onClose}
-                  className={`
-                    flex min-h-11 items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600
-                    ${
-                      isActive
-                        ? "bg-teal-50 text-teal-700 font-bold"
-                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                    }
-                  `}
+                  title={isCollapsed ? item.label : undefined}
+                  className={`flex min-h-11 items-center rounded-lg py-3 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${
+                    isCollapsed ? "justify-center px-0" : "gap-3 px-4"
+                  } ${
+                    isActive
+                      ? "bg-teal-50 font-bold text-teal-700"
+                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  }`}
                 >
                   <span
-                    className={isActive ? "text-teal-600" : "text-zinc-400"}
+                    className={`shrink-0 ${
+                      isActive ? "text-teal-600" : "text-zinc-400"
+                    }`}
                   >
                     {item.icon}
                   </span>
-                  {item.label}
+                  {!isCollapsed && (
+                    <span className="truncate">{item.label}</span>
+                  )}
                 </Link>
               </li>
             );
@@ -221,11 +306,21 @@ export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
         </ul>
       </nav>
 
-      {/* Rodapé da Sidebar */}
-      <div className="flex items-center justify-between border-t border-zinc-100 bg-zinc-50 p-4 text-xs text-zinc-500">
-        <span>Admin v1.0</span>
-        <Link href="/" onClick={onClose} className="rounded font-medium text-teal-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600">
-          Ver Loja
+      <div
+        className={`flex items-center border-t border-zinc-100 bg-zinc-50 p-4 text-xs text-zinc-500 transition-all ${
+          isCollapsed ? "justify-center" : "justify-between"
+        }`}
+      >
+        {!isCollapsed && <span>Admin v1.0</span>}
+        <Link
+          href="/"
+          onClick={onClose}
+          title={isCollapsed ? "Ver Loja" : undefined}
+          className={`flex items-center justify-center rounded text-teal-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${
+            isCollapsed ? "h-8 w-8 hover:bg-teal-50" : "font-medium"
+          }`}
+        >
+          {isCollapsed ? <IconExternalLink /> : "Ver Loja"}
         </Link>
       </div>
     </aside>

@@ -29,8 +29,8 @@ const helpCards = [
   },
   {
     visual: "calendar",
-    title: "Disponibilidade e datas",
-    text: "Depois da escolha, a equipe confirma pelo WhatsApp a disponibilidade da data de entrega e retirada, o período da locação e os detalhes finais do pedido.",
+    title: "Disponibilidade de datas",
+    text: "Depois da escolha, a equipe confirma pelo WhatsApp a disponibilidade de datas para entrega e retirada, o período da locação e os detalhes finais do pedido.",
     color: "border-[#76CFC8]/50 bg-[#76CFC8]/20",
     decoration: "softBlob",
   },

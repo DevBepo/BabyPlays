@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -24,6 +23,7 @@ function formatDateTime(value?: string) {
   }
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) {
     return value;
   }
@@ -40,7 +40,6 @@ function getErrorMessage(error: unknown) {
     if (error.fieldErrors) {
       return Object.values(error.fieldErrors).flat().join(" ");
     }
-
     return error.message;
   }
 
@@ -52,6 +51,7 @@ export default function AdminContratoPage() {
   const [titulo, setTitulo] = useState("");
   const [texto, setTexto] = useState("");
   const [atualizadoEm, setAtualizadoEm] = useState<string | undefined>();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,6 @@ export default function AdminContratoPage() {
 
       try {
         const data = await obterAdminContrato();
-
         if (!active) {
           return;
         }
@@ -140,8 +139,8 @@ export default function AdminContratoPage() {
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Contrato de locacao</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Contrato de locacao</h1>
+        <p className="mt-1 text-xs sm:text-sm text-zinc-500">
           Edite o texto apresentado ao cliente antes da finalizacao do pedido.
         </p>
       </div>
@@ -175,7 +174,6 @@ export default function AdminContratoPage() {
               onChange={(event) => setTitulo(event.target.value)}
               required
             />
-
             <Textarea
               label="Texto do contrato"
               value={texto}
@@ -183,9 +181,8 @@ export default function AdminContratoPage() {
               className="min-h-[300px] font-mono text-sm leading-6 sm:min-h-[420px]"
               required
             />
-
             <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-zinc-500">
+              <p className="text-xs sm:text-sm text-zinc-500 text-center sm:text-left">
                 Ultima atualizacao: {formatDateTime(atualizadoEm)}
               </p>
               <Button className="w-full sm:w-auto" type="submit" loading={saving}>

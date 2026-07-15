@@ -64,6 +64,9 @@ def caminho_imagem_brinquedo(instance, filename):
 
 def caminho_imagem_kit_festa(instance, filename):
     extensao = Path(filename).suffix.lower()
+    kit_id = getattr(instance, "kit_id", None)
+    if kit_id:
+        return f"catalogo/kits-festa/{kit_id}/{uuid4()}{extensao}"
     return f"catalogo/kits-festa/{uuid4()}{extensao}"
 
 
@@ -291,7 +294,7 @@ class KitFesta(models.Model):
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
 
     class Meta:
-        ordering = ("ordem", "nome")
+        ordering = ("nome", "id")
         verbose_name = "Kit festa"
         verbose_name_plural = "Kits festa"
 
@@ -307,6 +310,45 @@ class KitFesta(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class ImagemKitFesta(models.Model):
+    kit = models.ForeignKey(
+        KitFesta,
+        related_name="imagens",
+        on_delete=models.CASCADE,
+        verbose_name="Kit festa",
+    )
+    imagem = models.ImageField(
+        upload_to=caminho_imagem_kit_festa,
+        validators=[validar_imagem_brinquedo],
+        verbose_name="Imagem",
+    )
+    alt_text = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name="Texto alternativo",
+    )
+    principal = models.BooleanField(default=False, verbose_name="Principal")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem")
+    ativo = models.BooleanField(default=True, verbose_name="Ativa")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        ordering = ("-principal", "ordem", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["kit"],
+                condition=Q(principal=True),
+                name="catalogo_uma_imagem_principal_por_kit_festa",
+            )
+        ]
+        verbose_name = "Imagem do kit festa"
+        verbose_name_plural = "Imagens dos kits festa"
+
+    def __str__(self):
+        return f"Imagem de {self.kit.nome}"
 
 
 class ItemKitFesta(models.Model):

@@ -169,14 +169,6 @@ function formatApiDisplayDate(date: string) {
   return formatDisplayDate(dateFromApi(date));
 }
 
-function formatPeriodDate(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-}
-
 function formatDayName(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     weekday: "short",
@@ -186,9 +178,9 @@ function formatDayName(date: Date) {
 
 function getEventsByDay(
   events: AdminAgendaEvent[] | undefined,
-  weekDays: Date[],
+  activeDays: Date[],
 ) {
-  const eventsByDay = weekDays.reduce<Record<string, AdminAgendaEvent[]>>(
+  const eventsByDay = activeDays.reduce<Record<string, AdminAgendaEvent[]>>(
     (acc, date) => {
       acc[formatApiDate(date)] = [];
       return acc;
@@ -215,10 +207,6 @@ function getDayEventText(count: number) {
   }
 
   return `${count} eventos`;
-}
-
-function getPeriodLabel(start: Date, end: Date) {
-  return `${formatPeriodDate(start)} - ${formatPeriodDate(end)}`;
 }
 
 function formatCalendarHour(hour: number) {
@@ -324,13 +312,12 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
   if (!event) {
     return (
       <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm xl:sticky xl:top-4 xl:h-fit">
-        <div className="flex min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 text-center">
+        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 text-center">
           <span className="text-sm font-semibold text-zinc-700">
             Nenhum evento selecionado
           </span>
           <p className="mt-2 text-xs leading-5 text-zinc-500">
-            Selecione um card da semana para ver os dados operacionais
-            disponíveis.
+            Selecione um card para ver os dados operacionais disponíveis.
           </p>
         </div>
       </aside>
@@ -440,24 +427,52 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
 }
 
 export default function AdminAgendaPage() {
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+  const [referenceDate, setReferenceDate] = useState(() => normalizeDate(new Date()));
+  const [viewMode, setViewMode] = useState<"semana" | "mes">("semana");
   const [typeFilter, setTypeFilter] = useState<AdminAgendaTypeFilter>("todos");
   const [agenda, setAgenda] = useState<AdminAgendaResponse | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<AdminAgendaEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const weekDays = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
-    [weekStart],
-  );
+  const weekStart = useMemo(() => getWeekStart(referenceDate), [referenceDate]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
-  const weekLabel = `${formatDisplayDate(weekStart)} - ${formatDisplayDate(weekEnd)}`;
-  const compactWeekLabel = getPeriodLabel(weekStart, weekEnd);
-  const eventsByDay = useMemo(
-    () => getEventsByDay(agenda?.eventos, weekDays),
-    [agenda?.eventos, weekDays],
+
+  const monthStart = useMemo(
+    () => new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1),
+    [referenceDate],
   );
+  const monthGridStart = useMemo(() => getWeekStart(monthStart), [monthStart]);
+
+  const gridStart = viewMode === "semana" ? weekStart : monthGridStart;
+  const gridDaysCount = viewMode === "semana" ? 7 : 42;
+
+  const activeDays = useMemo(
+    () => Array.from({ length: gridDaysCount }, (_, index) => addDays(gridStart, index)),
+    [gridStart, gridDaysCount],
+  );
+
+  const apiStart = viewMode === "semana" ? weekStart : monthStart;
+
+  const apiEnd = useMemo(() => {
+    if (viewMode === "semana") {
+      return weekEnd;
+    }
+    return new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  }, [viewMode, weekEnd, monthStart]);
+
+  const displayLabel =
+    viewMode === "semana"
+      ? `${formatDisplayDate(apiStart)} - ${formatDisplayDate(apiEnd)}`
+      : new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
+          .format(referenceDate)
+          .replace(/^\w/, (c) => c.toUpperCase());
+
+  const eventsByDay = useMemo(
+    () => getEventsByDay(agenda?.eventos, activeDays),
+    [agenda?.eventos, activeDays],
+  );
+
   const todayKey = formatApiDate(new Date());
   const hasEvents = Boolean(agenda && agenda.eventos.length > 0);
 
@@ -470,8 +485,8 @@ export default function AdminAgendaPage() {
 
       try {
         const data = await obterAgendaAdmin({
-          inicio: formatApiDate(weekStart),
-          fim: formatApiDate(weekEnd),
+          inicio: formatApiDate(apiStart),
+          fim: formatApiDate(apiEnd),
           tipo: typeFilter,
         });
 
@@ -484,7 +499,6 @@ export default function AdminAgendaPage() {
           if (current && data.eventos.some((event) => event.id === current.id)) {
             return current;
           }
-
           return null;
         });
       } catch (err) {
@@ -507,111 +521,87 @@ export default function AdminAgendaPage() {
     return () => {
       active = false;
     };
-  }, [typeFilter, weekEnd, weekStart]);
+  }, [typeFilter, apiStart, apiEnd]);
 
   function goToToday() {
-    setWeekStart(getWeekStart(new Date()));
+    setReferenceDate(normalizeDate(new Date()));
   }
 
-  function goToPreviousWeek() {
-    setWeekStart((current) => addDays(current, -7));
+  function goToPrevious() {
+    if (viewMode === "semana") {
+      setReferenceDate((current) => addDays(current, -7));
+    } else {
+      setReferenceDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
+    }
   }
 
-  function goToNextWeek() {
-    setWeekStart((current) => addDays(current, 7));
+  function goToNext() {
+    if (viewMode === "semana") {
+      setReferenceDate((current) => addDays(current, 7));
+    } else {
+      setReferenceDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+    }
+  }
+
+  function handleDateChange(event: React.ChangeEvent<HTMLInputElement>) {
+    if (event.target.value) {
+      const [year, month, day] = event.target.value.split("-").map(Number);
+      setReferenceDate(normalizeDate(new Date(year, month - 1, day)));
+    }
   }
 
   return (
     <div className="flex min-h-[calc(100vh-5.5rem)] flex-col gap-3">
-      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-zinc-100 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="text-xl font-bold text-zinc-950">Agenda</h1>
-            <span className="text-xs font-normal text-zinc-600">
-              {weekLabel}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-            <div className="inline-flex h-8 w-fit rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
-              <button
-                type="button"
-                className="rounded px-3 text-xs font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 bg-white"
-              >
-                Semana
-              </button>
-              <button
-                type="button"
-                disabled
-                aria-label="Visualizacao mensal ainda nao disponivel"
-                className="rounded px-3 text-xs font-normal text-zinc-400"
-              >
-                Mês
-              </button>
+      {/* CABEÇALHO COM LAYOUT RESPONSIVO ATUALIZADO */}
+      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm p-4">
+        <div className="flex flex-col gap-4">
+          {/* Linha 1: Título e Navegação de Data */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-col">
+              <h1 className="text-xl font-bold text-zinc-950">Agenda Operacional</h1>
+              <span className="text-xs font-normal text-zinc-600">{displayLabel}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white p-1">
-              <button
-                type="button"
-                onClick={goToToday}
-                className="h-7 rounded px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
-              >
+            <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 w-full sm:w-auto">
+              <button type="button" onClick={goToToday} className="hidden sm:block h-7 rounded px-2.5 text-xs font-medium text-zinc-700 hover:bg-teal-50 hover:text-teal-700">
                 Hoje
               </button>
-              <button
-                type="button"
-                onClick={goToPreviousWeek}
-                aria-label="Semana anterior"
-                className="h-7 w-7 rounded text-base font-normal text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
-              >
+              <button type="button" onClick={goToPrevious} className="flex-1 sm:flex-none p-2 sm:h-7 sm:w-7 sm:p-0 flex items-center justify-center hover:bg-white rounded shadow-sm sm:shadow-none text-sm font-medium transition-colors">
                 &lt;
               </button>
-              <span className="hidden min-w-28 px-1 text-center text-xs font-normal text-zinc-800 sm:inline">
-                {compactWeekLabel}
-              </span>
-              <button
-                type="button"
-                onClick={goToNextWeek}
-                aria-label="Próxima semana"
-                className="h-7 w-7 rounded text-base font-normal text-zinc-700 transition-colors hover:bg-teal-50 hover:text-teal-700"
-              >
+              <input type="date" value={formatApiDate(referenceDate)} onChange={handleDateChange} className="flex-[2] sm:flex-none text-center bg-transparent text-sm font-bold border-0 outline-none cursor-pointer hover:bg-teal-50 rounded" />
+              <button type="button" onClick={goToNext} className="flex-1 sm:flex-none p-2 sm:h-7 sm:w-7 sm:p-0 flex items-center justify-center hover:bg-white rounded shadow-sm sm:shadow-none text-sm font-medium transition-colors">
                 &gt;
               </button>
             </div>
+          </div>
 
-            <div className="w-full lg:w-52">
-              <Select
-                aria-label="Tipo"
-                options={eventTypeOptions}
-                value={typeFilter}
-                onChange={(event) =>
-                  setTypeFilter(event.target.value as AdminAgendaTypeFilter)
-                }
-                className="h-8 rounded-md px-3 py-1 text-xs"
-              />
+          {/* Linha 2: Filtros */}
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="flex gap-2 w-full lg:w-auto">
+              <button type="button" onClick={() => setViewMode("semana")} className={`flex-1 lg:w-32 py-2 text-xs font-bold rounded-lg border transition-colors ${viewMode === 'semana' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}>
+                Semana
+              </button>
+              <button type="button" onClick={() => setViewMode("mes")} className={`flex-1 lg:w-32 py-2 text-xs font-bold rounded-lg border transition-colors ${viewMode === 'mes' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}>
+                Mês
+              </button>
+            </div>
+            <div className="w-full lg:flex-1">
+              <Select aria-label="Tipo" options={eventTypeOptions} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as AdminAgendaTypeFilter)} className="w-full h-10 lg:h-9" />
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 px-4 py-2">
-          {eventTypeOptions
-            .filter(
-              (option): option is { value: AdminAgendaEventType; label: string } =>
-                option.value !== "todos",
-            )
-            .map((option) => {
-              const styles = eventTypeStyles[option.value];
-
-              return (
-                <span
-                  key={option.value}
-                  className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-normal text-zinc-700 ${styles.legend}`}
-                >
-                  <span className={`h-2 w-2 shrink-0 rounded-sm ${styles.dot}`} />
-                  {option.label}
-                </span>
-              );
-            })}
+        <div className="mt-4 flex flex-wrap gap-1.5 pt-4 border-t border-zinc-100">
+          {eventTypeOptions.filter((option): option is { value: AdminAgendaEventType; label: string } => option.value !== "todos").map((option) => {
+            const styles = eventTypeStyles[option.value];
+            return (
+              <span key={option.value} className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-normal text-zinc-700 ${styles.legend}`}>
+                <span className={`h-2 w-2 shrink-0 rounded-sm ${styles.dot}`} />
+                {option.label}
+              </span>
+            );
+          })}
         </div>
       </div>
 
@@ -634,7 +624,7 @@ export default function AdminAgendaPage() {
 
       {!loading && !error && agenda && !hasEvents ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          Nenhum evento operacional encontrado para esta semana.
+          Nenhum evento operacional encontrado para o período selecionado.
         </div>
       ) : null}
 
@@ -642,98 +632,182 @@ export default function AdminAgendaPage() {
         <>
           <div className="grid flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
             <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
-              <div className="grid min-w-[840px] grid-cols-[44px_repeat(7,minmax(0,1fr))] border-b border-zinc-200 bg-zinc-50">
-                <div className="border-r border-zinc-200" />
-                {weekDays.map((date) => {
-                  const dateKey = formatApiDate(date);
-                  const isToday = dateKey === todayKey;
-                  const dayEvents = eventsByDay[dateKey] ?? [];
-
-                  return (
-                    <div
-                      key={dateKey}
-                      className={`border-r border-zinc-200 px-2.5 py-2 last:border-r-0 ${
-                        isToday ? "bg-teal-50" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span className="block text-[11px] font-semibold uppercase text-zinc-500">
-                            {formatDayName(date)}
-                          </span>
-                          <span
-                            className={`mt-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-black ${
-                              isToday
-                                ? "bg-teal-600 text-white"
-                                : "bg-white text-zinc-900"
-                            }`}
-                          >
-                            {String(date.getDate()).padStart(2, "0")}
-                          </span>
-                        </div>
-                        <span className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-normal text-zinc-500">
-                          {getDayEventText(dayEvents.length)}
-                        </span>
+              
+              {viewMode === "mes" ? (
+                <div className="flex min-w-[840px] flex-col">
+                  <div className="grid grid-cols-7 border-b border-zinc-200 bg-zinc-50">
+                    {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((dayName) => (
+                      <div
+                        key={dayName}
+                        className="border-r border-zinc-200 p-2 text-center text-[11px] font-semibold uppercase text-zinc-500 last:border-r-0"
+                      >
+                        {dayName}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    ))}
+                  </div>
 
-              <div className="grid min-w-[840px] grid-cols-[44px_repeat(7,minmax(0,1fr))]">
-                <div className="relative min-h-[calc(100vh-17.5rem)] border-r border-zinc-200 bg-zinc-50/80">
-                  {calendarHours.map((hour) => (
-                    <span
-                      key={hour}
-                      className="absolute right-2 -translate-y-1/2 text-[10px] font-normal text-zinc-500"
-                      style={{ top: getCalendarHourTopOffset(hour) }}
-                    >
-                      {formatCalendarHour(hour)}
-                    </span>
-                  ))}
-                </div>
+                  <div className="grid grid-cols-7">
+                    {activeDays.map((date) => {
+                      const dateKey = formatApiDate(date);
+                      const isToday = dateKey === todayKey;
+                      const isCurrentMonth = date.getMonth() === referenceDate.getMonth();
+                      const dayEvents = eventsByDay[dateKey] ?? [];
 
-                {weekDays.map((date) => {
-                  const dateKey = formatApiDate(date);
-                  const dayEvents = eventsByDay[dateKey] ?? [];
-                  const isToday = dateKey === todayKey;
-
-                  return (
-                    <div
-                      key={dateKey}
-                      className={`min-h-[calc(100vh-17.5rem)] border-r border-zinc-200 last:border-r-0 ${
-                        isToday ? "bg-teal-50/40" : "bg-white"
-                      }`}
-                      style={{
-                        backgroundImage:
-                          "repeating-linear-gradient(to bottom, transparent 0, transparent calc((100% / 12) - 1px), rgba(212, 212, 216, 0.7) calc((100% / 12) - 1px), rgba(212, 212, 216, 0.7) calc(100% / 12))",
-                      }}
-                    >
-                      <div className="relative h-full min-h-[calc(100vh-17.5rem)]">
-                        {dayEvents.length === 0 ? (
-                          <span className="absolute left-2 top-3 rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-normal text-zinc-400">
-                            Sem eventos
-                          </span>
-                        ) : (
-                          dayEvents.map((event, eventIndex) => (
-                            <div
-                              key={event.id}
-                              className="absolute left-2 right-2"
-                              style={{ top: getEventTopOffset(event, eventIndex) }}
+                      return (
+                        <div
+                          key={dateKey}
+                          className={`min-h-[120px] border-b border-r border-zinc-200 p-1.5 [&:nth-child(7n)]:border-r-0 ${
+                            isCurrentMonth ? "bg-white" : "bg-zinc-50/50"
+                          } ${isToday ? "bg-teal-50/30" : ""}`}
+                        >
+                          <div className="mb-1 flex items-center justify-between px-1">
+                            <span
+                              className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                                isToday
+                                  ? "bg-teal-600 text-white"
+                                  : isCurrentMonth
+                                    ? "text-zinc-900"
+                                    : "text-zinc-400"
+                              }`}
                             >
-                              <AgendaEventCard
-                                event={event}
-                                isSelected={selectedEvent?.id === event.id}
-                                onSelect={() => setSelectedEvent(event)}
-                              />
+                              {date.getDate()}
+                            </span>
+                            {dayEvents.length > 0 && (
+                              <span className="text-[10px] font-medium text-zinc-500">
+                                {dayEvents.length} ev.
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            {dayEvents.slice(0, 4).map((event) => {
+                              const styles = eventTypeStyles[event.tipo];
+                              const isSelected = selectedEvent?.id === event.id;
+
+                              return (
+                                <button
+                                  key={event.id}
+                                  type="button"
+                                  onClick={() => setSelectedEvent(event)}
+                                  className={`w-full truncate rounded border border-l-2 px-1.5 py-1 text-left text-[10px] font-medium transition-colors hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                                    styles.card
+                                  } ${styles.accent} ${
+                                    isSelected ? "ring-2 ring-teal-500" : ""
+                                  }`}
+                                  title={`${formatEventTime(event)} - ${event.pedido.cliente_nome}`}
+                                >
+                                  <span className="mr-1 font-semibold text-zinc-700">
+                                    {formatEventTime(event)}
+                                  </span>
+                                  {event.pedido.cliente_nome.split(" ")[0]}
+                                </button>
+                              );
+                            })}
+                            {dayEvents.length > 4 && (
+                              <span className="pl-1 text-[10px] font-medium text-zinc-500">
+                                +{dayEvents.length - 4} eventos
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid min-w-[840px] grid-cols-[44px_repeat(7,minmax(0,1fr))] border-b border-zinc-200 bg-zinc-50">
+                    <div className="border-r border-zinc-200" />
+                    {activeDays.map((date) => {
+                      const dateKey = formatApiDate(date);
+                      const isToday = dateKey === todayKey;
+                      const dayEvents = eventsByDay[dateKey] ?? [];
+
+                      return (
+                        <div
+                          key={dateKey}
+                          className={`border-r border-zinc-200 px-2.5 py-2 last:border-r-0 ${
+                            isToday ? "bg-teal-50" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <span className="block text-[11px] font-semibold uppercase text-zinc-500">
+                                {formatDayName(date)}
+                              </span>
+                              <span
+                                className={`mt-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-black ${
+                                  isToday ? "bg-teal-600 text-white" : "bg-white text-zinc-900"
+                                }`}
+                              >
+                                {String(date.getDate()).padStart(2, "0")}
+                              </span>
                             </div>
-                          ))
-                        )}
-                      </div>
+                            <span className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-normal text-zinc-500">
+                              {getDayEventText(dayEvents.length)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid min-w-[840px] grid-cols-[44px_repeat(7,minmax(0,1fr))]">
+                    <div className="relative min-h-[calc(100vh-17.5rem)] border-r border-zinc-200 bg-zinc-50/80">
+                      {calendarHours.map((hour) => (
+                        <span
+                          key={hour}
+                          className="absolute right-2 -translate-y-1/2 text-[10px] font-normal text-zinc-500"
+                          style={{ top: getCalendarHourTopOffset(hour) }}
+                        >
+                          {formatCalendarHour(hour)}
+                        </span>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
+
+                    {activeDays.map((date) => {
+                      const dateKey = formatApiDate(date);
+                      const dayEvents = eventsByDay[dateKey] ?? [];
+                      const isToday = dateKey === todayKey;
+
+                      return (
+                        <div
+                          key={dateKey}
+                          className={`min-h-[calc(100vh-17.5rem)] border-r border-zinc-200 last:border-r-0 ${
+                            isToday ? "bg-teal-50/40" : "bg-white"
+                          }`}
+                          style={{
+                            backgroundImage:
+                              "repeating-linear-gradient(to bottom, transparent 0, transparent calc((100% / 12) - 1px), rgba(212, 212, 216, 0.7) calc((100% / 12) - 1px), rgba(212, 212, 216, 0.7) calc(100% / 12))",
+                          }}
+                        >
+                          <div className="relative h-full min-h-[calc(100vh-17.5rem)]">
+                            {dayEvents.length === 0 ? (
+                              <span className="absolute left-2 top-3 rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-normal text-zinc-400">
+                                Sem eventos
+                              </span>
+                            ) : (
+                              dayEvents.map((event, eventIndex) => (
+                                <div
+                                  key={event.id}
+                                  className="absolute left-2 right-2"
+                                  style={{ top: getEventTopOffset(event, eventIndex) }}
+                                >
+                                  <AgendaEventCard
+                                    event={event}
+                                    isSelected={selectedEvent?.id === event.id}
+                                    onSelect={() => setSelectedEvent(event)}
+                                  />
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             <EventDetailsPanel event={selectedEvent} />
@@ -749,10 +823,7 @@ export default function AdminAgendaPage() {
                 const styles = eventTypeStyles[option.value];
 
                 return (
-                  <div
-                    key={option.value}
-                    className={`rounded-md border px-2.5 py-1.5 ${styles.summary}`}
-                  >
+                  <div key={option.value} className={`rounded-md border px-2.5 py-1.5 ${styles.summary}`}>
                     <span className={`block text-lg font-semibold ${styles.text}`}>
                       {agenda.resumo.por_tipo[option.value]}
                     </span>

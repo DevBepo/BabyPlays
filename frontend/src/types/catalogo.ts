@@ -93,6 +93,8 @@ export type KitFestaCatalogo = {
   nome: string;
   descricao: string;
   imagem_url: string | null;
+  imagem_principal: ImagemBrinquedo | null;
+  imagens: ImagemBrinquedo[];
   preco_aluguel: string;
   preco_diaria: string | null;
   preco_15_dias: string | null;
