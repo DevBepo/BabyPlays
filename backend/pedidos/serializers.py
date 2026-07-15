@@ -518,6 +518,32 @@ class PedidoAdminListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AdminDashboardPedidosAguardandoSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    novos_hoje = serializers.IntegerField()
+
+
+class AdminDashboardUnidadesSerializer(serializers.Serializer):
+    em_locacao = serializers.IntegerField()
+    total_operacionais = serializers.IntegerField()
+    em_manutencao = serializers.IntegerField()
+
+
+class AdminDashboardOperacaoSemanaSerializer(serializers.Serializer):
+    inicio = serializers.DateField()
+    fim = serializers.DateField()
+    entregas = serializers.IntegerField()
+    retiradas = serializers.IntegerField()
+
+
+class AdminDashboardResponseSerializer(serializers.Serializer):
+    gerado_em = serializers.DateTimeField()
+    pedidos_aguardando_analise = AdminDashboardPedidosAguardandoSerializer()
+    unidades = AdminDashboardUnidadesSerializer()
+    operacao_semana = AdminDashboardOperacaoSemanaSerializer()
+    ultimos_pedidos = PedidoAdminListSerializer(many=True)
+
+
 class PedidoAdminDetailSerializer(serializers.ModelSerializer):
     cliente = ClientePedidoAdminResumoSerializer(read_only=True)
     usuario = UsuarioAdminResumoSerializer(read_only=True)

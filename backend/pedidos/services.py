@@ -1,8 +1,9 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -1394,6 +1395,74 @@ class ReservaPedidoService:
             reservas_criadas,
             reservas_criadas,
         )
+
+
+class AdminDashboardService:
+    LIMITE_ULTIMOS_PEDIDOS = 5
+
+    @classmethod
+    def gerar(cls):
+        hoje = timezone.localdate()
+        inicio_semana = hoje - timedelta(days=hoje.weekday())
+        fim_semana = inicio_semana + timedelta(days=6)
+
+        pedidos_aguardando = Pedido.objects.filter(
+            status=Pedido.Status.AGUARDANDO_ANALISE
+        )
+        unidades_operacionais = UnidadeBrinquedo.objects.exclude(
+            status=UnidadeBrinquedo.Status.BAIXADA
+        )
+
+        aceite = AceiteContrato.objects.filter(pedido_id=OuterRef("pk"))
+        reservas_ativas = ReservaUnidade.objects.filter(
+            pedido_id=OuterRef("pk"),
+            status=ReservaUnidade.Status.ATIVA,
+        )
+        ultimos_pedidos = list(
+            Pedido.objects.select_related(
+                "cliente",
+                "cliente__user",
+                "usuario",
+            )
+            .annotate(
+                tem_aceite_contrato=Exists(aceite),
+                possui_reservas_ativas=Exists(reservas_ativas),
+                quantidade_itens=Count("itens", distinct=True),
+            )
+            .order_by("-criado_em", "-id")[: cls.LIMITE_ULTIMOS_PEDIDOS]
+        )
+
+        return {
+            "gerado_em": timezone.now(),
+            "pedidos_aguardando_analise": {
+                "total": pedidos_aguardando.count(),
+                "novos_hoje": pedidos_aguardando.filter(
+                    criado_em__date=hoje
+                ).count(),
+            },
+            "unidades": {
+                "em_locacao": unidades_operacionais.filter(
+                    status=UnidadeBrinquedo.Status.EM_LOCACAO
+                ).count(),
+                "total_operacionais": unidades_operacionais.count(),
+                "em_manutencao": unidades_operacionais.filter(
+                    status=UnidadeBrinquedo.Status.MANUTENCAO
+                ).count(),
+            },
+            "operacao_semana": {
+                "inicio": inicio_semana,
+                "fim": fim_semana,
+                "entregas": Pedido.objects.filter(
+                    status=Pedido.Status.CONFIRMADO,
+                    data_inicio_locacao__range=(inicio_semana, fim_semana),
+                ).count(),
+                "retiradas": Pedido.objects.filter(
+                    status=Pedido.Status.EM_LOCACAO,
+                    data_fim_locacao__range=(inicio_semana, fim_semana),
+                ).count(),
+            },
+            "ultimos_pedidos": ultimos_pedidos,
+        }
 
 
 class AgendaAdminService:

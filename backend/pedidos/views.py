@@ -16,6 +16,7 @@ from .serializers import (
     AdminAgendaQuerySerializer,
     AdminAgendaResponseSerializer,
     AdminContratoSerializer,
+    AdminDashboardResponseSerializer,
     AlterarStatusPedidoAdminSerializer,
     AtualizarDatasPedidoAdminSerializer,
     AlterarItemCarrinhoSerializer,
@@ -33,6 +34,7 @@ from .serializers import (
 )
 from .services import (
     AgendaAdminService,
+    AdminDashboardService,
     CarrinhoService,
     ConfirmacaoPedidoService,
     ContratoService,
@@ -321,6 +323,14 @@ class AdminPedidoListView(AdminPedidoQuerysetMixin, APIView):
         page = paginator.paginate_queryset(queryset, request, view=self)
         serializer = PedidoAdminListSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class AdminDashboardView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        dashboard = AdminDashboardService.gerar()
+        return Response(AdminDashboardResponseSerializer(dashboard).data)
 
 
 class AdminPedidoDetailView(AdminPedidoQuerysetMixin, APIView):

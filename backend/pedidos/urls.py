@@ -4,6 +4,7 @@ from .views import (
     AceitarContratoPedidoView,
     AdminAgendaView,
     AdminContratoView,
+    AdminDashboardView,
     AdminConfirmarPedidoView,
     AdminPedidoDetailView,
     AdminPedidoListView,
@@ -50,6 +51,11 @@ urlpatterns = [
         "pedidos/<int:pedido_id>/aceitar-contrato/",
         AceitarContratoPedidoView.as_view(),
         name="pedido-aceitar-contrato",
+    ),
+    path(
+        "admin/dashboard/",
+        AdminDashboardView.as_view(),
+        name="admin-dashboard",
     ),
     path(
         "admin/pedidos/",
