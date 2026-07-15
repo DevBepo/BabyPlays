@@ -529,18 +529,18 @@ class AdminDashboardUnidadesSerializer(serializers.Serializer):
     em_manutencao = serializers.IntegerField()
 
 
-class AdminDashboardValorMesSerializer(serializers.Serializer):
-    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+class AdminDashboardOperacaoSemanaSerializer(serializers.Serializer):
     inicio = serializers.DateField()
     fim = serializers.DateField()
+    entregas = serializers.IntegerField()
+    retiradas = serializers.IntegerField()
 
 
 class AdminDashboardResponseSerializer(serializers.Serializer):
     gerado_em = serializers.DateTimeField()
     pedidos_aguardando_analise = AdminDashboardPedidosAguardandoSerializer()
     unidades = AdminDashboardUnidadesSerializer()
-    entregas_hoje = serializers.IntegerField()
-    valor_pedidos_mes = AdminDashboardValorMesSerializer()
+    operacao_semana = AdminDashboardOperacaoSemanaSerializer()
     ultimos_pedidos = PedidoAdminListSerializer(many=True)
 
 

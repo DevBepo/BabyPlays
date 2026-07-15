@@ -2331,6 +2331,8 @@ class AdminDashboardAPITests(APITestCase):
 
     def setUp(self):
         self.hoje = timezone.localdate()
+        self.inicio_semana = self.hoje - timedelta(days=self.hoje.weekday())
+        self.fim_semana = self.inicio_semana + timedelta(days=6)
         self.admin = get_user_model().objects.create_user(
             username="admin-dashboard",
             email="admin-dashboard@email.com",
@@ -2353,8 +2355,16 @@ class AdminDashboardAPITests(APITestCase):
             preco_aluguel=Decimal("100.00"),
         )
 
-    def criar_pedido(self, status_pedido, total, inicio=None, nome="Cliente Dashboard"):
+    def criar_pedido(
+        self,
+        status_pedido,
+        total,
+        inicio=None,
+        fim=None,
+        nome="Cliente Dashboard",
+    ):
         inicio = inicio or self.hoje
+        fim = fim or inicio + timedelta(days=2)
         return Pedido.objects.create(
             usuario=self.usuario,
             nome_cliente_snapshot=nome,
@@ -2362,7 +2372,7 @@ class AdminDashboardAPITests(APITestCase):
             email_cliente_snapshot="dashboard@email.com",
             data_evento_pretendida=inicio,
             data_inicio_locacao=inicio,
-            data_fim_locacao=inicio + timedelta(days=2),
+            data_fim_locacao=fim,
             subtotal_itens_snapshot=total,
             total_estimado_snapshot=total,
             status=status_pedido,
@@ -2420,19 +2430,17 @@ class AdminDashboardAPITests(APITestCase):
             Decimal("200.00"),
             nome="Entrega de hoje",
         )
+        retirada_hoje = self.criar_pedido(
+            Pedido.Status.EM_LOCACAO,
+            Decimal("300.00"),
+            inicio=self.hoje - timedelta(days=2),
+            fim=self.hoje,
+            nome="Retirada de hoje",
+        )
         cancelado = self.criar_pedido(
             Pedido.Status.CANCELADO,
             Decimal("999.00"),
             nome="Pedido cancelado",
-        )
-        inicio_proximo_mes = (
-            self.hoje.replace(day=28) + timedelta(days=4)
-        ).replace(day=1)
-        fora_do_mes = self.criar_pedido(
-            Pedido.Status.CONFIRMADO,
-            Decimal("500.00"),
-            inicio=inicio_proximo_mes,
-            nome="Pedido do proximo mes",
         )
 
         self.client.force_authenticate(user=self.admin)
@@ -2447,13 +2455,20 @@ class AdminDashboardAPITests(APITestCase):
             response.data["unidades"],
             {"em_locacao": 1, "total_operacionais": 3, "em_manutencao": 1},
         )
-        self.assertEqual(response.data["entregas_hoje"], 1)
-        self.assertEqual(response.data["valor_pedidos_mes"]["total"], "350.00")
+        self.assertEqual(
+            response.data["operacao_semana"],
+            {
+                "inicio": self.inicio_semana.isoformat(),
+                "fim": self.fim_semana.isoformat(),
+                "entregas": 1,
+                "retiradas": 1,
+            },
+        )
         self.assertEqual(
             [pedido["id"] for pedido in response.data["ultimos_pedidos"]],
             [
-                fora_do_mes.id,
                 cancelado.id,
+                retirada_hoje.id,
                 confirmado.id,
                 aguardando_novo.id,
                 aguardando_antigo.id,
@@ -2475,9 +2490,38 @@ class AdminDashboardAPITests(APITestCase):
             response.data["unidades"],
             {"em_locacao": 0, "total_operacionais": 0, "em_manutencao": 0},
         )
-        self.assertEqual(response.data["entregas_hoje"], 0)
-        self.assertEqual(response.data["valor_pedidos_mes"]["total"], "0.00")
+        self.assertEqual(
+            response.data["operacao_semana"],
+            {
+                "inicio": self.inicio_semana.isoformat(),
+                "fim": self.fim_semana.isoformat(),
+                "entregas": 0,
+                "retiradas": 0,
+            },
+        )
         self.assertEqual(response.data["ultimos_pedidos"], [])
+
+    def test_dashboard_nao_conta_entregas_ou_retiradas_fora_da_semana(self):
+        self.criar_pedido(
+            Pedido.Status.CONFIRMADO,
+            Decimal("100.00"),
+            inicio=self.fim_semana + timedelta(days=1),
+            nome="Entrega da proxima semana",
+        )
+        self.criar_pedido(
+            Pedido.Status.EM_LOCACAO,
+            Decimal("100.00"),
+            inicio=self.inicio_semana - timedelta(days=3),
+            fim=self.inicio_semana - timedelta(days=1),
+            nome="Retirada da semana anterior",
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["operacao_semana"]["entregas"], 0)
+        self.assertEqual(response.data["operacao_semana"]["retiradas"], 0)
 
 
 class PedidoAdminAgendaAPITests(APITestCase):

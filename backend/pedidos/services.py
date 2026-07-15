@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Sum
+from django.db.models import Count, Exists, OuterRef, Prefetch
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -1403,24 +1403,14 @@ class AdminDashboardService:
     @classmethod
     def gerar(cls):
         hoje = timezone.localdate()
-        inicio_mes = hoje.replace(day=1)
-        inicio_proximo_mes = (inicio_mes.replace(day=28) + timedelta(days=4)).replace(
-            day=1
-        )
+        inicio_semana = hoje - timedelta(days=hoje.weekday())
+        fim_semana = inicio_semana + timedelta(days=6)
 
         pedidos_aguardando = Pedido.objects.filter(
             status=Pedido.Status.AGUARDANDO_ANALISE
         )
         unidades_operacionais = UnidadeBrinquedo.objects.exclude(
             status=UnidadeBrinquedo.Status.BAIXADA
-        )
-        pedidos_mes = Pedido.objects.filter(
-            data_inicio_locacao__gte=inicio_mes,
-            data_inicio_locacao__lt=inicio_proximo_mes,
-        ).exclude(status=Pedido.Status.CANCELADO)
-        valor_pedidos_mes = (
-            pedidos_mes.aggregate(total=Sum("total_estimado_snapshot"))["total"]
-            or Decimal("0.00")
         )
 
         aceite = AceiteContrato.objects.filter(pedido_id=OuterRef("pk"))
@@ -1459,14 +1449,17 @@ class AdminDashboardService:
                     status=UnidadeBrinquedo.Status.MANUTENCAO
                 ).count(),
             },
-            "entregas_hoje": Pedido.objects.filter(
-                status=Pedido.Status.CONFIRMADO,
-                data_inicio_locacao=hoje,
-            ).count(),
-            "valor_pedidos_mes": {
-                "total": valor_pedidos_mes,
-                "inicio": inicio_mes,
-                "fim": inicio_proximo_mes - timedelta(days=1),
+            "operacao_semana": {
+                "inicio": inicio_semana,
+                "fim": fim_semana,
+                "entregas": Pedido.objects.filter(
+                    status=Pedido.Status.CONFIRMADO,
+                    data_inicio_locacao__range=(inicio_semana, fim_semana),
+                ).count(),
+                "retiradas": Pedido.objects.filter(
+                    status=Pedido.Status.EM_LOCACAO,
+                    data_fim_locacao__range=(inicio_semana, fim_semana),
+                ).count(),
             },
             "ultimos_pedidos": ultimos_pedidos,
         }

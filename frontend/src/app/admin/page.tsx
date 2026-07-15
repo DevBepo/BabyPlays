@@ -56,6 +56,20 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
+function formatDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
 function getClienteNome(pedido: AdminPedidoListItem) {
   return pedido.cliente?.nome || pedido.cliente_snapshot.nome || "Cliente sem nome";
 }
@@ -201,25 +215,29 @@ export default function DashboardPage() {
 
         <Card padding="lg" className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-zinc-500 sm:text-sm">
-            Entregas para hoje
+            Entregas na semana
           </span>
           <span className="text-2xl font-bold text-zinc-900 sm:text-3xl">
-            {dashboard ? dashboard.entregas_hoje : "—"}
+            {dashboard ? dashboard.operacao_semana.entregas : "—"}
           </span>
           <span className="mt-1 text-[10px] font-medium text-amber-600 sm:text-xs">
-            Pedidos confirmados com início hoje
+            {dashboard
+              ? `${formatDate(dashboard.operacao_semana.inicio)} a ${formatDate(dashboard.operacao_semana.fim)}`
+              : "Pedidos confirmados para entrega"}
           </span>
         </Card>
 
         <Card padding="lg" className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-zinc-500 sm:text-sm">
-            Valor previsto no mês
+            Retiradas na semana
           </span>
-          <span className="text-2xl font-bold text-teal-600 sm:text-3xl">
-            {dashboard ? formatCurrency(dashboard.valor_pedidos_mes.total) : "—"}
+          <span className="text-2xl font-bold text-zinc-900 sm:text-3xl">
+            {dashboard ? dashboard.operacao_semana.retiradas : "—"}
           </span>
-          <span className="mt-1 text-[10px] text-zinc-400 sm:text-xs">
-            Pedidos não cancelados com início no mês
+          <span className="mt-1 text-[10px] font-medium text-teal-600 sm:text-xs">
+            {dashboard
+              ? `${formatDate(dashboard.operacao_semana.inicio)} a ${formatDate(dashboard.operacao_semana.fim)}`
+              : "Locações previstas para retirada"}
           </span>
         </Card>
       </div>

@@ -11,11 +11,11 @@ export type AdminDashboardResponse = {
     total_operacionais: number;
     em_manutencao: number;
   };
-  entregas_hoje: number;
-  valor_pedidos_mes: {
-    total: string;
+  operacao_semana: {
     inicio: string;
     fim: string;
+    entregas: number;
+    retiradas: number;
   };
   ultimos_pedidos: AdminPedidoListItem[];
 };
