@@ -14,9 +14,11 @@ import {
   atualizarAdminKitFesta,
   criarAdminKitFesta,
   excluirAdminKitFesta,
+  definirImagemPrincipalAdminKitFesta,
   listarAdminKitsFesta,
   removerImagemAdminKitFesta,
-  uploadImagemAdminKitFesta,
+  removerImagemIndividualAdminKitFesta,
+  uploadImagensAdminKitFesta,
 } from "@/services/adminKits";
 import { listarBrinquedos, listarUnidadesBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
@@ -91,7 +93,9 @@ export default function GestaoKitsPage() {
 
   const [form, setForm] = useState<KitFormState>(initialForm);
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+  const [imagensAdicionais, setImagensAdicionais] = useState<File[]>([]);
   const [removerImagemAtual, setRemoverImagemAtual] = useState(false);
+  const [imagemAlterando, setImagemAlterando] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors | undefined>();
@@ -110,6 +114,13 @@ export default function GestaoKitsPage() {
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
+  );
+  const imagensAdicionaisPreview = useMemo(
+    () => imagensAdicionais.map((arquivo) => ({
+      arquivo,
+      url: URL.createObjectURL(arquivo),
+    })),
+    [imagensAdicionais],
   );
 
   async function carregarKitsFesta() {
@@ -144,10 +155,20 @@ export default function GestaoKitsPage() {
     return () => { if (imagemPreviewUrl) URL.revokeObjectURL(imagemPreviewUrl); };
   }, [imagemPreviewUrl]);
 
+  useEffect(() => {
+    return () => imagensAdicionaisPreview.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [imagensAdicionaisPreview]);
+
+  function removerFotoAdicionalSelecionada(arquivo: File) {
+    setImagensAdicionais((atuais) => atuais.filter((item) => item !== arquivo));
+  }
+
+  // Função chamada ao clicar em "Editar" num Kit
   async function abrirEdicao(kit: AdminKitFesta) {
     setForm(formFromKit(kit));
     setKitEmEdicao(kit.id);
     setImagemArquivo(null);
+    setImagensAdicionais([]);
     setRemoverImagemAtual(false);
     setFieldErrors(undefined);
     setErro(null);
@@ -188,6 +209,7 @@ export default function GestaoKitsPage() {
     setKitEmEdicao(null);
     setForm(initialForm);
     setImagemArquivo(null);
+    setImagensAdicionais([]);
     setRemoverImagemAtual(false);
     setFieldErrors(undefined);
   }
@@ -251,14 +273,24 @@ export default function GestaoKitsPage() {
         if (removerImagemAtual && !imagemArquivo) {
           await removerImagemAdminKitFesta(kitAtualizado.id);
         }
-        if (imagemArquivo) {
-          await uploadImagemAdminKitFesta(kitAtualizado.id, imagemArquivo);
+        const arquivos = imagemArquivo
+          ? [imagemArquivo, ...imagensAdicionais]
+          : imagensAdicionais;
+        if (arquivos.length > 0) {
+          await uploadImagensAdminKitFesta(
+            kitAtualizado.id,
+            arquivos,
+            Boolean(imagemArquivo),
+          );
         }
         setSucesso("Kit festa atualizado com sucesso.");
       } else {
         const kitCriado = await criarAdminKitFesta(payload);
-        if (imagemArquivo) {
-          await uploadImagemAdminKitFesta(kitCriado.id, imagemArquivo);
+        const arquivos = imagemArquivo
+          ? [imagemArquivo, ...imagensAdicionais]
+          : imagensAdicionais;
+        if (arquivos.length > 0) {
+          await uploadImagensAdminKitFesta(kitCriado.id, arquivos, Boolean(imagemArquivo));
         }
         setSucesso("Kit festa criado com sucesso.");
       }
@@ -273,6 +305,36 @@ export default function GestaoKitsPage() {
       }
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function removerImagemIndividual(imagemId: number) {
+    if (!kitEmEdicao || !window.confirm("Remover esta foto do kit festa?")) return;
+    setImagemAlterando(imagemId);
+    setErro(null);
+    try {
+      await removerImagemIndividualAdminKitFesta(kitEmEdicao, imagemId);
+      await carregarKitsFesta();
+      setSucesso("Foto removida com sucesso.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel remover a foto.");
+    } finally {
+      setImagemAlterando(null);
+    }
+  }
+
+  async function definirImagemPrincipal(imagemId: number) {
+    if (!kitEmEdicao) return;
+    setImagemAlterando(imagemId);
+    setErro(null);
+    try {
+      await definirImagemPrincipalAdminKitFesta(kitEmEdicao, imagemId);
+      await carregarKitsFesta();
+      setSucesso("Foto principal atualizada com sucesso.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel definir a foto principal.");
+    } finally {
+      setImagemAlterando(null);
     }
   }
 
@@ -304,6 +366,8 @@ export default function GestaoKitsPage() {
     }
   }
 
+  const kitAtual = kitEmEdicao ? kits.find((kit) => kit.id === kitEmEdicao) ?? null : null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -330,7 +394,7 @@ export default function GestaoKitsPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-8">
             <section>
               <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">1. Dados do Kit (Edição)</h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(160px,1fr)]">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <Input label="Nome *" value={form.nome} onChange={(e) => setForm((c) => ({ ...c, nome: e.target.value }))} error={erroCampo(fieldErrors, "nome")} required />
                 </div>
@@ -409,23 +473,65 @@ export default function GestaoKitsPage() {
             </section>
 
             <section>
-              <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">3. Capa e Status</h2>
-              <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
-                <div className="h-28 overflow-hidden rounded-md border border-zinc-200 bg-white">
-                  {imagemPreviewUrl ? (
-                    <img src={imagemPreviewUrl} alt="Prévia" className="h-full w-full object-cover" />
-                  ) : kitEmEdicao && kits.find((k) => k.id === kitEmEdicao)?.imagem_url && !removerImagemAtual ? (
-                    <img src={kits.find((k) => k.id === kitEmEdicao)?.imagem_url ?? ""} alt="Imagem atual" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs font-medium text-zinc-400">Sem imagem</div>
-                  )}
+              <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">3. Fotos e status</h2>
+              <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                  <div className="h-32 overflow-hidden rounded-md border border-zinc-200 bg-white">
+                    {imagemPreviewUrl ? (
+                      <img src={imagemPreviewUrl} alt="Previa da foto principal" className="h-full w-full object-cover" />
+                    ) : kitAtual?.imagem_url && !removerImagemAtual ? (
+                      <img src={kitAtual.imagem_url} alt="Imagem atual" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-medium text-zinc-400">Sem imagem</div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Input label="Nova foto principal" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { setImagemArquivo(e.target.files?.[0] ?? null); setRemoverImagemAtual(false); }} />
+                    <Input label="Fotos adicionais" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setImagensAdicionais(Array.from(e.target.files ?? []))} />
+                    {kitEmEdicao && kitAtual?.imagem_url ? (
+                      <Checkbox label="Remover todas as fotos atuais" checked={removerImagemAtual} onChange={(e) => { setRemoverImagemAtual(e.target.checked); if (e.target.checked) { setImagemArquivo(null); setImagensAdicionais([]); } }} />
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-3">
-                  <Input label="Nova imagem (Opcional)" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { setImagemArquivo(e.target.files?.[0] ?? null); setRemoverImagemAtual(false); }} />
-                  {kitEmEdicao && kits.find((k) => k.id === kitEmEdicao)?.imagem_url && (
-                    <Checkbox label="Remover imagem atual" checked={removerImagemAtual} onChange={(e) => { setRemoverImagemAtual(e.target.checked); if (e.target.checked) setImagemArquivo(null); }} />
-                  )}
-                </div>
+
+                {imagensAdicionaisPreview.length > 0 ? (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                    {imagensAdicionaisPreview.map(({ arquivo, url }) => (
+                      <div key={`${arquivo.name}-${arquivo.lastModified}`} className="relative overflow-hidden rounded-lg border border-teal-200 bg-white p-1.5 shadow-sm">
+                        <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
+                          <img src={url} alt={`Previa de ${arquivo.name}`} className="h-full w-full object-contain" />
+                          <span className="absolute left-1.5 top-1.5 rounded-full bg-teal-700 px-2 py-0.5 text-[10px] font-bold text-white">Nova</span>
+                        </div>
+                        <button type="button" onClick={() => removerFotoAdicionalSelecionada(arquivo)} className="mt-1.5 w-full rounded-md px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Remover da selecao</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {kitAtual?.imagens?.length ? (
+                  <div className="mt-5 border-t border-zinc-200 pt-4">
+                    <p className="text-sm font-semibold text-zinc-900">Fotos salvas</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                      {kitAtual.imagens.map((imagem) => {
+                        const url = resolveMediaUrl(imagem.url);
+                        return (
+                          <div key={imagem.id} className="overflow-hidden rounded-lg border border-zinc-200 bg-white p-1.5 shadow-sm">
+                            <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
+                              {url ? <img src={url} alt={imagem.alt_text || kitAtual.nome} className="h-full w-full object-contain" /> : null}
+                              {imagem.principal ? <span className="absolute left-1.5 top-1.5 rounded-full bg-[#803233] px-2 py-0.5 text-[10px] font-bold text-white">Principal</span> : null}
+                            </div>
+                            <div className="mt-1.5 grid gap-1">
+                              {!imagem.principal ? (
+                                <button type="button" disabled={imagemAlterando === imagem.id} onClick={() => void definirImagemPrincipal(imagem.id)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 disabled:opacity-50">Tornar principal</button>
+                              ) : null}
+                              <button type="button" disabled={imagemAlterando === imagem.id} onClick={() => void removerImagemIndividual(imagem.id)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">Remover</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="mt-4 rounded-lg border border-zinc-100 bg-zinc-50 p-4">
                 <Checkbox label="Ativo no catálogo" checked={form.ativo} onChange={(e) => setForm((c) => ({ ...c, ativo: e.target.checked }))} />

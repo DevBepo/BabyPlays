@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
+import { InlineCategoryModal } from "@/components/admin/InlineCategoryModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -161,6 +162,7 @@ export default function ListaBrinquedosAdmin() {
   const [categoriaFiltro, setCategoriaFiltro] = useState("todas");
   const [statusFiltro, setStatusFiltro] = useState<StatusCatalogoFiltro>("todos");
   const [quantidadeVisivel, setQuantidadeVisivel] = useState(QUANTIDADE_INICIAL);
+  const [categoriaModalAberta, setCategoriaModalAberta] = useState(false);
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
@@ -445,6 +447,17 @@ export default function ListaBrinquedosAdmin() {
     setUnidadesFieldErrors(undefined);
   }
 
+  function handleCategoriaCriada(categoria: CategoriaCatalogo) {
+    setCategorias((atuais) =>
+      [...atuais.filter((item) => item.id !== categoria.id), categoria].sort((a, b) =>
+        a.nome.localeCompare(b.nome),
+      ),
+    );
+    setForm((current) => ({ ...current, categoria: String(categoria.id) }));
+    setCategoriaFiltro((current) => (current === "todas" ? current : String(categoria.id)));
+    setSucesso("Categoria criada e selecionada.");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSalvando(true);
@@ -643,25 +656,34 @@ export default function ListaBrinquedosAdmin() {
                 error={erroCampo(fieldErrors, "nome")}
                 required
               />
-              <Select
-                label="Categoria *"
-                options={categoriasOptions}
-                value={form.categoria}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    categoria: event.target.value,
-                  }))
-                }
-                disabled={categoriasOptions.length === 0}
-                error={erroCampo(fieldErrors, "categoria")}
-                required
-                placeholder={
-                  categoriasOptions.length === 0
-                    ? "Cadastre uma categoria antes de criar brinquedos."
-                    : "Selecione uma categoria..."
-                }
-              />
+              <div className="flex flex-col gap-2">
+                <Select
+                  label="Categoria *"
+                  options={categoriasOptions}
+                  value={form.categoria}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      categoria: event.target.value,
+                    }))
+                  }
+                  disabled={categoriasOptions.length === 0}
+                  error={erroCampo(fieldErrors, "categoria")}
+                  required
+                  placeholder={
+                    categoriasOptions.length === 0
+                      ? "Cadastre uma categoria antes de criar brinquedos."
+                      : "Selecione uma categoria..."
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setCategoriaModalAberta(true)}
+                  className="w-fit rounded-lg px-2 py-1 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                >
+                  Nova categoria
+                </button>
+              </div>
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-zinc-700">
                   Precos e periodos
@@ -1239,6 +1261,11 @@ export default function ListaBrinquedosAdmin() {
           </div>
         )}
       </section>
+      <InlineCategoryModal
+        isOpen={categoriaModalAberta}
+        onClose={() => setCategoriaModalAberta(false)}
+        onCreated={handleCategoriaCriada}
+      />
     </div>
   );
 }

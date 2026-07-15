@@ -1,6 +1,7 @@
 import { getCsrfToken } from "@/lib/csrf";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type { AdminKitFesta, CriarKitFestaPayload } from "@/types/adminKits";
+import type { ImagemBrinquedo } from "@/types/catalogo";
 import type { RemoverCatalogoResponse } from "@/services/catalogo";
 
 const ADMIN_KITS_ENDPOINT = "/api/kits-festa/";
@@ -32,19 +33,30 @@ export function excluirAdminKitFesta(
 
 type UploadImagemKitFestaResponse = {
   mensagem: string;
+  id: number;
   url: string;
+  imagens?: ImagemBrinquedo[];
 };
 
 export async function uploadImagemAdminKitFesta(
   kitId: number,
   arquivo: File,
 ): Promise<UploadImagemKitFestaResponse> {
+  return uploadImagensAdminKitFesta(kitId, [arquivo], true);
+}
+
+export async function uploadImagensAdminKitFesta(
+  kitId: number,
+  arquivos: File[],
+  primeiraComoPrincipal = false,
+): Promise<UploadImagemKitFestaResponse> {
   const csrfToken = await getCsrfToken();
   const formData = new FormData();
-  formData.append("imagem", arquivo);
+  arquivos.forEach((arquivo) => formData.append("imagens", arquivo));
+  formData.append("principal", String(primeiraComoPrincipal));
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/kits-festa/${kitId}/imagem/`,
+    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/kits-festa/${kitId}/imagens/`,
     {
       method: "POST",
       headers: {
@@ -60,6 +72,23 @@ export async function uploadImagemAdminKitFesta(
   }
 
   return response.json() as Promise<UploadImagemKitFestaResponse>;
+}
+
+export function removerImagemIndividualAdminKitFesta(
+  kitId: number,
+  imagemId: number,
+): Promise<void> {
+  return apiDelete<void>(`${ADMIN_KITS_ENDPOINT}${kitId}/imagens/${imagemId}/`);
+}
+
+export function definirImagemPrincipalAdminKitFesta(
+  kitId: number,
+  imagemId: number,
+): Promise<ImagemBrinquedo> {
+  return apiPost<ImagemBrinquedo>(
+    `${ADMIN_KITS_ENDPOINT}${kitId}/imagens/${imagemId}/principal/`,
+    {},
+  );
 }
 
 export async function removerImagemAdminKitFesta(kitId: number): Promise<void> {
