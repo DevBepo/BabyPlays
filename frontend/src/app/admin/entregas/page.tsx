@@ -219,7 +219,7 @@ export default function EntregasConfigPage() {
               <Checkbox label="Regra ativa" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
             </div>
             
-            <p className="text-xs text-zinc-500 sm:col-span-2 lg:col-span-3">Valor vazio ou zero será salvo como "a confirmar", nunca como frete grátis.</p>
+            <p className="text-xs text-zinc-500 sm:col-span-2 lg:col-span-3">Valor vazio ou zero será salvo como &quot;a confirmar&quot;, nunca como frete grátis.</p>
             
             <div className="flex justify-end sm:col-span-2 lg:col-span-3">
               <Button type="submit" loading={salvando} className="w-full sm:w-auto">

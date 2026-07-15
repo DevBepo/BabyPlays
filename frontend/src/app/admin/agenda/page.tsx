@@ -169,14 +169,6 @@ function formatApiDisplayDate(date: string) {
   return formatDisplayDate(dateFromApi(date));
 }
 
-function formatPeriodDate(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-}
-
 function formatDayName(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     weekday: "short",
@@ -475,11 +467,6 @@ export default function AdminAgendaPage() {
       : new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
           .format(referenceDate)
           .replace(/^\w/, (c) => c.toUpperCase());
-
-  const compactLabel =
-    viewMode === "semana"
-      ? `${formatPeriodDate(apiStart)} - ${formatPeriodDate(apiEnd)}`
-      : new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" }).format(referenceDate);
 
   const eventsByDay = useMemo(
     () => getEventsByDay(agenda?.eventos, activeDays),
