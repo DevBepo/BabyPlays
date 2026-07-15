@@ -2326,6 +2326,160 @@ class PedidoAdminAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
+class AdminDashboardAPITests(APITestCase):
+    dashboard_url = "/api/admin/dashboard/"
+
+    def setUp(self):
+        self.hoje = timezone.localdate()
+        self.admin = get_user_model().objects.create_user(
+            username="admin-dashboard",
+            email="admin-dashboard@email.com",
+            password="senha-segura-123",
+            is_staff=True,
+        )
+        self.usuario = get_user_model().objects.create_user(
+            username="cliente-dashboard",
+            email="cliente-dashboard@email.com",
+            password="senha-segura-123",
+        )
+        self.categoria = Categoria.objects.create(
+            nome="Brinquedos dashboard",
+            slug="brinquedos-dashboard",
+        )
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Brinquedo dashboard",
+            descricao="Brinquedo usado nos indicadores administrativos.",
+            categoria=self.categoria,
+            preco_aluguel=Decimal("100.00"),
+        )
+
+    def criar_pedido(self, status_pedido, total, inicio=None, nome="Cliente Dashboard"):
+        inicio = inicio or self.hoje
+        return Pedido.objects.create(
+            usuario=self.usuario,
+            nome_cliente_snapshot=nome,
+            telefone_cliente_snapshot="11999999999",
+            email_cliente_snapshot="dashboard@email.com",
+            data_evento_pretendida=inicio,
+            data_inicio_locacao=inicio,
+            data_fim_locacao=inicio + timedelta(days=2),
+            subtotal_itens_snapshot=total,
+            total_estimado_snapshot=total,
+            status=status_pedido,
+        )
+
+    def test_anonimo_nao_acessa_dashboard_admin(self):
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_comum_nao_acessa_dashboard_admin(self):
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_recebe_indicadores_calculados_com_dados_reais(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="DASH-DISPONIVEL",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="DASH-LOCACAO",
+            status=UnidadeBrinquedo.Status.EM_LOCACAO,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="DASH-MANUTENCAO",
+            status=UnidadeBrinquedo.Status.MANUTENCAO,
+        )
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="DASH-BAIXADA",
+            status=UnidadeBrinquedo.Status.BAIXADA,
+        )
+
+        aguardando_novo = self.criar_pedido(
+            Pedido.Status.AGUARDANDO_ANALISE,
+            Decimal("100.00"),
+            nome="Pedido novo",
+        )
+        aguardando_antigo = self.criar_pedido(
+            Pedido.Status.AGUARDANDO_ANALISE,
+            Decimal("50.00"),
+            nome="Pedido antigo",
+        )
+        Pedido.objects.filter(id=aguardando_antigo.id).update(
+            criado_em=timezone.now() - timedelta(days=1)
+        )
+        confirmado = self.criar_pedido(
+            Pedido.Status.CONFIRMADO,
+            Decimal("200.00"),
+            nome="Entrega de hoje",
+        )
+        cancelado = self.criar_pedido(
+            Pedido.Status.CANCELADO,
+            Decimal("999.00"),
+            nome="Pedido cancelado",
+        )
+        inicio_proximo_mes = (
+            self.hoje.replace(day=28) + timedelta(days=4)
+        ).replace(day=1)
+        fora_do_mes = self.criar_pedido(
+            Pedido.Status.CONFIRMADO,
+            Decimal("500.00"),
+            inicio=inicio_proximo_mes,
+            nome="Pedido do proximo mes",
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["pedidos_aguardando_analise"],
+            {"total": 2, "novos_hoje": 1},
+        )
+        self.assertEqual(
+            response.data["unidades"],
+            {"em_locacao": 1, "total_operacionais": 3, "em_manutencao": 1},
+        )
+        self.assertEqual(response.data["entregas_hoje"], 1)
+        self.assertEqual(response.data["valor_pedidos_mes"]["total"], "350.00")
+        self.assertEqual(
+            [pedido["id"] for pedido in response.data["ultimos_pedidos"]],
+            [
+                fora_do_mes.id,
+                cancelado.id,
+                confirmado.id,
+                aguardando_novo.id,
+                aguardando_antigo.id,
+            ],
+        )
+        self.assertNotIn("endereco_entrega_snapshot", response.data["ultimos_pedidos"][0])
+
+    def test_admin_recebe_zeros_e_lista_vazia_sem_dados_operacionais(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["pedidos_aguardando_analise"],
+            {"total": 0, "novos_hoje": 0},
+        )
+        self.assertEqual(
+            response.data["unidades"],
+            {"em_locacao": 0, "total_operacionais": 0, "em_manutencao": 0},
+        )
+        self.assertEqual(response.data["entregas_hoje"], 0)
+        self.assertEqual(response.data["valor_pedidos_mes"]["total"], "0.00")
+        self.assertEqual(response.data["ultimos_pedidos"], [])
+
+
 class PedidoAdminAgendaAPITests(APITestCase):
     agenda_url = "/api/admin/agenda/"
 

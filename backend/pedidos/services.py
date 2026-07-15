@@ -1,8 +1,9 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch, Sum
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -1394,6 +1395,81 @@ class ReservaPedidoService:
             reservas_criadas,
             reservas_criadas,
         )
+
+
+class AdminDashboardService:
+    LIMITE_ULTIMOS_PEDIDOS = 5
+
+    @classmethod
+    def gerar(cls):
+        hoje = timezone.localdate()
+        inicio_mes = hoje.replace(day=1)
+        inicio_proximo_mes = (inicio_mes.replace(day=28) + timedelta(days=4)).replace(
+            day=1
+        )
+
+        pedidos_aguardando = Pedido.objects.filter(
+            status=Pedido.Status.AGUARDANDO_ANALISE
+        )
+        unidades_operacionais = UnidadeBrinquedo.objects.exclude(
+            status=UnidadeBrinquedo.Status.BAIXADA
+        )
+        pedidos_mes = Pedido.objects.filter(
+            data_inicio_locacao__gte=inicio_mes,
+            data_inicio_locacao__lt=inicio_proximo_mes,
+        ).exclude(status=Pedido.Status.CANCELADO)
+        valor_pedidos_mes = (
+            pedidos_mes.aggregate(total=Sum("total_estimado_snapshot"))["total"]
+            or Decimal("0.00")
+        )
+
+        aceite = AceiteContrato.objects.filter(pedido_id=OuterRef("pk"))
+        reservas_ativas = ReservaUnidade.objects.filter(
+            pedido_id=OuterRef("pk"),
+            status=ReservaUnidade.Status.ATIVA,
+        )
+        ultimos_pedidos = list(
+            Pedido.objects.select_related(
+                "cliente",
+                "cliente__user",
+                "usuario",
+            )
+            .annotate(
+                tem_aceite_contrato=Exists(aceite),
+                possui_reservas_ativas=Exists(reservas_ativas),
+                quantidade_itens=Count("itens", distinct=True),
+            )
+            .order_by("-criado_em", "-id")[: cls.LIMITE_ULTIMOS_PEDIDOS]
+        )
+
+        return {
+            "gerado_em": timezone.now(),
+            "pedidos_aguardando_analise": {
+                "total": pedidos_aguardando.count(),
+                "novos_hoje": pedidos_aguardando.filter(
+                    criado_em__date=hoje
+                ).count(),
+            },
+            "unidades": {
+                "em_locacao": unidades_operacionais.filter(
+                    status=UnidadeBrinquedo.Status.EM_LOCACAO
+                ).count(),
+                "total_operacionais": unidades_operacionais.count(),
+                "em_manutencao": unidades_operacionais.filter(
+                    status=UnidadeBrinquedo.Status.MANUTENCAO
+                ).count(),
+            },
+            "entregas_hoje": Pedido.objects.filter(
+                status=Pedido.Status.CONFIRMADO,
+                data_inicio_locacao=hoje,
+            ).count(),
+            "valor_pedidos_mes": {
+                "total": valor_pedidos_mes,
+                "inicio": inicio_mes,
+                "fim": inicio_proximo_mes - timedelta(days=1),
+            },
+            "ultimos_pedidos": ultimos_pedidos,
+        }
 
 
 class AgendaAdminService:

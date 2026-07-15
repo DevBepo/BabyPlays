@@ -174,14 +174,13 @@ export default function PedidosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Gestao de Pedidos</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Acompanhe as locacoes de brinquedos e kits.
           </p>
         </div>
-        <Button className="w-full sm:w-auto" variant="primary">Exportar relatorio</Button>
       </div>
 
       <form
