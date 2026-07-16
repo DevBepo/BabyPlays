@@ -152,6 +152,15 @@ function LoginForm() {
           required
         />
 
+        <div className="-mt-2 text-right">
+          <Link
+            href="/esqueci-senha"
+            className="text-sm font-bold text-[#AB2E97] underline decoration-[#AB2E97]/25 underline-offset-4 transition-colors hover:text-[#803233]"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
+
         <Button
           type="submit"
           fullWidth

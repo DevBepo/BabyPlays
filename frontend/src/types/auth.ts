@@ -45,6 +45,31 @@ export type UpdateMePayload = {
   email?: string;
 };
 
+export type ChangePasswordPayload = {
+  senha_atual: string;
+  nova_senha: string;
+  confirmacao_nova_senha: string;
+};
+
+export type ChangePasswordResponse = {
+  message: string;
+};
+
+export type RequestPasswordResetPayload = {
+  email: string;
+};
+
+export type ResetPasswordPayload = {
+  uid: string;
+  token: string;
+  nova_senha: string;
+  confirmacao_nova_senha: string;
+};
+
+export type PasswordResetResponse = {
+  message: string;
+};
+
 export type LogoutResponse = {
   message: string;
 };

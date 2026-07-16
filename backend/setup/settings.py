@@ -222,6 +222,37 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+PASSWORD_RESET_TIMEOUT = env_int("PASSWORD_RESET_TIMEOUT", 1800)
+PASSWORD_RESET_FRONTEND_URL = env_str(
+    "PASSWORD_RESET_FRONTEND_URL",
+    "http://127.0.0.1:3000" if DEBUG else "",
+).rstrip("/")
+if PASSWORD_RESET_FRONTEND_URL and not DEBUG and not PASSWORD_RESET_FRONTEND_URL.startswith(
+    "https://"
+):
+    raise ImproperlyConfigured(
+        "PASSWORD_RESET_FRONTEND_URL must use https:// when DEBUG=False."
+    )
+
+EMAIL_BACKEND = env_str(
+    "EMAIL_BACKEND",
+    (
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+)
+EMAIL_HOST = env_str("EMAIL_HOST")
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 10)
+EMAIL_HOST_USER = env_str("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    raise ImproperlyConfigured("EMAIL_USE_TLS and EMAIL_USE_SSL cannot both be true.")
+DEFAULT_FROM_EMAIL = env_str("DEFAULT_FROM_EMAIL", "BabyPlays <no-reply@babyplays.com.br>")
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -268,6 +299,15 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_THROTTLE_RATES": {
         "auth": env_str("DRF_THROTTLE_AUTH", "100/min"),
+        "password_reset_ip": env_str("DRF_THROTTLE_PASSWORD_RESET_IP", "5/hour"),
+        "password_reset_email": env_str(
+            "DRF_THROTTLE_PASSWORD_RESET_EMAIL",
+            "3/hour",
+        ),
+        "password_reset_confirm": env_str(
+            "DRF_THROTTLE_PASSWORD_RESET_CONFIRM",
+            "10/hour",
+        ),
         "cart": env_str("DRF_THROTTLE_CART", "300/min"),
         "checkout": env_str("DRF_THROTTLE_CHECKOUT", "100/min"),
         "delivery": env_str("DRF_THROTTLE_DELIVERY", "120/min"),

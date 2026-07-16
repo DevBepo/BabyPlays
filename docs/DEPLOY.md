@@ -74,6 +74,20 @@ CSRF_COOKIE_SECURE=True
 SESSION_COOKIE_SAMESITE=None
 CSRF_COOKIE_SAMESITE=None
 MEDIA_ROOT=/app/media
+DRF_THROTTLE_PASSWORD_RESET_IP=5/hour
+DRF_THROTTLE_PASSWORD_RESET_EMAIL=3/hour
+DRF_THROTTLE_PASSWORD_RESET_CONFIRM=10/hour
+PASSWORD_RESET_FRONTEND_URL=https://babyplays.up.railway.app
+PASSWORD_RESET_TIMEOUT=1800
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=<host-smtp>
+EMAIL_PORT=587
+EMAIL_TIMEOUT=10
+EMAIL_HOST_USER=<usuario-smtp>
+EMAIL_HOST_PASSWORD=<senha-smtp>
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+DEFAULT_FROM_EMAIL=BabyPlays <no-reply@dominio-validado>
 ```
 
 Notas:
@@ -82,6 +96,9 @@ Notas:
 - `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS` recebem origens completas com `https://`.
 - Enquanto o dominio final nao estiver validado, mantenha as URLs Railway necessarias para homologacao.
 - `MEDIA_ROOT` deve apontar para o caminho onde o volume persistente do backend esta montado.
+- As credenciais SMTP devem existir somente no Railway Variables. Valide SPF e DKIM no provedor de e-mail antes de liberar a recuperacao de senha.
+- `PASSWORD_RESET_FRONTEND_URL` deve usar HTTPS fora do ambiente local. Ao migrar o dominio, altere para `https://www.babyplays.com.br` e reinicie/reimplante o backend.
+- Use somente um modo SMTP: `EMAIL_USE_TLS=True` normalmente com porta 587, ou `EMAIL_USE_SSL=True` normalmente com porta 465.
 
 ### Media uploads no Railway
 

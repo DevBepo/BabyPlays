@@ -1,0 +1,9 @@
+Recebemos uma solicitacao para redefinir a senha da sua conta BabyPlays.
+
+Use o link abaixo. Ele expira em {{ tempo_expiracao_minutos }} minutos e pode ser usado apenas uma vez:
+
+{% autoescape off %}{{ link_recuperacao }}{% endautoescape %}
+
+Se voce nao fez essa solicitacao, ignore este e-mail. Sua senha nao sera alterada.
+
+Equipe BabyPlays

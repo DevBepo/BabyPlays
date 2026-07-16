@@ -75,7 +75,7 @@ Use estes dominios depois da validacao DNS.
 ## Autenticacao e carrinho
 
 - Autenticacao oficial usa sessao Django com CSRF, nao JWT.
-- Endpoints oficiais: `POST /api/auth/cadastro/`, `POST /api/auth/login/`, `POST /api/auth/logout/`, `GET /api/auth/me/` e `GET /api/auth/csrf/`.
+- Endpoints oficiais: `POST /api/auth/cadastro/`, `POST /api/auth/login/`, `POST /api/auth/logout/`, `GET/PATCH /api/auth/me/`, `POST /api/auth/senha/`, `POST /api/auth/esqueci-senha/`, `POST /api/auth/redefinir-senha/` e `GET /api/auth/csrf/`.
 - Visitante anonimo pode navegar e montar carrinho.
 - Carrinho anonimo usa `session_key`.
 - Apos login, carrinho da sessao e reaproveitado pelo usuario autenticado.

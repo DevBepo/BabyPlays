@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
-import { updateMe } from "@/services/auth";
+import { changePassword, updateMe } from "@/services/auth";
 import { listarMeusPedidos } from "@/services/pedidos";
 import type { ApiError } from "@/types/api";
 import type { PedidoCliente } from "@/types/pedidos";
@@ -64,6 +64,11 @@ function formatDate(value: string | null) {
 function getApiMessage(error: unknown, fallback: string) {
   const apiError = error as Partial<ApiError> | null;
   return apiError?.message || fallback;
+}
+
+function getFieldMessage(error: unknown, field: string) {
+  const apiError = error as Partial<ApiError> | null;
+  return apiError?.fieldErrors?.[field]?.[0];
 }
 
 function EmptyPanel({ title, message }: { title: string; message: string }) {
@@ -147,7 +152,13 @@ export default function MinhaContaPage() {
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<unknown>(null);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmacaoNovaSenha, setConfirmacaoNovaSenha] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<unknown>(null);
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([]);
   const [pedidosLoading, setPedidosLoading] = useState(false);
   const [pedidosError, setPedidosError] = useState<string | null>(null);
@@ -217,9 +228,32 @@ export default function MinhaContaPage() {
       setEmailDraft(null);
       setSaveMessage("Dados atualizados com sucesso.");
     } catch (error) {
-      setSaveError(getApiMessage(error, "Nao foi possivel atualizar seus dados agora."));
+      setSaveError(error);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePasswordSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordSaving(true);
+    setPasswordMessage(null);
+    setPasswordError(null);
+
+    try {
+      const response = await changePassword({
+        senha_atual: senhaAtual,
+        nova_senha: novaSenha,
+        confirmacao_nova_senha: confirmacaoNovaSenha,
+      });
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmacaoNovaSenha("");
+      setPasswordMessage(response.message);
+    } catch (error) {
+      setPasswordError(error);
+    } finally {
+      setPasswordSaving(false);
     }
   }
 
@@ -293,6 +327,7 @@ export default function MinhaContaPage() {
                       label="Nome"
                       value={nome}
                       onChange={(event) => setNomeDraft(event.target.value)}
+                      error={getFieldMessage(saveError, "nome")}
                       disabled={!hasCliente}
                       required={hasCliente}
                     />
@@ -301,6 +336,7 @@ export default function MinhaContaPage() {
                     label="Telefone"
                     value={telefone}
                     onChange={(event) => setTelefoneDraft(event.target.value)}
+                    error={getFieldMessage(saveError, "telefone")}
                     disabled={!hasCliente}
                     required={hasCliente}
                   />
@@ -309,12 +345,13 @@ export default function MinhaContaPage() {
                     type="email"
                     value={email}
                     onChange={(event) => setEmailDraft(event.target.value)}
+                    error={getFieldMessage(saveError, "email")}
                     required
                   />
 
                   {saveError ? (
                     <p role="alert" className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold text-[#803233] sm:col-span-2">
-                      {saveError}
+                      {getApiMessage(saveError, "Não foi possível atualizar seus dados agora.")}
                     </p>
                   ) : null}
                   {saveMessage ? (
@@ -331,22 +368,76 @@ export default function MinhaContaPage() {
                 </form>
               </Card>
 
-              <Card padding="lg" className="!rounded-3xl !border-[#FAB555]/35 shadow-sm shadow-[#803233]/5">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#F07F40]">Visão geral</p>
-                <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Resumo da conta</h2>
-                <div className="mt-5 space-y-4">
-                  <div className="rounded-2xl border border-[#76CFC8]/25 bg-[#E8F8F6]/70 p-4">
-                    <p className="text-xs font-semibold text-[#2C6F6A]">Pedidos e solicitações</p>
-                    <p className="mt-1 text-3xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{pedidos.length}</p>
+              <div className="space-y-6">
+                <Card padding="lg" className="!rounded-3xl !border-[#FAB555]/35 shadow-sm shadow-[#803233]/5">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#F07F40]">Visão geral</p>
+                  <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Resumo da conta</h2>
+                  <div className="mt-5 space-y-4">
+                    <div className="rounded-2xl border border-[#76CFC8]/25 bg-[#E8F8F6]/70 p-4">
+                      <p className="text-xs font-semibold text-[#2C6F6A]">Pedidos e solicitações</p>
+                      <p className="mt-1 text-3xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{pedidos.length}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#FAB555]/25 bg-[#FFF4DF]/75 p-4">
+                      <p className="text-xs font-semibold text-[#803233]/65">Último pedido</p>
+                      <p className="mt-1 text-sm font-bold text-[#2C1615]">
+                        {pedidosRecentes[0] ? `#${pedidosRecentes[0].id}` : "Nenhum ainda"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-2xl border border-[#FAB555]/25 bg-[#FFF4DF]/75 p-4">
-                    <p className="text-xs font-semibold text-[#803233]/65">Último pedido</p>
-                    <p className="mt-1 text-sm font-bold text-[#2C1615]">
-                      {pedidosRecentes[0] ? `#${pedidosRecentes[0].id}` : "Nenhum ainda"}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+
+                <Card padding="lg" className="!rounded-3xl !border-[#AB2E97]/12 shadow-sm shadow-[#803233]/5">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#AB2E97]">Segurança</p>
+                  <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Alterar senha</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#803233]/65">
+                    Confirme sua senha atual antes de escolher uma nova.
+                  </p>
+                  <form className="mt-5 space-y-4 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:border-[#803233]/20 [&_input]:focus:border-[#AB2E97] [&_input]:focus:ring-[#AB2E97] [&_label]:font-semibold [&_label]:text-[#2C1615]" onSubmit={handlePasswordSave}>
+                    <Input
+                      label="Senha atual"
+                      type="password"
+                      autoComplete="current-password"
+                      value={senhaAtual}
+                      onChange={(event) => setSenhaAtual(event.target.value)}
+                      error={getFieldMessage(passwordError, "senha_atual")}
+                      required
+                    />
+                    <Input
+                      label="Nova senha"
+                      type="password"
+                      autoComplete="new-password"
+                      value={novaSenha}
+                      onChange={(event) => setNovaSenha(event.target.value)}
+                      error={getFieldMessage(passwordError, "nova_senha")}
+                      required
+                    />
+                    <Input
+                      label="Confirmar nova senha"
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmacaoNovaSenha}
+                      onChange={(event) => setConfirmacaoNovaSenha(event.target.value)}
+                      error={getFieldMessage(passwordError, "confirmacao_nova_senha")}
+                      required
+                    />
+
+                    {passwordError ? (
+                      <p role="alert" className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold text-[#803233]">
+                        {getApiMessage(passwordError, "Não foi possível alterar sua senha agora.")}
+                      </p>
+                    ) : null}
+                    {passwordMessage ? (
+                      <p role="status" className="rounded-2xl border border-[#76CFC8]/40 bg-[#E8F8F6] px-4 py-3 text-sm font-semibold text-[#2C6F6A]">
+                        {passwordMessage}
+                      </p>
+                    ) : null}
+
+                    <Button type="submit" loading={passwordSaving} fullWidth className="!min-h-11 !rounded-xl !bg-[#AB2E97] !text-white hover:!bg-[#803233]">
+                      Alterar senha
+                    </Button>
+                  </form>
+                </Card>
+              </div>
             </div>
           ) : null}
 

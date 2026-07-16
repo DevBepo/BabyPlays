@@ -1,7 +1,10 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
 from .models import Cliente
@@ -97,6 +100,106 @@ class AtualizarAuthClienteSerializer(serializers.Serializer):
                 update_fields.append("atualizado_em")
                 cliente.save(update_fields=update_fields)
 
+        return user
+
+
+class AlterarSenhaSerializer(serializers.Serializer):
+    senha_atual = serializers.CharField(write_only=True, trim_whitespace=False)
+    nova_senha = serializers.CharField(write_only=True, trim_whitespace=False)
+    confirmacao_nova_senha = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+    )
+
+    def validate_senha_atual(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("A senha atual esta incorreta.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        nova_senha = attrs["nova_senha"]
+
+        if nova_senha != attrs["confirmacao_nova_senha"]:
+            raise serializers.ValidationError(
+                {"confirmacao_nova_senha": "A confirmacao da nova senha nao confere."}
+            )
+
+        try:
+            validate_password(nova_senha, user=self.context["request"].user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"nova_senha": exc.messages}) from exc
+
+        return attrs
+
+    def save(self):
+        user = self.context["request"].user
+        user.set_password(self.validated_data["nova_senha"])
+        user.save(update_fields=["password"])
+        return user
+
+
+class SolicitarRecuperacaoSenhaSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=150)
+
+    def validate_email(self, value):
+        return normalizar_email(value)
+
+
+class RedefinirSenhaSerializer(serializers.Serializer):
+    uid = serializers.CharField(max_length=256, trim_whitespace=True)
+    token = serializers.CharField(max_length=256, trim_whitespace=True)
+    nova_senha = serializers.CharField(write_only=True, trim_whitespace=False)
+    confirmacao_nova_senha = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+    )
+
+    default_error_messages = {
+        "invalid_link": "O link de recuperacao e invalido ou expirou.",
+    }
+
+    def _obter_usuario(self, uid):
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            return get_user_model().objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, get_user_model().DoesNotExist):
+            self.fail("invalid_link")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        user = self._obter_usuario(attrs["uid"])
+
+        if not default_token_generator.check_token(user, attrs["token"]):
+            self.fail("invalid_link")
+
+        if attrs["nova_senha"] != attrs["confirmacao_nova_senha"]:
+            raise serializers.ValidationError(
+                {"confirmacao_nova_senha": "A confirmacao da nova senha nao confere."}
+            )
+
+        try:
+            validate_password(attrs["nova_senha"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"nova_senha": exc.messages}) from exc
+
+        attrs["user"] = user
+        return attrs
+
+    @transaction.atomic
+    def save(self):
+        user = (
+            get_user_model()
+            .objects.select_for_update()
+            .get(pk=self.validated_data["user"].pk)
+        )
+
+        if not default_token_generator.check_token(user, self.validated_data["token"]):
+            self.fail("invalid_link")
+
+        user.set_password(self.validated_data["nova_senha"])
+        user.save(update_fields=["password"])
         return user
 
 

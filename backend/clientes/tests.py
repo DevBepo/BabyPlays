@@ -1,13 +1,18 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
-from datetime import timedelta
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from catalogo.models import Brinquedo, Categoria, UnidadeBrinquedo
 from pedidos.models import Carrinho, Contrato, Pedido
@@ -121,6 +126,7 @@ class ClienteAuthAPITests(APITestCase):
     login_url = "/api/auth/login/"
     logout_url = "/api/auth/logout/"
     me_url = "/api/auth/me/"
+    senha_url = "/api/auth/senha/"
     admin_me_url = "/api/admin/me/"
     csrf_url = "/api/auth/csrf/"
     token_url = "/api/token/"
@@ -479,6 +485,93 @@ class ClienteAuthAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("email", response.data)
 
+    def test_alterar_senha_atualiza_senha_e_mantem_sessao(self):
+        user, _ = self.criar_usuario_cliente()
+        self.login_cliente()
+
+        response = self.client.post(
+            self.senha_url,
+            {
+                "senha_atual": "SenhaForte123!",
+                "nova_senha": "NovaSenhaForte456!",
+                "confirmacao_nova_senha": "NovaSenhaForte456!",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(user.check_password("NovaSenhaForte456!"))
+        self.assertEqual(self.client.get(self.me_url).status_code, status.HTTP_200_OK)
+
+    def test_alterar_senha_rejeita_senha_atual_incorreta(self):
+        user, _ = self.criar_usuario_cliente()
+        self.login_cliente()
+
+        response = self.client.post(
+            self.senha_url,
+            {
+                "senha_atual": "SenhaErrada123!",
+                "nova_senha": "NovaSenhaForte456!",
+                "confirmacao_nova_senha": "NovaSenhaForte456!",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("senha_atual", response.data)
+        self.assertTrue(user.check_password("SenhaForte123!"))
+
+    def test_alterar_senha_rejeita_confirmacao_diferente(self):
+        self.criar_usuario_cliente()
+        self.login_cliente()
+
+        response = self.client.post(
+            self.senha_url,
+            {
+                "senha_atual": "SenhaForte123!",
+                "nova_senha": "NovaSenhaForte456!",
+                "confirmacao_nova_senha": "OutraSenhaForte789!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("confirmacao_nova_senha", response.data)
+
+    def test_alterar_senha_rejeita_nova_senha_fraca(self):
+        user, _ = self.criar_usuario_cliente()
+        self.login_cliente()
+
+        response = self.client.post(
+            self.senha_url,
+            {
+                "senha_atual": "SenhaForte123!",
+                "nova_senha": "12345678",
+                "confirmacao_nova_senha": "12345678",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("nova_senha", response.data)
+        self.assertTrue(user.check_password("SenhaForte123!"))
+
+    def test_alterar_senha_exige_login(self):
+        response = self.client.post(
+            self.senha_url,
+            {
+                "senha_atual": "SenhaForte123!",
+                "nova_senha": "NovaSenhaForte456!",
+                "confirmacao_nova_senha": "NovaSenhaForte456!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_admin_me_anonimo_negado_com_401(self):
         response = self.client.get(self.admin_me_url)
 
@@ -595,3 +688,228 @@ class ClienteAuthAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Pedido.objects.count(), 0)
+
+
+@override_settings(
+    DEBUG=True,
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    PASSWORD_RESET_FRONTEND_URL="https://babyplays.up.railway.app",
+    PASSWORD_RESET_TIMEOUT=1800,
+)
+class PasswordResetSecurityAPITests(APITestCase):
+    solicitar_url = "/api/auth/esqueci-senha/"
+    redefinir_url = "/api/auth/redefinir-senha/"
+    me_url = "/api/auth/me/"
+    csrf_url = "/api/auth/csrf/"
+    mensagem_generica = (
+        "Se o e-mail estiver cadastrado, voce recebera as instrucoes "
+        "para redefinir sua senha."
+    )
+
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username="cliente@email.com",
+            email="cliente@email.com",
+            password="SenhaForte123!",
+        )
+        Cliente.objects.create(
+            user=self.user,
+            nome="Cliente Teste",
+            telefone="11999999999",
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def credenciais(self, token=None):
+        return {
+            "uid": urlsafe_base64_encode(force_bytes(self.user.pk)),
+            "token": token or default_token_generator.make_token(self.user),
+            "nova_senha": "NovaSenhaForte456!",
+            "confirmacao_nova_senha": "NovaSenhaForte456!",
+        }
+
+    def test_solicitacao_envia_link_em_fragmento_para_conta_ativa(self):
+        response = self.client.post(
+            self.solicitar_url,
+            {"email": "CLIENTE@email.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], self.mensagem_generica)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(
+            "https://babyplays.up.railway.app/redefinir-senha#uid=",
+            mail.outbox[0].body,
+        )
+        self.assertIn("&token=", mail.outbox[0].body)
+        self.assertNotIn("?uid=", mail.outbox[0].body)
+
+    def test_solicitacao_nao_revela_se_email_existe(self):
+        existente = self.client.post(
+            self.solicitar_url,
+            {"email": "cliente@email.com"},
+            format="json",
+        )
+        inexistente = self.client.post(
+            self.solicitar_url,
+            {"email": "inexistente@email.com"},
+            format="json",
+        )
+
+        self.assertEqual(existente.status_code, status.HTTP_200_OK)
+        self.assertEqual(inexistente.status_code, status.HTTP_200_OK)
+        self.assertEqual(existente.data, inexistente.data)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_solicitacao_nao_envia_para_conta_inativa(self):
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+
+        response = self.client.post(
+            self.solicitar_url,
+            {"email": self.user.email},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], self.mensagem_generica)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_redefinicao_altera_senha_invalida_sessoes_e_token(self):
+        cliente_com_sessao_antiga = APIClient()
+        cliente_com_sessao_antiga.force_login(self.user)
+        payload = self.credenciais()
+
+        response = self.client.post(self.redefinir_url, payload, format="json")
+        reutilizacao = self.client.post(self.redefinir_url, payload, format="json")
+
+        self.user.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(self.user.check_password("NovaSenhaForte456!"))
+        self.assertEqual(reutilizacao.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            cliente_com_sessao_antiga.get(self.me_url).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_redefinicao_rejeita_token_expirado(self):
+        token = default_token_generator.make_token(self.user)
+        futuro = datetime.now() + timedelta(seconds=1801)
+
+        with patch.object(default_token_generator, "_now", return_value=futuro):
+            response = self.client.post(
+                self.redefinir_url,
+                self.credenciais(token),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(self.user.check_password("NovaSenhaForte456!"))
+
+    def test_redefinicao_rejeita_senha_fraca(self):
+        payload = self.credenciais()
+        payload["nova_senha"] = "12345678"
+        payload["confirmacao_nova_senha"] = "12345678"
+
+        response = self.client.post(self.redefinir_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("nova_senha", response.data)
+
+    def test_redefinicao_rejeita_token_invalido(self):
+        response = self.client.post(
+            self.redefinir_url,
+            self.credenciais("token-invalido"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(self.user.check_password("SenhaForte123!"))
+
+    def test_redefinicao_rejeita_confirmacao_diferente(self):
+        payload = self.credenciais()
+        payload["confirmacao_nova_senha"] = "OutraSenhaForte789!"
+
+        response = self.client.post(self.redefinir_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("confirmacao_nova_senha", response.data)
+        self.assertTrue(self.user.check_password("SenhaForte123!"))
+
+    def test_solicitacao_aplica_limite_por_email(self):
+        responses = [
+            self.client.post(
+                self.solicitar_url,
+                {"email": "inexistente@email.com"},
+                format="json",
+            )
+            for _ in range(4)
+        ]
+
+        self.assertEqual(
+            [response.status_code for response in responses[:3]],
+            [200, 200, 200],
+        )
+        self.assertEqual(responses[3].status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_solicitacao_aplica_limite_por_ip(self):
+        responses = [
+            self.client.post(
+                self.solicitar_url,
+                {"email": f"inexistente{indice}@email.com"},
+                format="json",
+            )
+            for indice in range(6)
+        ]
+
+        self.assertEqual(
+            [response.status_code for response in responses[:5]],
+            [200, 200, 200, 200, 200],
+        )
+        self.assertEqual(responses[5].status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_falha_no_envio_nao_revela_existencia_da_conta(self):
+        with patch("clientes.services.send_mail", side_effect=OSError("smtp indisponivel")):
+            with self.assertLogs("clientes.services", level="ERROR"):
+                response = self.client.post(
+                    self.solicitar_url,
+                    {"email": "cliente@email.com"},
+                    format="json",
+                )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], self.mensagem_generica)
+
+    def test_solicitacao_exige_csrf_mesmo_para_usuario_anonimo(self):
+        csrf_client = APIClient(enforce_csrf_checks=True)
+        csrf_response = csrf_client.get(self.csrf_url)
+        token = csrf_response.cookies["csrftoken"].value
+
+        sem_csrf = csrf_client.post(
+            self.solicitar_url,
+            {"email": "inexistente@email.com"},
+            format="json",
+        )
+        com_csrf = csrf_client.post(
+            self.solicitar_url,
+            {"email": "inexistente@email.com"},
+            format="json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(sem_csrf.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(com_csrf.status_code, status.HTTP_200_OK)
+
+    @override_settings(PASSWORD_RESET_FRONTEND_URL="")
+    def test_solicitacao_indisponivel_sem_url_segura_configurada(self):
+        response = self.client.post(
+            self.solicitar_url,
+            {"email": "cliente@email.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(len(mail.outbox), 0)
