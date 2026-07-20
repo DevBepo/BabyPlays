@@ -31,7 +31,7 @@ Se qualquer segredo real tiver sido exposto:
 2. Identifique arquivo, tipo de segredo, ambiente e periodo de exposicao.
 3. Rotacione o segredo no provedor responsavel.
 4. Revogue tokens, cookies ou sessoes associados quando aplicavel.
-5. Atualize Railway Variables ou provedor equivalente.
+5. Atualize o segredo no arquivo protegido da VPS ou no provedor responsavel.
 6. Rode os checks novamente.
 7. Documente internamente o incidente sem publicar detalhes exploraveis.
 

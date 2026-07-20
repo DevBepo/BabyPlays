@@ -23,6 +23,8 @@ Plataforma web para locacao de brinquedos e kits de festa. O projeto reune catal
 
 O diretorio `backend/` contem a API Django e os modulos de catalogo, clientes, pedidos e entregas. O diretorio `frontend/` contem a aplicacao Next.js. O frontend consome a API por HTTP e envia cookies de sessao; regras criticas de preco, frete, contrato e disponibilidade permanecem no backend.
 
+Na raiz, `docker-compose.vps.yml` e `infra/` descrevem a infraestrutura usada em producao. A documentacao operacional fica em `docs/`.
+
 ## Requisitos locais
 
 - Python compativel com Django 6.
@@ -93,15 +95,23 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
+## Producao
+
+A producao roda em uma VPS Ubuntu com `docker-compose.vps.yml`: PostgreSQL, Django/DRF com Gunicorn, Next.js e Nginx. A Cloudflare fornece DNS e proxy; o HTTPS entre a Cloudflare e a VPS usa um Cloudflare Origin Certificate instalado somente no servidor.
+
+O deploy e manual por SSH a partir da branch `main`: o desenvolvedor atualiza o repositorio e reconstroi apenas os containers necessarios. Nao existe CI/CD atualmente. O procedimento completo, as validacoes e o rollback estao em [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ## Seguranca e dados
 
-Segredos, arquivos `.env`, bancos locais, logs, uploads e artefatos de build nao sao versionados. Use variaveis protegidas do provedor para homologacao e producao. Dados reais de clientes e exports de producao nao fazem parte deste repositorio.
+Segredos, arquivos `.env`, bancos locais, logs, uploads e artefatos de build nao sao versionados. Em producao, os arquivos de ambiente protegidos existem somente na VPS. Dados reais de clientes e exports de producao nao fazem parte deste repositorio.
 
 Consulte [`SECURITY.md`](SECURITY.md) para reporte responsavel de vulnerabilidades, [`docs/OPEN_SOURCE_SECURITY.md`](docs/OPEN_SOURCE_SECURITY.md) para a checklist antes de tornar o repositorio publico, [`docs/PRIVACY_LGPD.md`](docs/PRIVACY_LGPD.md) para a politica tecnica preliminar de privacidade, [`docs/DEPLOY.md`](docs/DEPLOY.md) para configuracao de ambientes e [`docs/SECURITY_CHECKLIST.md`](docs/SECURITY_CHECKLIST.md) para controles de seguranca.
 
+Para entrar rapidamente no codigo, use [`docs/ONBOARDING.md`](docs/ONBOARDING.md). O ciclo operacional esta resumido em [`docs/FLUXO_LOCACAO.md`](docs/FLUXO_LOCACAO.md).
+
 ## Status
 
-Projeto em desenvolvimento e homologacao. Antes de qualquer publicacao, execute os checks do projeto e revise a configuracao do ambiente de destino.
+Projeto em operacao na VPS e em desenvolvimento continuo. Antes de cada deploy manual, execute os checks do projeto e revise a configuracao do ambiente de destino.
 
 ## Licenca
 

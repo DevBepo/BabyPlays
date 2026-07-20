@@ -34,4 +34,4 @@ Antes de publicar ou fazer deploy, execute os checks do projeto e revise vulnera
 
 ## Ambientes
 
-`DEBUG=True` e SQLite sao permitidos apenas no ambiente local. Railway, homologacao, producao e dominio final devem usar `DEBUG=False`, PostgreSQL via variavel de ambiente e cookies seguros.
+`DEBUG=True` e SQLite sao permitidos apenas no ambiente local. A producao na VPS deve usar `DEBUG=False`, PostgreSQL, variaveis protegidas fora do repositorio e cookies seguros.

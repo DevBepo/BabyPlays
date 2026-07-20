@@ -11,21 +11,9 @@ import { Textarea } from "@/components/ui/TextArea";
 import { criarAdminKitFesta, uploadImagensAdminKitFesta } from "@/services/adminKits";
 import { listarBrinquedos, listarUnidadesBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
-import type { ApiError, ApiFieldErrors } from "@/types/api";
+import { getApiFieldError, isApiError } from "@/lib/api-error";
+import type { ApiFieldErrors } from "@/types/api";
 import type { BrinquedoCatalogo, UnidadeBrinquedoAdmin } from "@/types/catalogo";
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
-  return fieldErrors?.[campo]?.join(" ");
-}
 
 export default function NovoKitFestaPage() {
   const router = useRouter();
@@ -210,18 +198,18 @@ export default function NovoKitFestaPage() {
             </h2>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <div>
-                <Input label="Nome *" placeholder="Ex: Kit Festa Safari" value={nome} onChange={(e) => setNome(e.target.value)} error={erroCampo(fieldErrors, "nome")} required />
+                <Input label="Nome *" placeholder="Ex: Kit Festa Safari" value={nome} onChange={(e) => setNome(e.target.value)} error={getApiFieldError(fieldErrors, "nome")} required />
               </div>
-              <Input label="Ordem de exibicao" type="number" step="1" min="0" value={ordem} onChange={(e) => setOrdem(e.target.value)} error={erroCampo(fieldErrors, "ordem")} />
+              <Input label="Ordem de exibicao" type="number" step="1" min="0" value={ordem} onChange={(e) => setOrdem(e.target.value)} error={getApiFieldError(fieldErrors, "ordem")} />
               
               <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 sm:grid-cols-2 md:col-span-2 sm:p-4 lg:grid-cols-3">
-                <Input label="Diaria (R$)" type="number" step="0.01" min="0" value={precoDiaria} onChange={(e) => setPrecoDiaria(e.target.value)} error={erroCampo(fieldErrors, "preco_diaria")} />
-                <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={preco15Dias} onChange={(e) => setPreco15Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_15_dias")} />
-                <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={preco30Dias} onChange={(e) => setPreco30Dias(e.target.value)} error={erroCampo(fieldErrors, "preco_30_dias")} />
+                <Input label="Diaria (R$)" type="number" step="0.01" min="0" value={precoDiaria} onChange={(e) => setPrecoDiaria(e.target.value)} error={getApiFieldError(fieldErrors, "preco_diaria")} />
+                <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={preco15Dias} onChange={(e) => setPreco15Dias(e.target.value)} error={getApiFieldError(fieldErrors, "preco_15_dias")} />
+                <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={preco30Dias} onChange={(e) => setPreco30Dias(e.target.value)} error={getApiFieldError(fieldErrors, "preco_30_dias")} />
               </div>
             </div>
             <div className="mt-6">
-              <Textarea label="Descricao completa *" rows={4} className="min-h-[112px] max-h-[320px] leading-6" placeholder="Descreva o tema, ocasiao indicada e principais itens..." value={descricao} onChange={(e) => setDescricao(e.target.value)} error={erroCampo(fieldErrors, "descricao")} required />
+              <Textarea label="Descricao completa *" rows={4} className="min-h-[112px] max-h-[320px] leading-6" placeholder="Descreva o tema, ocasiao indicada e principais itens..." value={descricao} onChange={(e) => setDescricao(e.target.value)} error={getApiFieldError(fieldErrors, "descricao")} required />
             </div>
           </section>
 

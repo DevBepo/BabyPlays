@@ -22,7 +22,8 @@ import {
 } from "@/services/adminKits";
 import { listarBrinquedos, listarUnidadesBrinquedo } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
-import type { ApiError, ApiFieldErrors } from "@/types/api";
+import { getApiFieldError, isApiError } from "@/lib/api-error";
+import type { ApiFieldErrors } from "@/types/api";
 import type { AdminKitFesta } from "@/types/adminKits";
 import type { BrinquedoCatalogo, UnidadeBrinquedoAdmin } from "@/types/catalogo";
 
@@ -45,19 +46,6 @@ const initialForm: KitFormState = {
   ativo: true,
   ordem: "0",
 };
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
-  return fieldErrors?.[campo]?.join(" ");
-}
 
 function formatarMoeda(valor: string): string {
   const numero = Number(valor);
@@ -396,18 +384,18 @@ export default function GestaoKitsPage() {
               <h2 className="mb-4 border-b border-zinc-100 pb-2 text-lg font-semibold text-zinc-800">1. Dados do Kit (Edição)</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <Input label="Nome *" value={form.nome} onChange={(e) => setForm((c) => ({ ...c, nome: e.target.value }))} error={erroCampo(fieldErrors, "nome")} required />
+                  <Input label="Nome *" value={form.nome} onChange={(e) => setForm((c) => ({ ...c, nome: e.target.value }))} error={getApiFieldError(fieldErrors, "nome")} required />
                 </div>
-                <Input label="Ordem" type="number" step="1" min="0" value={form.ordem} onChange={(e) => setForm((c) => ({ ...c, ordem: e.target.value }))} error={erroCampo(fieldErrors, "ordem")} />
+                <Input label="Ordem" type="number" step="1" min="0" value={form.ordem} onChange={(e) => setForm((c) => ({ ...c, ordem: e.target.value }))} error={getApiFieldError(fieldErrors, "ordem")} />
                 
                 <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 sm:grid-cols-2 md:col-span-2 sm:p-4 lg:grid-cols-3">
-                  <Input label="Diária (R$)" type="number" step="0.01" min="0" value={form.preco_diaria} onChange={(e) => setForm((c) => ({ ...c, preco_diaria: e.target.value }))} error={erroCampo(fieldErrors, "preco_diaria")} />
-                  <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={form.preco_15_dias} onChange={(e) => setForm((c) => ({ ...c, preco_15_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_15_dias")} />
-                  <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={form.preco_30_dias} onChange={(e) => setForm((c) => ({ ...c, preco_30_dias: e.target.value }))} error={erroCampo(fieldErrors, "preco_30_dias")} />
+                  <Input label="Diária (R$)" type="number" step="0.01" min="0" value={form.preco_diaria} onChange={(e) => setForm((c) => ({ ...c, preco_diaria: e.target.value }))} error={getApiFieldError(fieldErrors, "preco_diaria")} />
+                  <Input label="15 dias (R$)" type="number" step="0.01" min="0" value={form.preco_15_dias} onChange={(e) => setForm((c) => ({ ...c, preco_15_dias: e.target.value }))} error={getApiFieldError(fieldErrors, "preco_15_dias")} />
+                  <Input label="30 dias (R$)" type="number" step="0.01" min="0" value={form.preco_30_dias} onChange={(e) => setForm((c) => ({ ...c, preco_30_dias: e.target.value }))} error={getApiFieldError(fieldErrors, "preco_30_dias")} />
                 </div>
               </div>
               <div className="mt-6">
-                <Textarea label="Descrição do kit *" rows={4} className="min-h-[112px] max-h-[320px] leading-6" placeholder="Explique o tema, a ocasião e os principais itens do kit." value={form.descricao} onChange={(e) => setForm((c) => ({ ...c, descricao: e.target.value }))} error={erroCampo(fieldErrors, "descricao")} required />
+                <Textarea label="Descrição do kit *" rows={4} className="min-h-[112px] max-h-[320px] leading-6" placeholder="Explique o tema, a ocasião e os principais itens do kit." value={form.descricao} onChange={(e) => setForm((c) => ({ ...c, descricao: e.target.value }))} error={getApiFieldError(fieldErrors, "descricao")} required />
               </div>
             </section>
 

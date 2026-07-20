@@ -142,18 +142,17 @@ Referências:
 
 ## 11. Configuração de produção Django
 
-- [ ] `DEBUG=False` em Railway/homologacao/producao.
+- [ ] `DEBUG=False` em producao.
 - [ ] `DEBUG=True` usado somente em ambiente local.
 - [ ] `SECRET_KEY` vem de variavel de ambiente, nunca hardcoded.
 - [ ] `DATABASE_URL` vem de variavel de ambiente, nunca hardcoded.
-- [ ] Variaveis sensiveis ficam em Railway Variables ou provedor equivalente.
+- [ ] Variaveis sensiveis ficam nos arquivos protegidos da VPS e fora do repositorio.
 - [ ] `.env`, `.env.local` e secrets reais nao sao commitados.
 - [ ] `ALLOWED_HOSTS` configurado corretamente, com hosts sem `https://`.
 - [ ] `CSRF_TRUSTED_ORIGINS` configurado com origens completas usando `https://`.
 - [ ] `CORS_ALLOWED_ORIGINS` configurado com origens completas usando `https://`.
-- [ ] URLs locais, como `127.0.0.1`, nao aparecem em configuracao de Railway/homologacao/producao.
-- [ ] Railway/homologacao libera `https://babyplays.up.railway.app` em CSRF/CORS.
-- [ ] Dominio final libera `https://www.babyplays.com.br` e `https://babyplays.com.br` em CSRF/CORS.
+- [ ] URLs locais, como `127.0.0.1`, nao aparecem em configuracao publica de producao.
+- [ ] Producao libera `https://www.babyplays.com.br` e `https://babyplays.com.br` em CSRF/CORS.
 - [ ] Banco de produção não usa SQLite.
 - [ ] CORS restrito aos domínios reais.
 - [ ] HTTPS ativo.
@@ -187,10 +186,11 @@ Referências:
 - [ ] Somente portas necessárias abertas: 80, 443 e SSH.
 - [ ] SSH com senha desativada, se possível.
 - [ ] Nginx configurado como reverse proxy.
-- [ ] Gunicorn/Uvicorn rodando via systemd.
+- [ ] Django servido por Gunicorn no container `backend`.
+- [ ] Servicos gerenciados por `docker-compose.vps.yml` com politica de restart revisada.
 - [ ] Logs com rotação configurada.
-- [ ] Certificado HTTPS válido.
-- [ ] Renovação automática do certificado testada.
+- [ ] Cloudflare em modo `Full (strict)` e registros públicos em modo `Proxied`.
+- [ ] Cloudflare Origin Certificate válido e com expiração monitorada.
 - [ ] Variáveis de ambiente protegidas.
 - [ ] Banco não exposto publicamente.
 - [ ] Backups automáticos configurados.
@@ -235,10 +235,12 @@ Antes de aceitar uma tarefa crítica, verificar se existem testes para:
 - [ ] Todos os testes passam.
 - [ ] `python manage.py check --deploy` executado.
 - [ ] `DEBUG=False`.
-- [ ] Nenhuma URL local (`127.0.0.1` ou `localhost`) esta em variaveis de Railway/homologacao/producao.
+- [ ] Nenhuma URL local (`127.0.0.1` ou `localhost`) esta em configuracao publica de producao.
 - [ ] `NEXT_PUBLIC_API_BASE_URL` aponta para a API do ambiente correto.
 - [ ] Frontend recebeu redeploy apos mudanca em `NEXT_PUBLIC_API_BASE_URL`.
 - [ ] Backend recebeu restart/redeploy apos mudancas em variaveis de ambiente.
+- [ ] Deploy partiu da branch `main` e o commit publicado foi registrado operacionalmente.
+- [ ] Containers alterados foram reconstruidos manualmente; nao presumir CI/CD.
 - [ ] Domínio real configurado.
 - [ ] HTTPS ativo.
 - [ ] Backup configurado.

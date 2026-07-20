@@ -15,8 +15,7 @@ Stack:
 
 Ambientes:
 - Local: `127.0.0.1` apenas para desenvolvimento e testes locais.
-- Railway/homologacao: ambiente online atual.
-- Dominio final: ambiente planejado apos validacao DNS.
+- Producao: VPS Ubuntu com Docker Compose, Nginx e Cloudflare.
 
 Ambiente local:
 - Frontend: http://127.0.0.1:3000
@@ -24,19 +23,16 @@ Ambiente local:
 - `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`
 - `DEBUG=True` permitido apenas localmente.
 
-Ambiente Railway/homologacao:
-- Frontend: https://babyplays.up.railway.app
-- Backend/API: https://api-babyplays.up.railway.app
-- `NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app`
-- `DEBUG=False`
-- Backend deve liberar https://babyplays.up.railway.app em `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS`.
-
-Dominio final planejado:
+Ambiente de producao na VPS:
 - Frontend: https://www.babyplays.com.br
 - Backend/API: https://api.babyplays.com.br
 - `NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br`
+- `DEBUG=False`
 - Backend deve liberar https://www.babyplays.com.br e https://babyplays.com.br em `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS`.
-- Configuracao detalhada de variaveis e comandos Railway fica em docs/DEPLOY.md.
+- O arquivo principal e `docker-compose.vps.yml`, com PostgreSQL, Django/DRF via Gunicorn, Next.js e Nginx.
+- Cloudflare fornece DNS/proxy e o Origin Certificate fica instalado somente na VPS.
+- Deploy e manual por SSH na branch `main`; nao existe CI/CD atualmente.
+- Configuracao detalhada e comandos ficam em docs/DEPLOY.md.
 
 Regras:
 - Trabalhe em mudancas pequenas.
@@ -54,13 +50,13 @@ Regras:
 - Preco, frete e disponibilidade sao calculados no backend.
 
 Regras para Codex:
-- Se a tarefa mencionar Railway, deploy, producao, homologacao, DNS ou dominio, nao usar `127.0.0.1` como URL principal.
+- Se a tarefa mencionar deploy, producao, DNS ou dominio, nao usar `127.0.0.1` como URL principal.
 - `127.0.0.1` deve ser usado apenas para testes locais.
-- Nunca mudar `DEBUG` para `True` em Railway/homologacao/producao.
+- Nunca mudar `DEBUG` para `True` em producao.
 - Nunca hardcodar secrets, `DATABASE_URL`, `SECRET_KEY` ou URLs de producao no codigo.
-- Variaveis sensiveis devem vir do Railway Variables ou do provedor equivalente.
+- Variaveis sensiveis devem vir dos arquivos protegidos da VPS.
 - Nao commitar `.env`, `.env.local` ou secrets.
-- Nao colocar URLs locais em configuracao de Railway/homologacao/producao.
+- Nao colocar URLs locais em configuracao publica de producao.
 - `NEXT_PUBLIC_API_BASE_URL` no frontend precisa de redeploy quando alterado.
 - Mudancas em env de backend normalmente precisam restart/redeploy.
 - `ALLOWED_HOSTS` nao usa `https://`.

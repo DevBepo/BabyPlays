@@ -1,154 +1,163 @@
-# Deploy, Ambientes e Variaveis
+# Deploy de producao na VPS
 
-Este documento separa ambiente local, Railway/homologacao e dominio final. Use-o antes de qualquer tarefa sobre deploy, Railway, producao, homologacao, DNS, dominio ou variaveis de ambiente.
+Este e o documento principal da operacao de producao do BabyPlays. O ambiente atual roda em uma VPS Ubuntu com Docker Compose, usa a branch `main` e recebe deploy manual por SSH. Nao existe CI/CD atualmente.
 
-## Ambientes
+Railway nao faz parte do fluxo atual nem e o destino recomendado de deploy. O historico da migracao inicial foi preservado em [VPS_DEPLOY.md](VPS_DEPLOY.md).
 
-### Ambiente local
-
-Use apenas para desenvolvimento e testes locais.
-
-- Backend: http://127.0.0.1:8000
-- Frontend: http://127.0.0.1:3000
-- `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`
-- `DEBUG=True` permitido apenas localmente.
-- Comando backend: `python manage.py runserver 127.0.0.1:8000`
-- Comando frontend: `npm.cmd run dev -- -H 127.0.0.1`
-
-Nao misture `localhost` e `127.0.0.1` no mesmo fluxo local, porque autenticacao por Django sessions, CSRF e cookies depende do host.
-
-### Ambiente Railway/homologacao
-
-Railway e o ambiente online atual de homologacao.
-
-- Frontend: https://babyplays.up.railway.app
-- Backend/API: https://api-babyplays.up.railway.app
-- `NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app`
-- `DEBUG=False`
-- O backend deve liberar `https://babyplays.up.railway.app` em `CSRF_TRUSTED_ORIGINS`.
-- O backend deve liberar `https://babyplays.up.railway.app` em `CORS_ALLOWED_ORIGINS`.
-- Variaveis sensiveis devem vir de Railway Variables.
-- Nao colocar URLs locais em configuracao de Railway/homologacao.
-
-### Dominio final planejado
-
-Use depois da validacao DNS.
-
-- Frontend: https://www.babyplays.com.br
-- API: https://api.babyplays.com.br
-- `NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br`
-- O backend deve liberar `https://www.babyplays.com.br` e `https://babyplays.com.br` em `CSRF_TRUSTED_ORIGINS`.
-- O backend deve liberar `https://www.babyplays.com.br` e `https://babyplays.com.br` em `CORS_ALLOWED_ORIGINS`.
-
-## Regras para o Codex
-
-- Se a tarefa mencionar Railway, deploy, producao, homologacao, DNS ou dominio, nao usar `127.0.0.1` como URL principal.
-- `127.0.0.1` deve ser usado apenas para testes locais.
-- Nunca mudar `DEBUG` para `True` em ambiente Railway/homologacao/producao.
-- Nunca hardcodar secrets, `DATABASE_URL`, `SECRET_KEY` ou URLs de producao no codigo.
-- Variaveis de ambiente de producao devem ser configuradas no Railway Variables.
-- Nao commitar `.env`, `.env.local` ou secrets.
-- Nao colocar URLs locais em configuracao de producao.
-- `NEXT_PUBLIC_API_BASE_URL` no frontend precisa de redeploy quando alterado.
-- Mudancas em env de backend normalmente precisam restart/redeploy.
-- `ALLOWED_HOSTS` nao usa `https://`.
-- `CSRF_TRUSTED_ORIGINS` usa `https://`.
-- `CORS_ALLOWED_ORIGINS` usa `https://`.
-
-## Variaveis Railway
-
-### Backend
-
-Configure no Railway Variables do servico de backend:
-
-```env
-SECRET_KEY=<secret-key-segura>
-DEBUG=False
-DATABASE_URL=<database-url-do-railway>
-ALLOWED_HOSTS=api-babyplays.up.railway.app,api.babyplays.com.br
-CSRF_TRUSTED_ORIGINS=https://babyplays.up.railway.app,https://www.babyplays.com.br,https://babyplays.com.br
-CORS_ALLOWED_ORIGINS=https://babyplays.up.railway.app,https://www.babyplays.com.br,https://babyplays.com.br
-CORS_ALLOW_CREDENTIALS=True
-SESSION_COOKIE_SECURE=True
-CSRF_COOKIE_SECURE=True
-SESSION_COOKIE_SAMESITE=None
-CSRF_COOKIE_SAMESITE=None
-MEDIA_ROOT=/app/media
-DRF_THROTTLE_PASSWORD_RESET_IP=5/hour
-DRF_THROTTLE_PASSWORD_RESET_EMAIL=3/hour
-DRF_THROTTLE_PASSWORD_RESET_CONFIRM=10/hour
-PASSWORD_RESET_FRONTEND_URL=https://babyplays.up.railway.app
-PASSWORD_RESET_TIMEOUT=1800
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=<host-smtp>
-EMAIL_PORT=587
-EMAIL_TIMEOUT=10
-EMAIL_HOST_USER=<usuario-smtp>
-EMAIL_HOST_PASSWORD=<senha-smtp>
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=False
-DEFAULT_FROM_EMAIL=BabyPlays <no-reply@dominio-validado>
-```
-
-Notas:
-- `SECRET_KEY` e `DATABASE_URL` acima sao placeholders; nunca documentar ou commitar valores reais.
-- `ALLOWED_HOSTS` recebe apenas hosts, sem `https://`.
-- `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS` recebem origens completas com `https://`.
-- Enquanto o dominio final nao estiver validado, mantenha as URLs Railway necessarias para homologacao.
-- `MEDIA_ROOT` deve apontar para o caminho onde o volume persistente do backend esta montado.
-- As credenciais SMTP devem existir somente no Railway Variables. Valide SPF e DKIM no provedor de e-mail antes de liberar a recuperacao de senha.
-- `PASSWORD_RESET_FRONTEND_URL` deve usar HTTPS fora do ambiente local. Ao migrar o dominio, altere para `https://www.babyplays.com.br` e reinicie/reimplante o backend.
-- Use somente um modo SMTP: `EMAIL_USE_TLS=True` normalmente com porta 587, ou `EMAIL_USE_SSL=True` normalmente com porta 465.
-
-### Media uploads no Railway
-
-Uploads de imagens de brinquedos e Kits Festa usam o storage de filesystem do Django. No Railway, o filesystem do container e efemero, entao o servico de backend precisa de um volume persistente montado em:
+## Arquitetura de producao
 
 ```text
-/app/media
+Usuario
+  -> Cloudflare (DNS e proxy)
+  -> Nginx na VPS
+     -> Next.js (site e painel)
+     -> Django/DRF com Gunicorn (API)
+        -> PostgreSQL
 ```
 
-Configure tambem `MEDIA_ROOT=/app/media` no Railway Variables do backend. A aplicacao serve URLs `/media/...` pelo backend mesmo com `DEBUG=False`, lendo somente arquivos existentes dentro de `MEDIA_ROOT`, sem listar diretorios.
+O arquivo principal da infraestrutura e `docker-compose.vps.yml`, na raiz do repositorio. Ele define quatro servicos:
 
-Arquivos antigos que aparecem no banco mas nao existem mais no volume ou no container nao podem ser reconstruidos pela aplicacao. Essas imagens precisam ser reenviadas pelo admin depois que o volume estiver configurado.
+- `db`: PostgreSQL 17;
+- `backend`: Django/DRF servido por Gunicorn;
+- `frontend`: Next.js;
+- `nginx`: reverse proxy e ponto de entrada HTTP/HTTPS.
 
-### Frontend
+Os servicos compartilham a rede interna `babyplays_internal`. Somente o Nginx publica as portas `80` e `443`; o PostgreSQL nao e exposto publicamente.
 
-Configure no Railway Variables do servico de frontend:
+## Enderecos e HTTPS
 
-```env
-NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app
-NEXT_PUBLIC_BABYPLAYS_WHATSAPP=<numero-internacional-somente-digitos>
-NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL=<url-completa-do-instagram>
+- Site: `https://www.babyplays.com.br`;
+- raiz: `https://babyplays.com.br`;
+- API: `https://api.babyplays.com.br`.
+
+A Cloudflare gerencia DNS e proxy. Os registros publicos devem permanecer como `Proxied`, com SSL/TLS no modo `Full (strict)`. O Nginx usa um Cloudflare Origin Certificate instalado apenas na VPS e montado como somente leitura no container.
+
+O Origin Certificate nao deve ser versionado nem exposto. Ele nao e um certificado publico para acesso direto ao IP ou para registros em modo `DNS only`.
+
+## Arquivos e caminhos usados
+
+Os caminhos abaixo ja sao referenciados por `docker-compose.vps.yml` e pelos exemplos versionados:
+
+- repositorio: `/opt/babyplays/app`;
+- variaveis do backend: `/srv/babyplays/env/backend.env`;
+- variaveis do frontend: `/srv/babyplays/env/frontend.env`;
+- variaveis do PostgreSQL: `/srv/babyplays/env/postgres.env`;
+- dados do PostgreSQL: `/srv/babyplays/postgres`;
+- uploads: `/srv/babyplays/media`;
+- arquivos estaticos: `/srv/babyplays/static`;
+- certificados de origem: `/srv/babyplays/certs`;
+- backups: `/srv/babyplays/backups`;
+- logs: `/var/log/babyplays`.
+
+Os arquivos reais de ambiente, certificados, chaves e backups existem somente na VPS. Use `backend/.env.vps.example` e `frontend/.env.vps.example` como referencia sem copiar valores reais para o Git.
+
+## Regras de producao
+
+- Use sempre `DEBUG=False` e PostgreSQL.
+- Segredos devem vir dos arquivos protegidos em `/srv/babyplays/env`, nunca do codigo ou da documentacao.
+- `ALLOWED_HOSTS` recebe hosts sem protocolo.
+- `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS` recebem origens completas com `https://`.
+- `NEXT_PUBLIC_API_BASE_URL` deve apontar para `https://api.babyplays.com.br`.
+- Variaveis `NEXT_PUBLIC_*` sao incorporadas no build; alteracoes exigem reconstruir o frontend.
+- Alteracoes nas variaveis do backend exigem recriar ou reiniciar o container correspondente.
+- Nao use `127.0.0.1` como URL publica. Enderecos locais aparecem apenas em healthchecks internos e desenvolvimento local.
+
+## Deploy manual por SSH
+
+Antes de iniciar, confirme a janela operacional, o backup quando houver mudanca de banco e quais servicos foram alterados. O deploy nao e automatizado.
+
+Na VPS:
+
+```bash
+cd /opt/babyplays/app
+git status --short
+git fetch origin main
+git switch main
+git pull --ff-only origin main
 ```
 
-Quando migrar para o dominio final:
+Se `git status --short` mostrar alteracoes locais inesperadas, interrompa o deploy e investigue. Nao descarte arquivos da VPS automaticamente.
 
-```env
-NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br
-NEXT_PUBLIC_BABYPLAYS_WHATSAPP=<numero-internacional-somente-digitos>
-NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL=<url-completa-do-instagram>
+Reconstrua apenas o necessario:
+
+```bash
+# Backend alterado
+docker compose -f docker-compose.vps.yml build backend
+
+# Frontend alterado; o arquivo fornece os build args NEXT_PUBLIC_*
+docker compose --env-file /srv/babyplays/env/frontend.env -f docker-compose.vps.yml build frontend
 ```
 
-Alterar `NEXT_PUBLIC_API_BASE_URL` exige novo build/redeploy do frontend, porque a variavel e embutida no build Next.js.
+O Nginx usa uma imagem pronta e monta `infra/nginx/babyplays.conf`; uma mudanca somente nessa configuracao nao exige build. Depois de subir o Compose, valide a configuracao com o comando listado na secao de validacao.
 
-## Comandos Railway
+Suba ou recrie os servicos afetados:
 
-### Backend
+```bash
+docker compose -f docker-compose.vps.yml up -d
+```
 
-- Build Command: `python manage.py collectstatic --noinput`
-- Pre-deploy Command: `python manage.py migrate`
-- Start Command: `gunicorn setup.wsgi:application --bind 0.0.0.0:8000`
+Quando o backend incluir migrations novas, aplique-as de forma controlada:
 
-### Frontend
+```bash
+docker compose -f docker-compose.vps.yml exec backend python manage.py migrate
+```
 
-- Build Command: `npm run build`
-- Start Command: `npm run start -- -H 0.0.0.0 -p $PORT`
+Quando houver mudanca de arquivos estaticos do Django, execute:
 
-## Cuidados com arquivos locais
+```bash
+docker compose -f docker-compose.vps.yml exec backend python manage.py collectstatic --noinput
+```
 
-- Nao alterar `.env` real para documentar exemplos.
-- Nao commitar `.env` nem `.env.local`.
-- Use `.env.example` para exemplos sem secrets.
-- Exemplo local pode usar `127.0.0.1`.
-- Exemplo Railway deve usar placeholders e `DEBUG=False`.
+Nao coloque `migrate` ou `collectstatic` automaticamente no start dos containers.
+
+## Validacao depois do deploy
+
+Confira o estado dos quatro servicos:
+
+```bash
+docker compose -f docker-compose.vps.yml ps
+docker compose -f docker-compose.vps.yml exec backend python manage.py check
+docker compose -f docker-compose.vps.yml exec backend python manage.py check --deploy
+docker compose -f docker-compose.vps.yml exec nginx nginx -t
+```
+
+Valide tambem pelo acesso publico via Cloudflare:
+
+```bash
+curl -I https://www.babyplays.com.br/
+curl -I https://api.babyplays.com.br/api/auth/csrf/
+```
+
+Depois dos checks tecnicos, teste login, CSRF, catalogo, imagens, carrinho, checkout, contrato e painel administrativo conforme o escopo da mudanca.
+
+## Logs e diagnostico
+
+```bash
+docker compose -f docker-compose.vps.yml logs --tail=200 nginx
+docker compose -f docker-compose.vps.yml logs --tail=200 backend
+docker compose -f docker-compose.vps.yml logs --tail=200 frontend
+docker compose -f docker-compose.vps.yml logs --tail=200 db
+```
+
+Use `-f` somente quando precisar acompanhar os logs em tempo real. Nao copie para tickets ou documentacao linhas que contenham dados pessoais, cookies, tokens ou outros segredos.
+
+## Rollback e backups
+
+O rollback atual ocorre na propria VPS, voltando a uma revisao anterior conhecida e reconstruindo somente os servicos afetados. Railway nao e destino de rollback. Antes de qualquer rollback com mudanca de schema ou dados, preserve um backup e avalie a compatibilidade das migrations.
+
+Consulte [ROLLBACK.md](ROLLBACK.md) para o procedimento e [BACKUP_RESTORE.md](BACKUP_RESTORE.md) para backup e restauracao.
+
+## Ambiente local
+
+O ambiente local continua separado da producao:
+
+- frontend: `http://127.0.0.1:3000`;
+- backend: `http://127.0.0.1:8000`;
+- `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`;
+- `DEBUG=True` permitido somente localmente.
+
+Nao misture `localhost` e `127.0.0.1` no mesmo fluxo local, pois sessao, cookies e CSRF dependem do host.
+
+## Legado
+
+O projeto ja foi hospedado na Railway. URLs, variaveis e comandos daquele provedor nao descrevem a operacao atual e nao devem ser usados para novos deploys. Informacoes da fase de migracao que ainda ajudam a entender a preparacao original da VPS ficam isoladas em [VPS_DEPLOY.md](VPS_DEPLOY.md).

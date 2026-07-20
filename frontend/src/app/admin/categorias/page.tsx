@@ -15,7 +15,8 @@ import {
   excluirCategoria,
   listarCategorias,
 } from "@/services/catalogo";
-import type { ApiError, ApiFieldErrors } from "@/types/api";
+import { getApiFieldError, isApiError } from "@/lib/api-error";
+import type { ApiFieldErrors } from "@/types/api";
 import type { CategoriaCatalogo } from "@/types/catalogo";
 
 const FORM_INICIAL = {
@@ -23,19 +24,6 @@ const FORM_INICIAL = {
   descricao: "",
   ativo: true,
 };
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
-  return fieldErrors?.[campo]?.join(" ");
-}
 
 function slugSugerido(valor: string): string {
   return valor
@@ -259,7 +247,7 @@ export default function CategoriasAdminPage() {
               onChange={(event) =>
                 setForm((atual) => ({ ...atual, nome: event.target.value }))
               }
-              error={erroCampo(fieldErrors, "nome") || erroCampo(fieldErrors, "slug")}
+              error={getApiFieldError(fieldErrors, "nome") || getApiFieldError(fieldErrors, "slug")}
               required
             />
             <div className="flex items-center pt-2 sm:pt-7">
@@ -277,7 +265,7 @@ export default function CategoriasAdminPage() {
             onChange={(event) =>
               setForm((atual) => ({ ...atual, descricao: event.target.value }))
             }
-            error={erroCampo(fieldErrors, "descricao")}
+            error={getApiFieldError(fieldErrors, "descricao")}
             rows={4}
             className="min-h-[112px] max-h-[280px] leading-6"
           />

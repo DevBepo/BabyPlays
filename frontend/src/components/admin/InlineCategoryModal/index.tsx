@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Textarea } from "@/components/ui/TextArea";
+import { getApiFieldError, isApiError } from "@/lib/api-error";
 import { criarCategoria } from "@/services/catalogo";
-import type { ApiError, ApiFieldErrors } from "@/types/api";
+import type { ApiFieldErrors } from "@/types/api";
 import type { CategoriaCatalogo } from "@/types/catalogo";
 
 type InlineCategoryModalProps = {
@@ -15,19 +16,6 @@ type InlineCategoryModalProps = {
   onClose: () => void;
   onCreated: (categoria: CategoriaCatalogo) => void;
 };
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
-  return fieldErrors?.[campo]?.join(" ");
-}
 
 function gerarSlug(nome: string) {
   return nome
@@ -117,7 +105,7 @@ export function InlineCategoryModal({
           label="Nome *"
           value={nome}
           onChange={(event) => setNome(event.target.value)}
-          error={erroCampo(fieldErrors, "nome") || erroCampo(fieldErrors, "slug")}
+          error={getApiFieldError(fieldErrors, "nome") || getApiFieldError(fieldErrors, "slug")}
           required
         />
         <Textarea
@@ -125,7 +113,7 @@ export function InlineCategoryModal({
           rows={3}
           value={descricao}
           onChange={(event) => setDescricao(event.target.value)}
-          error={erroCampo(fieldErrors, "descricao")}
+          error={getApiFieldError(fieldErrors, "descricao")}
         />
 
         <div className="flex flex-col-reverse gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">

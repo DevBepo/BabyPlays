@@ -1,6 +1,6 @@
-# Deploy em VPS HostGator
+# Legado: preparacao inicial da VPS
 
-Este guia prepara a migracao do BabyPlays para a VPS Ubuntu 22.04.5 da HostGator sem desativar o Railway. O Railway deve permanecer disponivel como rollback ate a validacao completa da VPS.
+Este documento preserva o roteiro usado para preparar e validar inicialmente a VPS Ubuntu. Ele e historico e nao substitui o procedimento operacional atual em [DEPLOY.md](DEPLOY.md). A Railway deixou de ser ambiente oficial e nao e uma opcao recomendada de deploy ou rollback.
 
 ## Pre-requisitos ja feitos
 
@@ -245,7 +245,7 @@ docker compose -f docker-compose.vps.yml ps
 
 ## DNS
 
-Nao aponte DNS antes de validar containers, migrations, static/media, logs, HTTPS e fluxo principal. Enquanto a VPS nao estiver validada, mantenha o Railway ativo para rollback.
+Na migracao inicial, o DNS so foi apontado depois da validacao de containers, migrations, static/media, logs, HTTPS e fluxo principal. Hoje a Cloudflare ja direciona a producao para a VPS; use [DEPLOY.md](DEPLOY.md) para mudancas atuais e [ROLLBACK.md](ROLLBACK.md) para rollback.
 
 Durante a migracao inicial, o redirect de `babyplays.com.br` para `www.babyplays.com.br` fica como `302` temporario para evitar cache permanente nos navegadores e facilitar rollback. Troque para `301` somente depois da validacao completa de DNS, HTTPS, cookies e fluxo principal.
 

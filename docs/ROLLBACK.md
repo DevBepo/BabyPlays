@@ -1,40 +1,65 @@
-# Rollback da Migracao VPS
+# Rollback de producao na VPS
 
-O Railway continua sendo o ambiente de rollback ate a VPS ser validada em producao real. Nao desative servicos, volumes ou banco do Railway antes de uma janela operacional aprovada.
+O rollback atual acontece na propria VPS. Railway e as antigas URLs `*.railway.app` nao fazem parte do plano operacional atual.
 
-## Antes de aceitar dados reais na VPS
+## Principios
 
-Enquanto a VPS ainda nao recebeu dados novos de clientes, o rollback mais simples e manter ou devolver o DNS para o Railway:
+- Identifique a ultima revisao conhecida como estavel antes de alterar o servidor.
+- Preserve logs e faca backup antes de qualquer acao que possa afetar banco, uploads ou arquivos de ambiente.
+- Nao use `git reset --hard`, nao apague volumes e nao execute `docker compose down -v`.
+- Trate rollback de codigo e rollback de banco como operacoes diferentes.
+- Se a versao com problema aceitou dados reais, preserve esses dados antes de voltar a aplicacao.
 
-- frontend: `https://babyplays.up.railway.app`
-- backend/API: `https://api-babyplays.up.railway.app`
+## Procedimento preferencial
 
-No provedor de DNS, restaure os registros que apontavam para Railway e aguarde a propagacao conforme o TTL configurado.
+Reverta a mudanca com problema na branch `main` por meio de uma alteracao Git revisada. Depois que `main` voltar a representar uma versao segura, aplique o fluxo manual descrito em [DEPLOY.md](DEPLOY.md):
 
-## Depois de aceitar dados reais na VPS
+```bash
+cd /opt/babyplays/app
+git status --short
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+```
 
-Se clientes criarem pedidos, cadastros, uploads ou alteracoes na VPS, existe risco de divergencia entre o banco da VPS e o banco do Railway. Antes de voltar DNS para Railway, decida como tratar esses dados:
+Reconstrua apenas os containers afetados e suba novamente o Compose:
 
-- pausar escrita na VPS;
-- exportar dados novos, quando houver procedimento seguro;
-- comunicar janela de instabilidade se necessario;
-- preservar backups da VPS antes de qualquer tentativa de reconciliacao.
+```bash
+# Se o backend foi revertido
+docker compose -f docker-compose.vps.yml build backend
 
-Nao faca rollback destrutivo sem backup recente de PostgreSQL, media e envs.
+# Se o frontend foi revertido
+docker compose --env-file /srv/babyplays/env/frontend.env -f docker-compose.vps.yml build frontend
 
-## Criterios minimos para considerar VPS pronta
+docker compose -f docker-compose.vps.yml up -d
+```
 
-- `docker compose -f docker-compose.vps.yml ps` saudavel.
-- `python manage.py check --deploy` revisado.
-- Migrations aplicadas.
-- `collectstatic` executado e `/static/` servido corretamente.
-- `/media/` servido sem listagem de diretorio.
-- Login, CSRF, carrinho, checkout, contrato e admin validados.
-- HTTPS valido com renovacao testada.
-- Backups e restore testados.
-- Logs revisados sem segredos.
-- Railway ainda acessivel durante a janela de validacao.
+Se houver alteracao somente em `infra/nginx/babyplays.conf`, recrie o servico com `up -d` e valide com `nginx -t`; nao ha imagem local do Nginx para reconstruir.
 
-## Regra operacional
+## Banco de dados
 
-Nao remova Railway do plano ate pelo menos uma validacao completa do fluxo real, incluindo catalogo, carrinho, pedido, aceite de contrato, administracao, uploads e backups.
+Nao reverta migrations cegamente. Antes de qualquer mudanca de schema:
+
+1. confira se a versao anterior do codigo e compativel com o schema atual;
+2. gere e proteja um backup do PostgreSQL e de `media`;
+3. use uma migration reversa somente se ela tiver sido revisada e for segura para os dados atuais;
+4. use restore apenas como operacao planejada, sabendo que ele pode descartar dados criados depois do backup.
+
+O procedimento de backup e restore fica em [BACKUP_RESTORE.md](BACKUP_RESTORE.md).
+
+## Validacao
+
+```bash
+docker compose -f docker-compose.vps.yml ps
+docker compose -f docker-compose.vps.yml exec backend python manage.py check
+docker compose -f docker-compose.vps.yml exec backend python manage.py check --deploy
+docker compose -f docker-compose.vps.yml exec nginx nginx -t
+curl -I https://www.babyplays.com.br/
+curl -I https://api.babyplays.com.br/api/auth/csrf/
+```
+
+Valide tambem login, CSRF, catalogo, imagens, carrinho, checkout, contrato e admin conforme o impacto da mudanca. Revise os logs dos quatro servicos sem copiar segredos ou dados pessoais.
+
+## Legado
+
+Durante a migracao inicial, a Railway foi considerada um rollback temporario antes de a VPS aceitar dados reais. Essa estrategia encerrou quando a VPS se tornou o ambiente oficial de producao; voltar o DNS para a Railway nao e uma instrucao valida hoje.

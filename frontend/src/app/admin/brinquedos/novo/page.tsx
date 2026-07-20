@@ -12,21 +12,9 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/TextArea";
 import { criarBrinquedo, listarCategorias, uploadImagensBrinquedo } from "@/services/catalogo";
-import type { ApiError, ApiFieldErrors } from "@/types/api";
+import { getApiFieldError, isApiError } from "@/lib/api-error";
+import type { ApiFieldErrors } from "@/types/api";
 import type { CategoriaCatalogo } from "@/types/catalogo";
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
-  return fieldErrors?.[campo]?.join(" ");
-}
 
 export default function NovoBrinquedo() {
   const router = useRouter();
@@ -270,7 +258,7 @@ export default function NovoBrinquedo() {
                 placeholder="Ex: Cadeira de Balanco Fisher Price"
                 value={nome}
                 onChange={(event) => setNome(event.target.value)}
-                error={erroCampo(fieldErrors, "nome")}
+                error={getApiFieldError(fieldErrors, "nome")}
                 required
               />
 
@@ -281,7 +269,7 @@ export default function NovoBrinquedo() {
                   value={categoriaId}
                   onChange={(event) => setCategoriaId(event.target.value)}
                   disabled={categoriasLoading || categoriasOptions.length === 0}
-                  error={erroCampo(fieldErrors, "categoria")}
+                  error={getApiFieldError(fieldErrors, "categoria")}
                   required
                   placeholder={
                     categoriasLoading
@@ -318,7 +306,7 @@ export default function NovoBrinquedo() {
                 placeholder="0.00"
                 value={precoDiaria}
                 onChange={(event) => setPrecoDiaria(event.target.value)}
-                error={erroCampo(fieldErrors, "preco_diaria")}
+                error={getApiFieldError(fieldErrors, "preco_diaria")}
               />
 
               <Input
@@ -329,7 +317,7 @@ export default function NovoBrinquedo() {
                 placeholder="Deixe vazio se nao oferecer"
                 value={preco3Dias}
                 onChange={(event) => setPreco3Dias(event.target.value)}
-                error={erroCampo(fieldErrors, "preco_3_dias")}
+                error={getApiFieldError(fieldErrors, "preco_3_dias")}
               />
 
               <Input
@@ -340,7 +328,7 @@ export default function NovoBrinquedo() {
                 placeholder="0.00"
                 value={preco15Dias}
                 onChange={(event) => setPreco15Dias(event.target.value)}
-                error={erroCampo(fieldErrors, "preco_15_dias")}
+                error={getApiFieldError(fieldErrors, "preco_15_dias")}
               />
 
               <Input
@@ -351,7 +339,7 @@ export default function NovoBrinquedo() {
                 placeholder="0.00"
                 value={preco30Dias}
                 onChange={(event) => setPreco30Dias(event.target.value)}
-                error={erroCampo(fieldErrors, "preco_30_dias")}
+                error={getApiFieldError(fieldErrors, "preco_30_dias")}
               />
               </div>
             </div>
@@ -365,7 +353,7 @@ export default function NovoBrinquedo() {
             className="min-h-[112px] max-h-[320px] leading-6"
             value={descricao}
             onChange={(event) => setDescricao(event.target.value)}
-            error={erroCampo(fieldErrors, "descricao")}
+            error={getApiFieldError(fieldErrors, "descricao")}
             required
           />
           <p className="mt-2 text-xs leading-5 text-zinc-500">Use uma descricao curta e clara para explicar o brinquedo, idade recomendada e principais beneficios.</p>

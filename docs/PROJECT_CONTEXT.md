@@ -18,36 +18,28 @@ Use este ambiente somente para desenvolvimento e testes locais.
 - Nao alternar entre `localhost` e `127.0.0.1` no mesmo fluxo. Como a autenticacao usa Django sessions, CSRF e cookies, misturar hosts pode quebrar sessao, CSRF e login/admin.
 - Se existir `frontend/.env.local`, ele e arquivo local ignorado pelo Git; use-o apenas para refletir o padrao local acima.
 
-### Ambiente Railway/homologacao
+### Ambiente de producao na VPS
 
-Railway e o ambiente online atual de homologacao. Quando a tarefa mencionar Railway, deploy, homologacao, producao, DNS ou dominio, nao use `127.0.0.1` como URL principal.
+A producao roda em VPS Ubuntu com `docker-compose.vps.yml`. Os servicos sao PostgreSQL, Django/DRF com Gunicorn, Next.js e Nginx. Cloudflare fornece DNS e proxy, e o HTTPS ate a origem usa um Cloudflare Origin Certificate instalado somente na VPS.
 
-- Frontend Railway: https://babyplays.up.railway.app
-- Backend/API Railway: https://api-babyplays.up.railway.app
-- `NEXT_PUBLIC_API_BASE_URL=https://api-babyplays.up.railway.app`
-- `DEBUG=False`
-- O backend deve liberar o frontend Railway em `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS`.
-- Variaveis sensiveis devem ser configuradas em Railway Variables, nunca hardcoded.
-- Mudancas em variaveis do backend normalmente exigem restart/redeploy.
-- Mudancas em `NEXT_PUBLIC_API_BASE_URL` no frontend exigem redeploy do frontend.
-
-### Dominio final planejado
-
-Use estes dominios depois da validacao DNS.
-
-- Frontend final: https://www.babyplays.com.br
-- API final: https://api.babyplays.com.br
+- Frontend: https://www.babyplays.com.br
+- API: https://api.babyplays.com.br
 - `NEXT_PUBLIC_API_BASE_URL=https://api.babyplays.com.br`
+- `DEBUG=False`
 - O backend deve liberar `https://www.babyplays.com.br` e `https://babyplays.com.br` em `CSRF_TRUSTED_ORIGINS` e `CORS_ALLOWED_ORIGINS`.
 - `ALLOWED_HOSTS` deve conter hosts sem protocolo, por exemplo `api.babyplays.com.br`.
+- Variaveis sensiveis ficam em arquivos protegidos na VPS, nunca hardcoded ou versionados.
+- O deploy e manual por SSH, usa a branch `main` e nao possui CI/CD.
+- Mudancas em variaveis do backend normalmente exigem recriar ou reiniciar o container.
+- Mudancas em `NEXT_PUBLIC_API_BASE_URL` exigem reconstruir o frontend.
 
 ## Regras para o Codex
 
-- Se a tarefa mencionar Railway, deploy, producao, homologacao, DNS ou dominio, nao usar `127.0.0.1` como URL principal.
+- Se a tarefa mencionar deploy, producao, DNS ou dominio, nao usar `127.0.0.1` como URL principal.
 - `127.0.0.1` deve ser usado apenas para testes locais.
-- Nunca mudar `DEBUG` para `True` em Railway/homologacao/producao.
+- Nunca mudar `DEBUG` para `True` em producao.
 - Nunca hardcodar secrets, `DATABASE_URL`, `SECRET_KEY` ou URLs de producao no codigo.
-- Variaveis de ambiente de producao devem ser configuradas no Railway Variables.
+- Variaveis de ambiente de producao devem ficar nos arquivos protegidos da VPS descritos em `docs/DEPLOY.md`.
 - Nao commitar `.env`, `.env.local` ou secrets.
 - Nao colocar URLs locais em configuracao de producao.
 - `NEXT_PUBLIC_API_BASE_URL` no frontend precisa de redeploy quando alterado.
@@ -55,6 +47,10 @@ Use estes dominios depois da validacao DNS.
 - `ALLOWED_HOSTS` nao usa `https://`.
 - `CSRF_TRUSTED_ORIGINS` usa `https://`.
 - `CORS_ALLOWED_ORIGINS` usa `https://`.
+
+### Legado
+
+Railway foi usada antes da VPS. Ela nao descreve o ambiente oficial atual nem deve ser usada como destino recomendado de deploy ou rollback.
 
 ## Funcionalidades principais
 

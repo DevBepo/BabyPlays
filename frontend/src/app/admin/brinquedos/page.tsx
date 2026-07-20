@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 
+import { BrinquedoAdminCard } from "@/components/admin/BrinquedoAdminCard";
+import { BrinquedoAdminFilters } from "@/components/admin/BrinquedoAdminFilters";
 import { Badge } from "@/components/ui/Badge";
 import { InlineCategoryModal } from "@/components/admin/InlineCategoryModal";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +27,12 @@ import {
   uploadImagensBrinquedo,
 } from "@/services/catalogo";
 import { resolveMediaUrl } from "@/lib/media-url";
-import type { ApiError, ApiFieldErrors } from "@/types/api";
+import { getApiFieldError, isApiError } from "@/lib/api-error";
+import {
+  statusAdministrativo,
+  type StatusCatalogoFiltro,
+} from "@/lib/admin-brinquedos";
+import type { ApiFieldErrors } from "@/types/api";
 import type {
   BrinquedoCatalogo,
   CategoriaCatalogo,
@@ -44,16 +50,7 @@ const STATUS_UNIDADE_OPTIONS = [
   { value: "baixada", label: "Baixada" },
 ];
 
-const STATUS_CATALOGO_OPTIONS = [
-  { value: "todos", label: "Todos" },
-  { value: "disponivel", label: "Disponiveis" },
-  { value: "alugado", label: "Alugados" },
-  { value: "oculto", label: "Ocultos / desativados" },
-];
-
 const QUANTIDADE_INICIAL = 12;
-
-type StatusCatalogoFiltro = "todos" | "disponivel" | "alugado" | "oculto";
 
 type BrinquedoFormState = {
   nome: string;
@@ -77,32 +74,6 @@ const initialForm: BrinquedoFormState = {
   ativo: true,
 };
 
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function erroCampo(fieldErrors: ApiFieldErrors | undefined, campo: string) {
-  return fieldErrors?.[campo]?.join(" ");
-}
-
-function formatarMoeda(valor: string): string {
-  const numero = Number(valor);
-
-  if (Number.isNaN(numero)) {
-    return "R$ 0,00";
-  }
-
-  return numero.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
 function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
   return {
     nome: brinquedo.nome,
@@ -122,16 +93,6 @@ function normalizarBusca(valor: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR")
     .trim();
-}
-
-function statusAdministrativo(brinquedo: BrinquedoCatalogo) {
-  if (brinquedo.ativo === false) {
-    return "oculto";
-  }
-  if (brinquedo.status_catalogo === "disponivel") {
-    return "disponivel";
-  }
-  return "alugado";
 }
 
 export default function ListaBrinquedosAdmin() {
@@ -653,7 +614,7 @@ export default function ListaBrinquedosAdmin() {
                 onChange={(event) =>
                   setForm((current) => ({ ...current, nome: event.target.value }))
                 }
-                error={erroCampo(fieldErrors, "nome")}
+                error={getApiFieldError(fieldErrors, "nome")}
                 required
               />
               <div className="flex flex-col gap-2">
@@ -668,7 +629,7 @@ export default function ListaBrinquedosAdmin() {
                     }))
                   }
                   disabled={categoriasOptions.length === 0}
-                  error={erroCampo(fieldErrors, "categoria")}
+                  error={getApiFieldError(fieldErrors, "categoria")}
                   required
                   placeholder={
                     categoriasOptions.length === 0
@@ -705,7 +666,7 @@ export default function ListaBrinquedosAdmin() {
                     preco_diaria: event.target.value,
                   }))
                 }
-                error={erroCampo(fieldErrors, "preco_diaria")}
+                error={getApiFieldError(fieldErrors, "preco_diaria")}
               />
               <Input
                 label="3 dias (R$)"
@@ -719,7 +680,7 @@ export default function ListaBrinquedosAdmin() {
                     preco_3_dias: event.target.value,
                   }))
                 }
-                error={erroCampo(fieldErrors, "preco_3_dias")}
+                error={getApiFieldError(fieldErrors, "preco_3_dias")}
               />
               <Input
                 label="15 dias (R$)"
@@ -733,7 +694,7 @@ export default function ListaBrinquedosAdmin() {
                     preco_15_dias: event.target.value,
                   }))
                 }
-                error={erroCampo(fieldErrors, "preco_15_dias")}
+                error={getApiFieldError(fieldErrors, "preco_15_dias")}
               />
               <Input
                 label="30 dias (R$)"
@@ -747,7 +708,7 @@ export default function ListaBrinquedosAdmin() {
                     preco_30_dias: event.target.value,
                   }))
                 }
-                error={erroCampo(fieldErrors, "preco_30_dias")}
+                error={getApiFieldError(fieldErrors, "preco_30_dias")}
               />
               </div>
             </div>
@@ -765,7 +726,7 @@ export default function ListaBrinquedosAdmin() {
                   descricao: event.target.value,
                 }))
               }
-              error={erroCampo(fieldErrors, "descricao")}
+              error={getApiFieldError(fieldErrors, "descricao")}
               required
             />
             <p className="mt-2 text-xs leading-5 text-zinc-500">Use uma descricao curta e clara para explicar o brinquedo, idade recomendada e principais beneficios.</p>
@@ -911,7 +872,7 @@ export default function ListaBrinquedosAdmin() {
                     label="Codigo da unidade"
                     value={unidadeCodigo}
                     onChange={(event) => setUnidadeCodigo(event.target.value)}
-                    error={erroCampo(unidadesFieldErrors, "codigo")}
+                    error={getApiFieldError(unidadesFieldErrors, "codigo")}
                     placeholder="Ex: UNI-001"
                   />
                   <Button
@@ -1017,64 +978,28 @@ export default function ListaBrinquedosAdmin() {
       ) : null}
 
       <section className="flex flex-col gap-5" aria-labelledby="lista-brinquedos-titulo">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="grid gap-4 lg:grid-cols-[minmax(260px,1.4fr)_minmax(200px,0.8fr)_minmax(200px,0.8fr)_auto] lg:items-end">
-            <Input
-              label="Buscar brinquedo"
-              type="search"
-              value={busca}
-              placeholder="Digite o nome do brinquedo"
-              onChange={(event) => {
-                setBusca(event.target.value);
-                setQuantidadeVisivel(QUANTIDADE_INICIAL);
-              }}
-            />
-            <Select
-              label="Categoria"
-              value={categoriaFiltro}
-              options={categoriasFiltroOptions}
-              onChange={(event) => {
-                setCategoriaFiltro(event.target.value);
-                setQuantidadeVisivel(QUANTIDADE_INICIAL);
-              }}
-            />
-            <Select
-              label="Status"
-              value={statusFiltro}
-              options={STATUS_CATALOGO_OPTIONS}
-              onChange={(event) => {
-                setStatusFiltro(event.target.value as StatusCatalogoFiltro);
-                setQuantidadeVisivel(QUANTIDADE_INICIAL);
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!temFiltros}
-              onClick={limparFiltros}
-              className="h-[46px] whitespace-nowrap"
-            >
-              Limpar filtros
-            </Button>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-4">
-            <div>
-              <h2 id="lista-brinquedos-titulo" className="text-base font-semibold text-zinc-900">
-                Catálogo administrativo
-              </h2>
-              <p className="mt-0.5 text-sm text-zinc-500" aria-live="polite">
-                {brinquedosFiltrados.length} de {brinquedosOrdenados.length} brinquedo(s)
-              </p>
-            </div>
-            {temFiltros ? (
-              <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
-                Filtros ativos
-              </span>
-            ) : null}
-          </div>
-        </div>
+        <BrinquedoAdminFilters
+          busca={busca}
+          categoria={categoriaFiltro}
+          categorias={categoriasFiltroOptions}
+          status={statusFiltro}
+          totalFiltrado={brinquedosFiltrados.length}
+          total={brinquedosOrdenados.length}
+          temFiltros={temFiltros}
+          onBuscaChange={(value) => {
+            setBusca(value);
+            setQuantidadeVisivel(QUANTIDADE_INICIAL);
+          }}
+          onCategoriaChange={(value) => {
+            setCategoriaFiltro(value);
+            setQuantidadeVisivel(QUANTIDADE_INICIAL);
+          }}
+          onStatusChange={(value) => {
+            setStatusFiltro(value);
+            setQuantidadeVisivel(QUANTIDADE_INICIAL);
+          }}
+          onClear={limparFiltros}
+        />
 
         {loading ? (
           <div className="grid gap-4" aria-label="Carregando catálogo de brinquedos">
@@ -1109,140 +1034,18 @@ export default function ListaBrinquedosAdmin() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {brinquedosVisiveis.map((brinquedo) => {
-              const imagemUrl = resolveMediaUrl(brinquedo.imagem_principal?.url);
-              const statusAtual = statusAdministrativo(brinquedo);
-              const estaAlterando = brinquedoAlterandoStatus === brinquedo.id;
-
-              return (
-                <article
-                  key={brinquedo.id}
-                  className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <div className="grid gap-0 md:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_250px]">
-                    <div className="relative min-h-48 overflow-hidden border-b border-zinc-100 bg-zinc-50 md:min-h-full md:border-b-0 md:border-r">
-                      {imagemUrl ? (
-                        <Image
-                          src={imagemUrl}
-                          alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
-                          fill
-                          className="object-contain p-3"
-                          sizes="(max-width: 768px) 100vw, 210px"
-                        />
-                      ) : (
-                        <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-zinc-400">
-                          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl shadow-sm" aria-hidden="true">
-                            ◇
-                          </span>
-                          <span className="text-xs font-medium">Sem imagem</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 p-5">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                            {brinquedo.categoria?.nome ?? "Sem categoria"}
-                          </p>
-                          <h3 className="mt-1 text-xl font-bold leading-tight text-zinc-900">
-                            {brinquedo.nome}
-                          </h3>
-                        </div>
-                        {statusAtual === "disponivel" ? (
-                          <Badge variant="success">Disponível</Badge>
-                        ) : statusAtual === "oculto" ? (
-                          <Badge variant="default">Oculto</Badge>
-                        ) : (
-                          <Badge variant="warning">Alugado</Badge>
-                        )}
-                      </div>
-
-                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">
-                        {brinquedo.descricao || "Sem descrição cadastrada."}
-                      </p>
-
-                      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-5">
-                        <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Unidades fisicas</p>
-                          <p className="mt-1 text-base font-bold text-zinc-900">
-                            {brinquedo.total_unidades ?? brinquedo.quantidade_disponivel ?? 0}
-                          </p>
-                          <p className="text-[11px] text-zinc-500">
-                            {brinquedo.quantidade_disponivel ?? 0} avulsa(s)
-                            {(brinquedo.unidades_dedicadas_kits ?? 0) > 0
-                              ? ` · ${brinquedo.unidades_dedicadas_kits} em kit(s)`
-                              : ""}
-                          </p>
-                        </div>
-                        {[
-                          ["Diária", brinquedo.preco_diaria],
-                          ["3 dias", brinquedo.preco_3_dias],
-                          ["15 dias", brinquedo.preco_15_dias],
-                          ["30 dias", brinquedo.preco_30_dias],
-                        ].filter(([, valor]) => valor && Number(valor) > 0).map(([label, valor]) => (
-                          <div key={label} className="rounded-xl bg-zinc-50 px-3 py-2.5">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
-                            <p className="mt-1 whitespace-nowrap text-sm font-bold text-zinc-900">
-                              {valor ? formatarMoeda(valor) : "—"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-between gap-4 border-t border-zinc-100 bg-zinc-50/60 p-4 md:col-start-2 xl:col-start-auto xl:border-l xl:border-t-0">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Ações</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1">
-                          <Button type="button" size="sm" variant="outline" onClick={() => abrirEdicao(brinquedo)}>
-                            Editar
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => abrirEdicao(brinquedo, "unidades-brinquedo")}
-                          >
-                            Unidades
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-200 pt-3 text-xs font-semibold">
-                        {brinquedo.ativo !== false ? (
-                          <button
-                            type="button"
-                            disabled={estaAlterando}
-                            onClick={() => void handleAlternarStatusBrinquedo(brinquedo)}
-                            className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-50"
-                          >
-                            Ocultar
-                          </button>
-                        ) : null}
-                        {brinquedo.ativo !== false ? (
-                          <Link
-                            href={`/brinquedos/${brinquedo.id}`}
-                            target="_blank"
-                            className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-teal-700 transition-colors hover:bg-teal-50 hover:text-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
-                          >
-                            Ver na loja
-                          </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          disabled={estaAlterando || brinquedoRemovendo === brinquedo.id}
-                          onClick={() => void handleRemoverBrinquedo(brinquedo)}
-                          className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
-                        >
-                          {brinquedoRemovendo === brinquedo.id ? "Removendo..." : "Remover"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            {brinquedosVisiveis.map((brinquedo) => (
+              <BrinquedoAdminCard
+                key={brinquedo.id}
+                brinquedo={brinquedo}
+                alterandoStatus={brinquedoAlterandoStatus === brinquedo.id}
+                removendo={brinquedoRemovendo === brinquedo.id}
+                onEdit={() => abrirEdicao(brinquedo)}
+                onManageUnits={() => abrirEdicao(brinquedo, "unidades-brinquedo")}
+                onToggleStatus={() => void handleAlternarStatusBrinquedo(brinquedo)}
+                onRemove={() => void handleRemoverBrinquedo(brinquedo)}
+              />
+            ))}
 
             {quantidadeVisivel < brinquedosFiltrados.length ? (
               <div className="flex flex-col items-center gap-2 py-3">
