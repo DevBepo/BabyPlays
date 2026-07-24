@@ -467,6 +467,51 @@ class ClienteAuthAPITests(APITestCase):
         self.assertEqual(response.data["user"]["email"], "cliente-atualizado@email.com")
         self.assertEqual(response.data["cliente"]["nome"], "Cliente Atualizado")
 
+    def test_me_patch_cria_perfil_da_propria_conta_quando_ainda_nao_existe(self):
+        user = self.criar_usuario_sem_cliente(
+            username="admin",
+            email="admin@email.com",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.patch(
+            self.me_url,
+            {
+                "nome": "Jonas Lima",
+                "telefone": "11999998888",
+                "email": "jonas@email.com",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        cliente = Cliente.objects.get(user=user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(user.email, "jonas@email.com")
+        self.assertEqual(cliente.nome, "Jonas Lima")
+        self.assertEqual(cliente.telefone, "11999998888")
+        self.assertEqual(response.data["cliente"]["id"], cliente.id)
+        self.assertEqual(response.data["cliente"]["nome"], "Jonas Lima")
+
+    def test_me_patch_exige_nome_e_telefone_para_criar_perfil(self):
+        user = self.criar_usuario_sem_cliente(
+            username="admin",
+            email="admin@email.com",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.patch(
+            self.me_url,
+            {"nome": "Jonas Lima"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("telefone", response.data)
+        self.assertFalse(Cliente.objects.filter(user=user).exists())
+
     def test_me_patch_bloqueia_email_ja_usado(self):
         self.criar_usuario_cliente()
         get_user_model().objects.create_user(

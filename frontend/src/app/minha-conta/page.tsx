@@ -163,7 +163,6 @@ export default function MinhaContaPage() {
   const [pedidosLoading, setPedidosLoading] = useState(false);
   const [pedidosError, setPedidosError] = useState<string | null>(null);
 
-  const hasCliente = Boolean(cliente);
   const pedidosRecentes = useMemo(() => pedidos.slice(0, 3), [pedidos]);
   const nome = nomeDraft ?? cliente?.nome ?? "";
   const telefone = telefoneDraft ?? cliente?.telefone ?? "";
@@ -220,7 +219,8 @@ export default function MinhaContaPage() {
     try {
       await updateMe({
         email,
-        ...(hasCliente ? { nome, telefone } : {}),
+        nome,
+        telefone,
       });
       await refreshMe();
       setNomeDraft(null);
@@ -328,8 +328,7 @@ export default function MinhaContaPage() {
                       value={nome}
                       onChange={(event) => setNomeDraft(event.target.value)}
                       error={getFieldMessage(saveError, "nome")}
-                      disabled={!hasCliente}
-                      required={hasCliente}
+                      required
                     />
                   </div>
                   <Input
@@ -337,8 +336,7 @@ export default function MinhaContaPage() {
                     value={telefone}
                     onChange={(event) => setTelefoneDraft(event.target.value)}
                     error={getFieldMessage(saveError, "telefone")}
-                    disabled={!hasCliente}
-                    required={hasCliente}
+                    required
                   />
                   <Input
                     label="E-mail"
@@ -368,76 +366,84 @@ export default function MinhaContaPage() {
                 </form>
               </Card>
 
-              <div className="space-y-6">
-                <Card padding="lg" className="!rounded-3xl !border-[#FAB555]/35 shadow-sm shadow-[#803233]/5">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#F07F40]">Visão geral</p>
-                  <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Resumo da conta</h2>
-                  <div className="mt-5 space-y-4">
-                    <div className="rounded-2xl border border-[#76CFC8]/25 bg-[#E8F8F6]/70 p-4">
-                      <p className="text-xs font-semibold text-[#2C6F6A]">Pedidos e solicitações</p>
-                      <p className="mt-1 text-3xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{pedidos.length}</p>
-                    </div>
-                    <div className="rounded-2xl border border-[#FAB555]/25 bg-[#FFF4DF]/75 p-4">
-                      <p className="text-xs font-semibold text-[#803233]/65">Último pedido</p>
-                      <p className="mt-1 text-sm font-bold text-[#2C1615]">
-                        {pedidosRecentes[0] ? `#${pedidosRecentes[0].id}` : "Nenhum ainda"}
-                      </p>
-                    </div>
+              <Card padding="lg" className="!rounded-3xl !border-[#FAB555]/35 shadow-sm shadow-[#803233]/5">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#F07F40]">Visão geral</p>
+                <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Resumo da conta</h2>
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-2xl border border-[#76CFC8]/25 bg-[#E8F8F6]/70 p-4">
+                    <p className="text-xs font-semibold text-[#2C6F6A]">Pedidos e solicitações</p>
+                    <p className="mt-1 text-3xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">{pedidos.length}</p>
                   </div>
-                </Card>
+                  <div className="rounded-2xl border border-[#FAB555]/25 bg-[#FFF4DF]/75 p-4">
+                    <p className="text-xs font-semibold text-[#803233]/65">Último pedido</p>
+                    <p className="mt-1 text-sm font-bold text-[#2C1615]">
+                      {pedidosRecentes[0] ? `#${pedidosRecentes[0].id}` : "Nenhum ainda"}
+                    </p>
+                  </div>
+                </div>
+              </Card>
 
-                <Card padding="lg" className="!rounded-3xl !border-[#AB2E97]/12 shadow-sm shadow-[#803233]/5">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#AB2E97]">Segurança</p>
-                  <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Alterar senha</h2>
-                  <p className="mt-2 text-sm leading-6 text-[#803233]/65">
-                    Confirme sua senha atual antes de escolher uma nova.
+              <Card padding="lg" className="!rounded-3xl !border-[#AB2E97]/12 shadow-sm shadow-[#803233]/5 lg:col-span-2">
+                <div className="lg:flex lg:items-end lg:justify-between lg:gap-8">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#AB2E97]">Segurança</p>
+                    <h2 className="mt-1 text-xl font-bold text-[#2C1615] [font-family:var(--font-fredoka)]">Alterar senha</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[#803233]/65">
+                      Confirme sua senha atual antes de escolher uma nova.
+                    </p>
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-[#803233]/55 lg:mt-0">
+                    Use uma senha longa e diferente das demais.
                   </p>
-                  <form className="mt-5 space-y-4 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:border-[#803233]/20 [&_input]:focus:border-[#AB2E97] [&_input]:focus:ring-[#AB2E97] [&_label]:font-semibold [&_label]:text-[#2C1615]" onSubmit={handlePasswordSave}>
-                    <Input
-                      label="Senha atual"
-                      type="password"
-                      autoComplete="current-password"
-                      value={senhaAtual}
-                      onChange={(event) => setSenhaAtual(event.target.value)}
-                      error={getFieldMessage(passwordError, "senha_atual")}
-                      required
-                    />
-                    <Input
-                      label="Nova senha"
-                      type="password"
-                      autoComplete="new-password"
-                      value={novaSenha}
-                      onChange={(event) => setNovaSenha(event.target.value)}
-                      error={getFieldMessage(passwordError, "nova_senha")}
-                      required
-                    />
-                    <Input
-                      label="Confirmar nova senha"
-                      type="password"
-                      autoComplete="new-password"
-                      value={confirmacaoNovaSenha}
-                      onChange={(event) => setConfirmacaoNovaSenha(event.target.value)}
-                      error={getFieldMessage(passwordError, "confirmacao_nova_senha")}
-                      required
-                    />
+                </div>
 
-                    {passwordError ? (
-                      <p role="alert" className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold text-[#803233]">
-                        {getApiMessage(passwordError, "Não foi possível alterar sua senha agora.")}
-                      </p>
-                    ) : null}
-                    {passwordMessage ? (
-                      <p role="status" className="rounded-2xl border border-[#76CFC8]/40 bg-[#E8F8F6] px-4 py-3 text-sm font-semibold text-[#2C6F6A]">
-                        {passwordMessage}
-                      </p>
-                    ) : null}
+                <form className="mt-6 grid gap-4 md:grid-cols-3 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:border-[#803233]/20 [&_input]:focus:border-[#AB2E97] [&_input]:focus:ring-[#AB2E97] [&_label]:font-semibold [&_label]:text-[#2C1615]" onSubmit={handlePasswordSave}>
+                  <Input
+                    label="Senha atual"
+                    type="password"
+                    autoComplete="current-password"
+                    value={senhaAtual}
+                    onChange={(event) => setSenhaAtual(event.target.value)}
+                    error={getFieldMessage(passwordError, "senha_atual")}
+                    required
+                  />
+                  <Input
+                    label="Nova senha"
+                    type="password"
+                    autoComplete="new-password"
+                    value={novaSenha}
+                    onChange={(event) => setNovaSenha(event.target.value)}
+                    error={getFieldMessage(passwordError, "nova_senha")}
+                    required
+                  />
+                  <Input
+                    label="Confirmar nova senha"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmacaoNovaSenha}
+                    onChange={(event) => setConfirmacaoNovaSenha(event.target.value)}
+                    error={getFieldMessage(passwordError, "confirmacao_nova_senha")}
+                    required
+                  />
 
-                    <Button type="submit" loading={passwordSaving} fullWidth className="!min-h-11 !rounded-xl !bg-[#AB2E97] !text-white hover:!bg-[#803233]">
+                  {passwordError ? (
+                    <p role="alert" className="rounded-2xl border border-[#EA524B]/30 bg-[#FDECEB] px-4 py-3 text-sm font-semibold text-[#803233] md:col-span-3">
+                      {getApiMessage(passwordError, "Não foi possível alterar sua senha agora.")}
+                    </p>
+                  ) : null}
+                  {passwordMessage ? (
+                    <p role="status" className="rounded-2xl border border-[#76CFC8]/40 bg-[#E8F8F6] px-4 py-3 text-sm font-semibold text-[#2C6F6A] md:col-span-3">
+                      {passwordMessage}
+                    </p>
+                  ) : null}
+
+                  <div className="md:col-span-3">
+                    <Button type="submit" loading={passwordSaving} className="!min-h-11 !rounded-xl !bg-[#AB2E97] !px-8 !text-white hover:!bg-[#803233]">
                       Alterar senha
                     </Button>
-                  </form>
-                </Card>
-              </div>
+                  </div>
+                </form>
+              </Card>
             </div>
           ) : null}
 

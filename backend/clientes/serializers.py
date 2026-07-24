@@ -62,14 +62,17 @@ class AtualizarAuthClienteSerializer(serializers.Serializer):
         attrs = super().validate(attrs)
         user = self.context["request"].user
 
-        if not hasattr(user, "cliente") and {"nome", "telefone"}.intersection(attrs):
-            raise serializers.ValidationError(
-                {
-                    "detail": (
-                        "Somente contas de cliente podem alterar nome e telefone."
-                    )
-                }
-            )
+        if not hasattr(user, "cliente"):
+            dados_pessoais_enviados = {"nome", "telefone"}.intersection(attrs)
+            campos_ausentes = {"nome", "telefone"}.difference(attrs)
+
+            if dados_pessoais_enviados and campos_ausentes:
+                raise serializers.ValidationError(
+                    {
+                        campo: "Informe nome e telefone para completar seu cadastro."
+                        for campo in campos_ausentes
+                    }
+                )
 
         return attrs
 
@@ -85,7 +88,14 @@ class AtualizarAuthClienteSerializer(serializers.Serializer):
             user.save(update_fields=["email", "username"])
 
         cliente = getattr(user, "cliente", None)
-        if cliente:
+        if cliente is None and {"nome", "telefone"}.issubset(validated_data):
+            cliente = Cliente.objects.create(
+                user=user,
+                nome=validated_data["nome"],
+                telefone=validated_data["telefone"],
+            )
+            user.cliente = cliente
+        elif cliente:
             update_fields = []
 
             if "nome" in validated_data:
