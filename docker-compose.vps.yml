@@ -34,7 +34,7 @@ services:
     networks:
       - babyplays_internal
     healthcheck:
-      test: ["CMD-SHELL", "python - <<'PY'\nimport urllib.request\nrequest = urllib.request.Request('http://127.0.0.1:8000/api/auth/csrf/', headers={'Host': 'api.babyplays.com.br'})\nurllib.request.urlopen(request, timeout=5).read()\nPY"]
+      test: ["CMD-SHELL", "python - <<'PY'\nimport urllib.request\nrequest = urllib.request.Request('http://127.0.0.1:8000/api/auth/csrf/', headers={'Host': 'api.babyplays.com.br', 'X-Forwarded-Proto': 'https'})\nurllib.request.urlopen(request, timeout=5).read()\nPY"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -49,7 +49,7 @@ services:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api.babyplays.com.br}
         NEXT_PUBLIC_BABYPLAYS_WHATSAPP: ${NEXT_PUBLIC_BABYPLAYS_WHATSAPP:-}
         NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL: ${NEXT_PUBLIC_BABYPLAYS_INSTAGRAM_URL:-}
-        FRONTEND_HSTS_SECONDS: ${FRONTEND_HSTS_SECONDS:-0}
+        FRONTEND_HSTS_SECONDS: ${FRONTEND_HSTS_SECONDS:-31536000}
     restart: unless-stopped
     env_file:
       - /srv/babyplays/env/frontend.env
@@ -85,7 +85,7 @@ services:
     networks:
       - babyplays_internal
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/nginx-health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5

@@ -324,6 +324,7 @@ CSRF_COOKIE_SAMESITE = env_str("CSRF_COOKIE_SAMESITE", "Lax" if DEBUG else "None
 # The production Nginx proxy forwards `X-Forwarded-Proto: https`.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
 
 # HSTS is enabled only outside local DEBUG and is emitted for secure requests.
 # Subdomains and preload stay disabled until every final-domain subdomain has

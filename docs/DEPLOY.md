@@ -32,6 +32,10 @@ Os servicos compartilham a rede interna `babyplays_internal`. Somente o Nginx pu
 
 A Cloudflare gerencia DNS e proxy. Os registros publicos devem permanecer como `Proxied`, com SSL/TLS no modo `Full (strict)`. O Nginx usa um Cloudflare Origin Certificate instalado apenas na VPS e montado como somente leitura no container.
 
+Os tres hosts publicos redirecionam HTTP para HTTPS com status `308`, preservando
+metodo e corpo de requisicoes da API. HSTS usa `max-age=31536000` sem
+`includeSubDomains` e sem `preload`.
+
 O Origin Certificate nao deve ser versionado nem exposto. Ele nao e um certificado publico para acesso direto ao IP ou para registros em modo `DNS only`.
 
 ## Arquivos e caminhos usados
