@@ -63,6 +63,8 @@ export function ProductCard({
   const router = useRouter();
   const [adicionando, setAdicionando] = useState(false);
   const [registrandoInteresse, setRegistrandoInteresse] = useState(false);
+  const [interesseRegistrado, setInteresseRegistrado] = useState(false);
+  const [erroInteresse, setErroInteresse] = useState(false);
   const [periodoSelecionado, setPeriodoSelecionado] =
     useState<PeriodoLocacao>("15_dias");
   const adicionandoRef = useRef(false);
@@ -108,12 +110,14 @@ export function ProductCard({
       router.push(`/login?redirect=/brinquedos/${id}`);
       return;
     }
+    setErroInteresse(false);
     setRegistrandoInteresse(true);
     try {
       await criarInteresseDisponibilidade(id);
-      alert("Interesse registrado. A BabyPlays entrara em contato pelo seu WhatsApp.");
+      setInteresseRegistrado(true);
     } catch (error) {
-      alert(getCartErrorMessage(error));
+      console.error("Erro ao registrar interesse:", error);
+      setErroInteresse(true);
     } finally {
       setRegistrandoInteresse(false);
     }
@@ -230,10 +234,16 @@ export function ProductCard({
             <button
               type="button"
               onClick={handleInteresse}
-              disabled={registrandoInteresse}
+              disabled={registrandoInteresse || interesseRegistrado}
               className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-[#AB2E97]/25 bg-[#F7EAF5] px-4 text-sm font-bold text-[#AB2E97] transition-colors hover:bg-[#FFF4DF] disabled:opacity-60 sm:h-10 [font-family:var(--font-fredoka)]"
             >
-              {registrandoInteresse ? "Registrando..." : "Avise-me quando disponivel"}
+              {registrandoInteresse
+                ? "Registrando..."
+                : interesseRegistrado
+                  ? "Iremos avisar você com antecedência!"
+                  : erroInteresse
+                    ? "Não foi possível. Tente novamente"
+                    : "Avise-me quando disponível"}
             </button>
           )}
         </div>

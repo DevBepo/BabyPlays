@@ -99,7 +99,7 @@ export function atualizarInteresseAdmin(
 export type CriarBrinquedoPayload = {
   nome: string;
   descricao: string;
-  categoria?: number;
+  categoria?: number | null;
   preco_diaria?: string | number | null;
   preco_3_dias?: string | number | null;
   preco_15_dias?: string | number | null;

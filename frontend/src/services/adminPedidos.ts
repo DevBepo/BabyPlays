@@ -4,6 +4,7 @@ import type {
   AdminPedidoDetail,
   AdminPedidosListParams,
   AdminPedidosPaginatedResponse,
+  AdminPedidoManualPayload,
 } from "@/types/adminPedidos";
 
 function buildQueryString(params: AdminPedidosListParams = {}) {
@@ -35,6 +36,22 @@ export function listarPedidosAdmin(
 
 export function obterAdminPedido(id: number | string): Promise<AdminPedidoDetail> {
   return apiGet<AdminPedidoDetail>(`/api/admin/pedidos/${id}/`);
+}
+
+export function criarPedidoManualAdmin(
+  dados: AdminPedidoManualPayload,
+): Promise<AdminPedidoDetail> {
+  return apiPost<AdminPedidoDetail>("/api/admin/pedidos/", dados);
+}
+
+export function atualizarPedidoManualAdmin(
+  id: number | string,
+  dados: AdminPedidoManualPayload,
+): Promise<AdminPedidoDetail> {
+  return apiPatch<AdminPedidoDetail>(`/api/admin/pedidos/${id}/`, {
+    ...dados,
+    modo: "manual",
+  });
 }
 
 export function reservarUnidadesAdminPedido(

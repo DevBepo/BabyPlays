@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -1096,11 +1096,11 @@ class ReservaPedidoService:
             raise serializers.ValidationError(
                 {"status": "Pedido em status nao reservavel."}
             )
-        if not pedido.data_inicio_locacao or not pedido.data_fim_locacao:
-            raise serializers.ValidationError(
-                {"periodo": "Pedido sem periodo de locacao definido."}
-            )
-        if pedido.data_fim_locacao <= pedido.data_inicio_locacao:
+        if (
+            pedido.data_inicio_locacao
+            and pedido.data_fim_locacao
+            and pedido.data_fim_locacao <= pedido.data_inicio_locacao
+        ):
             raise serializers.ValidationError(
                 {"data_fim_locacao": "Periodo de locacao invalido."}
             )
@@ -1271,26 +1271,42 @@ class ReservaPedidoService:
                 dedicacao_kit__item_kit__kit_id=kit_festa_id,
                 dedicacao_kit__item_kit__kit__ativo=True,
             )
-        unidades = list(
-            queryset
-            .exclude(
-                reservas__status=ReservaUnidade.Status.ATIVA,
-                reservas__data_inicio__lt=data_fim,
-                reservas__data_fim__gt=data_inicio,
+        if data_inicio and data_fim:
+            queryset = queryset.exclude(
+                Q(
+                    reservas__status=ReservaUnidade.Status.ATIVA,
+                    reservas__data_inicio__isnull=True,
+                )
+                | Q(
+                    reservas__status=ReservaUnidade.Status.ATIVA,
+                    reservas__data_fim__isnull=True,
+                )
+                | Q(
+                    reservas__status=ReservaUnidade.Status.ATIVA,
+                    reservas__data_inicio__lt=data_fim,
+                    reservas__data_fim__gt=data_inicio,
+                )
             )
-            .distinct()
-            .order_by("id")
-        )
+        else:
+            queryset = queryset.exclude(
+                reservas__status=ReservaUnidade.Status.ATIVA
+            )
+        unidades = list(queryset.distinct().order_by("id"))
         if not unidades:
             return []
 
+        bloqueios = ReservaUnidade.objects.filter(
+            unidade_brinquedo_id__in=[unidade.id for unidade in unidades],
+            status=ReservaUnidade.Status.ATIVA,
+        )
+        if data_inicio and data_fim:
+            bloqueios = bloqueios.filter(
+                Q(data_inicio__isnull=True)
+                | Q(data_fim__isnull=True)
+                | Q(data_inicio__lt=data_fim, data_fim__gt=data_inicio)
+            )
         unidade_ids_bloqueadas = set(
-            ReservaUnidade.objects.filter(
-                unidade_brinquedo_id__in=[unidade.id for unidade in unidades],
-                status=ReservaUnidade.Status.ATIVA,
-                data_inicio__lt=data_fim,
-                data_fim__gt=data_inicio,
-            ).values_list("unidade_brinquedo_id", flat=True)
+            bloqueios.values_list("unidade_brinquedo_id", flat=True)
         )
         return [
             unidade
@@ -1466,12 +1482,14 @@ class AdminDashboardService:
 
 
 class AgendaAdminService:
+    EVENTO_AGUARDANDO_ANALISE = "aguardando_analise"
     EVENTO_ENTREGA = "entrega"
     EVENTO_RETIRADA = "retirada"
     EVENTO_CONTRATO_PENDENTE = "contrato_pendente"
     EVENTO_LOCACAO_EM_ANDAMENTO = "locacao_em_andamento"
 
     TIPOS_EVENTO = (
+        EVENTO_AGUARDANDO_ANALISE,
         EVENTO_ENTREGA,
         EVENTO_RETIRADA,
         EVENTO_CONTRATO_PENDENTE,
@@ -1479,6 +1497,7 @@ class AgendaAdminService:
     )
 
     LABELS = {
+        EVENTO_AGUARDANDO_ANALISE: "Aguardando analise",
         EVENTO_ENTREGA: "Entrega",
         EVENTO_RETIRADA: "Retirada",
         EVENTO_CONTRATO_PENDENTE: "Contrato pendente",
@@ -1486,6 +1505,7 @@ class AgendaAdminService:
     }
 
     ORDEM_TIPOS = {
+        EVENTO_AGUARDANDO_ANALISE: 0,
         EVENTO_ENTREGA: 1,
         EVENTO_RETIRADA: 2,
         EVENTO_CONTRATO_PENDENTE: 3,
@@ -1497,6 +1517,8 @@ class AgendaAdminService:
         tipos = tuple(tipos or cls.TIPOS_EVENTO)
         eventos = []
 
+        if cls.EVENTO_AGUARDANDO_ANALISE in tipos:
+            eventos.extend(cls._eventos_aguardando_analise(inicio, fim, status))
         if cls.EVENTO_ENTREGA in tipos:
             eventos.extend(cls._eventos_entrega(inicio, fim, status))
         if cls.EVENTO_RETIRADA in tipos:
@@ -1568,6 +1590,23 @@ class AgendaAdminService:
         queryset = cls._filtrar_status(queryset, status)
         return [
             cls._montar_evento(pedido, cls.EVENTO_ENTREGA, pedido.data_inicio_locacao)
+            for pedido in queryset
+        ]
+
+    @classmethod
+    def _eventos_aguardando_analise(cls, inicio, fim, status):
+        queryset = cls._queryset_base().filter(
+            status=Pedido.Status.AGUARDANDO_ANALISE,
+            data_inicio_locacao__gte=inicio,
+            data_inicio_locacao__lte=fim,
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            cls._montar_evento(
+                pedido,
+                cls.EVENTO_AGUARDANDO_ANALISE,
+                pedido.data_inicio_locacao,
+            )
             for pedido in queryset
         ]
 
@@ -1734,9 +1773,11 @@ class AdminPedidoAcoesService:
 
     @staticmethod
     def _tem_itens_e_periodo_reservaveis(pedido):
-        if not pedido.data_inicio_locacao or not pedido.data_fim_locacao:
-            return False
-        if pedido.data_fim_locacao <= pedido.data_inicio_locacao:
+        if (
+            pedido.data_inicio_locacao
+            and pedido.data_fim_locacao
+            and pedido.data_fim_locacao <= pedido.data_inicio_locacao
+        ):
             return False
         try:
             demandas = ReservaPedidoService._montar_demandas(pedido)
@@ -1758,6 +1799,156 @@ class GestaoAdminPedidoService:
     @staticmethod
     def _serializar_data(valor):
         return valor.isoformat() if valor else None
+
+    @staticmethod
+    def _garantir_aceite_whatsapp_para_pedido_manual(pedido):
+        if hasattr(pedido, "aceite_contrato"):
+            return
+        manual = pedido.historico.filter(
+            dados__origem="pedido_manual"
+        ).exists()
+        if not manual:
+            return
+        contrato = ContratoService.obter_contrato_vigente()
+        AceiteContrato.objects.create(
+            pedido=pedido,
+            contrato=contrato,
+            contrato_versao_snapshot=contrato.versao,
+            contrato_titulo_snapshot=contrato.titulo,
+            contrato_texto_snapshot=contrato.texto,
+            nome_cliente_snapshot=pedido.nome_cliente_snapshot,
+            email_cliente_snapshot=pedido.email_cliente_snapshot,
+            aceito_em=timezone.now(),
+            ip=None,
+            user_agent="Aceite informado ao confirmar pedido manual recebido via WhatsApp.",
+        )
+
+    @staticmethod
+    def _snapshot_item_manual(dados):
+        quantidade = dados["quantidade"]
+        if dados["tipo_item"] == ItemCarrinho.TipoItem.BRINQUEDO:
+            objeto = Brinquedo.objects.filter(pk=dados["item_id"], ativo=True).first()
+            if not objeto:
+                raise serializers.ValidationError({"itens": "Brinquedo nao encontrado."})
+            periodo = dados.get("periodo_locacao") or next(
+                (
+                    tipo
+                    for tipo in CarrinhoService.PERIODOS_LOCACAO
+                    if objeto.preco_por_periodo(tipo) is not None
+                ),
+                None,
+            )
+            if not periodo:
+                raise serializers.ValidationError({"itens": "Brinquedo sem preco de periodo."})
+            snapshot = CarrinhoService._snapshot_brinquedo(objeto, quantidade, periodo)
+            return objeto, None, snapshot
+        objeto = KitFesta.objects.prefetch_related("itens__brinquedo").filter(
+            pk=dados["item_id"], ativo=True
+        ).first()
+        if not objeto:
+            raise serializers.ValidationError({"itens": "Kit nao encontrado."})
+        periodo = dados.get("periodo_locacao") or next(
+            (
+                tipo
+                for tipo in CarrinhoService.PERIODOS_LOCACAO
+                if objeto.preco_por_periodo(tipo) is not None
+            ),
+            None,
+        )
+        if not periodo:
+            raise serializers.ValidationError({"itens": "Kit sem preco de periodo."})
+        snapshot = CarrinhoService._snapshot_kit_festa(objeto, quantidade, periodo)
+        return None, objeto, snapshot
+
+    @staticmethod
+    @transaction.atomic
+    def salvar_pedido_manual(pedido, dados, usuario_admin):
+        criando = pedido is None
+        if criando:
+            pedido = Pedido(status=Pedido.Status.AGUARDANDO_ANALISE)
+        elif pedido.status != Pedido.Status.AGUARDANDO_ANALISE:
+            raise serializers.ValidationError(
+                {"status": "Somente pedidos em analise podem ter seus itens editados."}
+            )
+
+        periodo = dados.get("periodo_locacao")
+        inicio = dados.get("data_inicio")
+        fim = None
+        if inicio and periodo:
+            fim = inicio + timedelta(days=CarrinhoService.PERIODOS_LOCACAO[periodo]["dias"])
+
+        pedido.nome_cliente_snapshot = dados.get("nome", "")
+        pedido.telefone_cliente_snapshot = dados.get("telefone", "")
+        pedido.email_cliente_snapshot = dados.get("email", "")
+        pedido.observacoes_cliente = dados.get("observacoes", "")
+        pedido.data_evento_pretendida = inicio
+        pedido.data_inicio_locacao = inicio
+        pedido.data_fim_locacao = fim
+        pedido.endereco_entrega_snapshot = {
+            chave: valor
+            for chave, valor in {
+                "cep": dados.get("cep", ""),
+                "numero": dados.get("numero", ""),
+                "complemento": dados.get("complemento", ""),
+            }.items()
+            if valor
+        }
+        pedido.taxa_entrega_status_snapshot = Pedido.StatusTaxaEntrega.A_CONFIRMAR
+        pedido.distancia_ida_km_snapshot = None
+        pedido.distancia_total_km_snapshot = None
+        pedido.valor_por_km_snapshot = None
+        pedido.taxa_entrega_retirada_snapshot = None
+        pedido.subtotal_itens_snapshot = Decimal("0.00")
+        pedido.total_estimado_snapshot = Decimal("0.00")
+        pedido.save()
+
+        pedido.itens.all().delete()
+        subtotal = Decimal("0.00")
+        for item_dados in dados.get("itens", []):
+            item_com_periodo = {**item_dados, "periodo_locacao": periodo}
+            brinquedo, kit, snapshot = GestaoAdminPedidoService._snapshot_item_manual(
+                item_com_periodo
+            )
+            ItemPedido.objects.create(
+                pedido=pedido,
+                tipo_item=item_dados["tipo_item"],
+                brinquedo=brinquedo,
+                kit_festa=kit,
+                quantidade=item_dados["quantidade"],
+                nome_snapshot=snapshot["nome"],
+                preco_unitario_snapshot=snapshot["preco_unitario"],
+                subtotal_snapshot=snapshot["subtotal"],
+                snapshot=snapshot["snapshot"],
+            )
+            subtotal += snapshot["subtotal"]
+        taxa = None
+        if dados.get("cep") and dados.get("numero"):
+            calculo = PedidoService._calcular_taxa_entrega(
+                {
+                    "cep": dados["cep"],
+                    "numero": dados["numero"],
+                    "complemento": dados.get("complemento", ""),
+                }
+            )
+            taxa = calculo.get("taxa")
+            pedido.endereco_entrega_snapshot = calculo["endereco_interpretado"]
+            pedido.distancia_ida_km_snapshot = calculo["distancia_ida_km"]
+            pedido.distancia_total_km_snapshot = calculo["distancia_total_km"]
+            pedido.valor_por_km_snapshot = calculo["valor_por_km"]
+            pedido.taxa_entrega_retirada_snapshot = taxa
+            pedido.taxa_entrega_status_snapshot = calculo["status"]
+        pedido.subtotal_itens_snapshot = subtotal
+        pedido.total_estimado_snapshot = quantizar_decimal(
+            subtotal + (taxa or Decimal("0.00"))
+        )
+        pedido.save()
+        GestaoAdminPedidoService._registrar(
+            pedido,
+            usuario_admin,
+            HistoricoPedido.Acao.STATUS_ALTERADO,
+            {"origem": "pedido_manual", "operacao": "criado" if criando else "editado"},
+        )
+        return pedido
 
     @staticmethod
     @transaction.atomic
@@ -1909,12 +2100,18 @@ class GestaoAdminPedidoService:
             if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
                 ReservaPedidoService.reservar_unidades(pedido)
             pedido = Pedido.objects.get(pk=pedido.pk)
+            GestaoAdminPedidoService._garantir_aceite_whatsapp_para_pedido_manual(
+                pedido
+            )
             ConfirmacaoPedidoService.confirmar(pedido, usuario_admin)
         elif novo_status == Pedido.Status.EM_LOCACAO:
             if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
                 ReservaPedidoService.reservar_unidades(pedido)
             pedido = Pedido.objects.get(pk=pedido.pk)
             if pedido.status == Pedido.Status.RESERVADO:
+                GestaoAdminPedidoService._garantir_aceite_whatsapp_para_pedido_manual(
+                    pedido
+                )
                 ConfirmacaoPedidoService.confirmar(pedido, usuario_admin)
             pedido = Pedido.objects.get(pk=pedido.pk)
             OperacaoLocacaoService.iniciar_locacao(pedido, usuario_admin)

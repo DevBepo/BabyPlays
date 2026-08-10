@@ -413,6 +413,15 @@ export default function DetalhePedidoPage() {
 
         {pedido && (
           <div className="flex w-full flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center xl:self-start">
+            {pedido.status === "aguardando_analise" && (
+              <Button
+                className="w-full sm:w-auto"
+                variant="outline"
+                onClick={() => router.push(`/admin/pedidos/${pedido.id}/editar`)}
+              >
+                Editar pedido
+              </Button>
+            )}
             <Button className="w-full sm:w-auto" variant="outline" onClick={() => void handleDefinirDatas()}>Definir datas</Button>
             <Button className="w-full sm:w-auto" variant="outline" onClick={() => void handleRenovar()}>Renovar</Button>
             <select

@@ -50,6 +50,8 @@ function BrinquedoDetalheContent() {
   const [periodoSelecionado, setPeriodoSelecionado] = useState<PeriodoLocacao>("15_dias");
   const [adicionando, setAdicionando] = useState(false);
   const [registrandoInteresse, setRegistrandoInteresse] = useState(false);
+  const [interesseRegistrado, setInteresseRegistrado] = useState(false);
+  const [erroInteresse, setErroInteresse] = useState(false);
   const [imagemSelecionadaId, setImagemSelecionadaId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -144,12 +146,14 @@ function BrinquedoDetalheContent() {
       router.push(`/login?redirect=/brinquedos/${id}`);
       return;
     }
+    setErroInteresse(false);
     setRegistrandoInteresse(true);
     try {
       await criarInteresseDisponibilidade(id);
-      alert("Interesse registrado. A BabyPlays entrara em contato pelo seu WhatsApp.");
+      setInteresseRegistrado(true);
     } catch (error) {
-      alert(getCartErrorMessage(error));
+      console.error("Erro ao registrar interesse:", error);
+      setErroInteresse(true);
     } finally {
       setRegistrandoInteresse(false);
     }
@@ -372,10 +376,16 @@ function BrinquedoDetalheContent() {
               <button
                 type="button"
                 onClick={handleInteresse}
-                disabled={registrandoInteresse}
+                disabled={registrandoInteresse || interesseRegistrado}
                 className="h-13 w-full rounded-2xl border border-violet-200 bg-violet-50 text-sm font-bold text-violet-700 shadow-sm hover:bg-violet-100 disabled:opacity-60"
               >
-                {registrandoInteresse ? "Registrando..." : "Avise-me quando estiver disponivel"}
+                {registrandoInteresse
+                  ? "Registrando..."
+                  : interesseRegistrado
+                    ? "Iremos avisar você com antecedência!"
+                    : erroInteresse
+                      ? "Não foi possível. Tente novamente"
+                      : "Avise-me quando estiver disponível"}
               </button>
             )}
 

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 import { BrinquedoAdminCard } from "@/components/admin/BrinquedoAdminCard";
+import { BrinquedoCategoryOrganizer } from "@/components/admin/BrinquedoCategoryOrganizer";
 import { BrinquedoAdminFilters } from "@/components/admin/BrinquedoAdminFilters";
 import { Badge } from "@/components/ui/Badge";
 import { InlineCategoryModal } from "@/components/admin/InlineCategoryModal";
@@ -124,6 +125,8 @@ export default function ListaBrinquedosAdmin() {
   const [statusFiltro, setStatusFiltro] = useState<StatusCatalogoFiltro>("todos");
   const [quantidadeVisivel, setQuantidadeVisivel] = useState(QUANTIDADE_INICIAL);
   const [categoriaModalAberta, setCategoriaModalAberta] = useState(false);
+  const [organizadorAberto, setOrganizadorAberto] = useState(false);
+  const [brinquedoMovendoCategoria, setBrinquedoMovendoCategoria] = useState<number | null>(null);
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
@@ -164,6 +167,7 @@ export default function ListaBrinquedosAdmin() {
         !termo || normalizarBusca(brinquedo.nome).includes(termo);
       const correspondeCategoria =
         categoriaFiltro === "todas" ||
+        (categoriaFiltro === "sem-categoria" && !brinquedo.categoria) ||
         String(brinquedo.categoria?.id ?? "") === categoriaFiltro;
       const correspondeStatus =
         statusFiltro === "todos" ||
@@ -190,6 +194,7 @@ export default function ListaBrinquedosAdmin() {
   }));
   const categoriasFiltroOptions = [
     { value: "todas", label: "Todas as categorias" },
+    { value: "sem-categoria", label: "Sem categoria" },
     ...categoriasOptions,
   ];
 
@@ -226,12 +231,6 @@ export default function ListaBrinquedosAdmin() {
         if (active) {
           setCategorias(categoriasDados);
           setBrinquedos(brinquedosDados);
-          setForm((current) => ({
-            ...current,
-            categoria:
-              current.categoria ||
-              (categoriasDados[0] ? String(categoriasDados[0].id) : ""),
-          }));
         }
       } catch (error) {
         if (active) {
@@ -350,10 +349,7 @@ export default function ListaBrinquedosAdmin() {
   }
 
   function abrirNovoBrinquedo() {
-    setForm({
-      ...initialForm,
-      categoria: categorias[0] ? String(categorias[0].id) : "",
-    });
+    setForm(initialForm);
     setBrinquedoEmEdicao(null);
     setImagemArquivo(null);
     setImagensAdicionais([]);
@@ -394,10 +390,7 @@ export default function ListaBrinquedosAdmin() {
   function fecharFormulario() {
     setFormAberto(false);
     setBrinquedoEmEdicao(null);
-    setForm({
-      ...initialForm,
-      categoria: categorias[0] ? String(categorias[0].id) : "",
-    });
+    setForm(initialForm);
     setFieldErrors(undefined);
     setImagemArquivo(null);
     setImagensAdicionais([]);
@@ -415,8 +408,7 @@ export default function ListaBrinquedosAdmin() {
       ),
     );
     setForm((current) => ({ ...current, categoria: String(categoria.id) }));
-    setCategoriaFiltro((current) => (current === "todas" ? current : String(categoria.id)));
-    setSucesso("Categoria criada e selecionada.");
+    setSucesso("Categoria criada com sucesso.");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -426,16 +418,10 @@ export default function ListaBrinquedosAdmin() {
     setSucesso(null);
     setFieldErrors(undefined);
 
-    if (!form.categoria) {
-      setErro("Selecione uma categoria antes de salvar o brinquedo.");
-      setSalvando(false);
-      return;
-    }
-
     const payload = {
       nome: form.nome,
       descricao: form.descricao,
-      categoria: Number(form.categoria),
+      categoria: form.categoria ? Number(form.categoria) : null,
       preco_diaria: form.preco_diaria || null,
       preco_3_dias: form.preco_3_dias || null,
       preco_15_dias: form.preco_15_dias || null,
@@ -566,6 +552,50 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
+  async function handleMoverCategoria(brinquedoId: number, categoriaId: number | null) {
+    const brinquedo = brinquedos.find((item) => item.id === brinquedoId);
+    const categoriaAnterior = brinquedo?.categoria ?? null;
+    const categoriaDestino =
+      categoriaId === null
+        ? null
+        : categorias.find((categoria) => categoria.id === categoriaId) ?? null;
+
+    if (!brinquedo || (brinquedo.categoria?.id ?? null) === categoriaId) {
+      return;
+    }
+
+    setBrinquedoMovendoCategoria(brinquedoId);
+    setErro(null);
+    setSucesso(null);
+    setBrinquedos((atuais) =>
+      atuais.map((item) =>
+        item.id === brinquedoId ? { ...item, categoria: categoriaDestino } : item,
+      ),
+    );
+
+    try {
+      await atualizarBrinquedo(brinquedoId, { categoria: categoriaId });
+      setSucesso(
+        categoriaDestino
+          ? `${brinquedo.nome} foi movido para ${categoriaDestino.nome}.`
+          : `${brinquedo.nome} ficou sem categoria.`,
+      );
+    } catch (error) {
+      setBrinquedos((atuais) =>
+        atuais.map((item) =>
+          item.id === brinquedoId ? { ...item, categoria: categoriaAnterior } : item,
+        ),
+      );
+      setErro(
+        isApiError(error)
+          ? error.message
+          : "Nao foi possivel salvar a nova categoria do brinquedo.",
+      );
+    } finally {
+      setBrinquedoMovendoCategoria(null);
+    }
+  }
+
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -575,7 +605,14 @@ export default function ListaBrinquedosAdmin() {
             Gerencie o catálogo, preços, unidades e disponibilidade.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={() => setOrganizadorAberto((aberto) => !aberto)}
+          >
+            {organizadorAberto ? "Fechar organização" : "Organizar categorias"}
+          </Button>
           <Button className="w-full sm:w-auto" variant="primary" onClick={abrirNovoBrinquedo}>
             Novo Brinquedo
           </Button>
@@ -592,6 +629,16 @@ export default function ListaBrinquedosAdmin() {
         <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
           {erro}
         </div>
+      ) : null}
+
+      {organizadorAberto ? (
+        <BrinquedoCategoryOrganizer
+          brinquedos={brinquedos}
+          categorias={categorias}
+          brinquedoMovendoId={brinquedoMovendoCategoria}
+          onMove={handleMoverCategoria}
+          onCreateCategory={() => setCategoriaModalAberta(true)}
+        />
       ) : null}
 
       {formAberto ? (
@@ -619,7 +666,7 @@ export default function ListaBrinquedosAdmin() {
               />
               <div className="flex flex-col gap-2">
                 <Select
-                  label="Categoria *"
+                  label="Categoria (opcional)"
                   options={categoriasOptions}
                   value={form.categoria}
                   onChange={(event) =>
@@ -628,14 +675,9 @@ export default function ListaBrinquedosAdmin() {
                       categoria: event.target.value,
                     }))
                   }
-                  disabled={categoriasOptions.length === 0}
                   error={getApiFieldError(fieldErrors, "categoria")}
-                  required
-                  placeholder={
-                    categoriasOptions.length === 0
-                      ? "Cadastre uma categoria antes de criar brinquedos."
-                      : "Selecione uma categoria..."
-                  }
+                  placeholder="Sem categoria"
+                  placeholderDisabled={false}
                 />
                 <button
                   type="button"
@@ -967,7 +1009,6 @@ export default function ListaBrinquedosAdmin() {
                 type="submit"
                 variant="primary"
                 loading={salvando}
-                disabled={categoriasOptions.length === 0}
               >
                 {brinquedoEmEdicao ? "Salvar alteracoes" : "Criar brinquedo"}
               </Button>

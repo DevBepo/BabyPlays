@@ -23,11 +23,13 @@ const EyeOffIcon = () => (
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  showRequiredIndicator?: boolean;
 }
 
 export function Input({
   label,
   error,
+  showRequiredIndicator = false,
   id,
   className = "",
   type, 
@@ -50,6 +52,9 @@ export function Input({
       {label && (
         <label htmlFor={inputId} className="text-sm font-medium text-zinc-700">
           {label}
+          {showRequiredIndicator && (
+            <span className="ml-1 text-red-600" aria-hidden="true">*</span>
+          )}
         </label>
       )}
 

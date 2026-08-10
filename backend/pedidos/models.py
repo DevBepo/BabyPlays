@@ -538,8 +538,12 @@ class ReservaUnidade(models.Model):
         on_delete=models.PROTECT,
         verbose_name="Unidade do brinquedo",
     )
-    data_inicio = models.DateField(verbose_name="Data de inicio")
-    data_fim = models.DateField(verbose_name="Data de fim")
+    data_inicio = models.DateField(
+        null=True, blank=True, verbose_name="Data de inicio"
+    )
+    data_fim = models.DateField(
+        null=True, blank=True, verbose_name="Data de fim"
+    )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
