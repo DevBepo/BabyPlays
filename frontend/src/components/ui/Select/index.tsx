@@ -11,6 +11,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   error?: string;
   options: SelectOption[];
   placeholder?: string;
+  placeholderDisabled?: boolean;
 }
 
 export function Select({
@@ -18,6 +19,7 @@ export function Select({
   error,
   options,
   placeholder = "Selecione uma opção...",
+  placeholderDisabled = true,
   id,
   className = "",
   ...rest
@@ -48,7 +50,7 @@ export function Select({
           {...rest}
         >
           {/* Opção vazia / Placeholder */}
-          <option value="" disabled>{placeholder}</option>
+          <option value="" disabled={placeholderDisabled}>{placeholder}</option>
           
           {/* Renderiza as opções vindas da API (Django) */}
           {options.map((option) => (

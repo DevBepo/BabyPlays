@@ -88,7 +88,6 @@ export default function NovoBrinquedo() {
 
         if (active) {
           setCategorias(dados);
-          setCategoriaId(dados[0] ? String(dados[0].id) : "");
         }
       } catch {
         if (active) {
@@ -115,15 +114,10 @@ export default function NovoBrinquedo() {
     setFieldErrors(undefined);
 
     try {
-      if (!categoriaId) {
-        setErro("Cadastre uma categoria antes de criar brinquedos.");
-        return;
-      }
-
       const novoBrinquedo = await criarBrinquedo({
         nome,
         descricao,
-        categoria: Number(categoriaId),
+        categoria: categoriaId ? Number(categoriaId) : null,
         preco_diaria: precoDiaria || null,
         preco_3_dias: preco3Dias || null,
         preco_15_dias: preco15Dias || null,
@@ -264,20 +258,18 @@ export default function NovoBrinquedo() {
 
               <div className="flex flex-col gap-2">
                 <Select
-                  label="Categoria *"
+                  label="Categoria (opcional)"
                   options={categoriasOptions}
                   value={categoriaId}
                   onChange={(event) => setCategoriaId(event.target.value)}
-                  disabled={categoriasLoading || categoriasOptions.length === 0}
+                  disabled={categoriasLoading}
                   error={getApiFieldError(fieldErrors, "categoria")}
-                  required
                   placeholder={
                     categoriasLoading
                       ? "Carregando categorias..."
-                      : categoriasOptions.length === 0
-                        ? "Cadastre uma categoria antes de criar brinquedos."
-                        : "Selecione uma categoria..."
+                      : "Sem categoria"
                   }
+                  placeholderDisabled={categoriasLoading}
                 />
                 <button
                   type="button"
@@ -383,7 +375,7 @@ export default function NovoBrinquedo() {
               variant="primary"
               className="w-full sm:w-auto"
               loading={loading}
-              disabled={loading || categoriasLoading || categoriasOptions.length === 0}
+              disabled={loading || categoriasLoading}
             >
               Guardar brinquedo
             </Button>
