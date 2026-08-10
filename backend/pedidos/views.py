@@ -28,6 +28,7 @@ from .serializers import (
     OperacaoLocacaoResultadoSerializer,
     PedidoAdminDetailSerializer,
     PedidoAdminListSerializer,
+    PedidoManualAdminSerializer,
     PedidoSerializer,
     RenovarPedidoAdminSerializer,
     ReservaPedidoResultadoSerializer,
@@ -324,6 +325,18 @@ class AdminPedidoListView(AdminPedidoQuerysetMixin, APIView):
         serializer = PedidoAdminListSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
+    def post(self, request):
+        serializer = PedidoManualAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pedido = GestaoAdminPedidoService.salvar_pedido_manual(
+            None, serializer.validated_data, request.user
+        )
+        pedido = get_object_or_404(self.queryset_detalhe(), id=pedido.id)
+        return Response(
+            PedidoAdminDetailSerializer(pedido).data,
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class AdminDashboardView(APIView):
     permission_classes = [IsAdminUser]
@@ -342,6 +355,14 @@ class AdminPedidoDetailView(AdminPedidoQuerysetMixin, APIView):
 
     def patch(self, request, pedido_id):
         pedido = get_object_or_404(Pedido, id=pedido_id)
+        if request.data.get("modo") == "manual":
+            serializer = PedidoManualAdminSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            pedido = GestaoAdminPedidoService.salvar_pedido_manual(
+                pedido, serializer.validated_data, request.user
+            )
+            pedido = get_object_or_404(self.queryset_detalhe(), id=pedido.id)
+            return Response(PedidoAdminDetailSerializer(pedido).data)
         serializer = AtualizarDatasPedidoAdminSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         pedido = GestaoAdminPedidoService.atualizar_datas(

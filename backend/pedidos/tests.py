@@ -3901,6 +3901,126 @@ class ItemCarrinhoModelTests(APITestCase):
         with self.assertRaises(ValidationError):
             item.full_clean()
 
+
+class PedidoManualAdminAPITests(APITestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_user(
+            username="admin-manual",
+            email="admin-manual@example.com",
+            password="senha-teste",
+            is_staff=True,
+        )
+        self.client.force_authenticate(self.admin)
+        self.brinquedo = Brinquedo.objects.create(
+            nome="Brinquedo manual",
+            descricao="Teste",
+            preco_aluguel=Decimal("100.00"),
+            preco_15_dias=Decimal("100.00"),
+        )
+
+    def test_admin_cria_pedido_totalmente_opcional(self):
+        response = self.client.post("/api/admin/pedidos/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get(pk=response.data["id"])
+        self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO_ANALISE)
+        self.assertEqual(pedido.itens.count(), 0)
+
+    def test_periodo_no_formulario_nao_reserva_unidades(self):
+        response = self.client.post(
+            "/api/admin/pedidos/",
+            {
+                "data_inicio": (timezone.localdate() + timedelta(days=5)).isoformat(),
+                "periodo_locacao": "15_dias",
+                "itens": [
+                    {
+                        "tipo_item": "brinquedo",
+                        "item_id": self.brinquedo.id,
+                        "quantidade": 1,
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get(pk=response.data["id"])
+        self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO_ANALISE)
+        self.assertEqual(pedido.itens.count(), 1)
+        self.assertFalse(ReservaUnidade.objects.filter(pedido=pedido).exists())
+
+    def test_pedido_com_data_inicial_aparece_na_agenda(self):
+        data = timezone.localdate() + timedelta(days=7)
+        pedido = Pedido.objects.create(
+            status=Pedido.Status.AGUARDANDO_ANALISE,
+            nome_cliente_snapshot="WhatsApp",
+            telefone_cliente_snapshot="",
+            email_cliente_snapshot="",
+            data_inicio_locacao=data,
+            subtotal_itens_snapshot=Decimal("0.00"),
+            total_estimado_snapshot=Decimal("0.00"),
+        )
+
+        response = self.client.get(
+            f"/api/admin/agenda/?inicio={data.isoformat()}&fim={data.isoformat()}"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(
+            pedido.id,
+            [
+                evento["pedido"]["id"]
+                for evento in response.data["eventos"]
+                if evento["tipo"] == "aguardando_analise"
+            ],
+        )
+
+    def test_sair_da_analise_reserva_unidade_mesmo_sem_periodo(self):
+        unidade = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="MANUAL-1",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        criado = self.client.post(
+            "/api/admin/pedidos/",
+            {
+                "itens": [
+                    {
+                        "tipo_item": "brinquedo",
+                        "item_id": self.brinquedo.id,
+                        "quantidade": 1,
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        response = self.client.post(
+            f"/api/admin/pedidos/{criado.data['id']}/alterar-status/",
+            {"status": Pedido.Status.RESERVADO},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reserva = ReservaUnidade.objects.get(pedido_id=criado.data["id"])
+        self.assertEqual(reserva.unidade_brinquedo, unidade)
+        self.assertIsNone(reserva.data_inicio)
+        self.assertIsNone(reserva.data_fim)
+
+
+    def test_cliente_comum_nao_cria_pedido_manual(self):
+        usuario = get_user_model().objects.create_user(
+            username="cliente-sem-admin",
+            password="senha-teste",
+        )
+        self.client.force_authenticate(usuario)
+
+        response = self.client.post("/api/admin/pedidos/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ItemPedidoModelTests(APITestCase):
     def test_item_pedido_rejeita_combinacao_invalida_de_fks(self):
         carrinho = Carrinho.objects.create(session_key="sessao-teste")
         pedido = Pedido.objects.create(

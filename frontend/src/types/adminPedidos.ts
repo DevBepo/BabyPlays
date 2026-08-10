@@ -190,3 +190,21 @@ export type AdminPedidoActionResponse = {
   confirmado_em?: string | null;
   confirmado_por?: number | null;
 };
+
+export type AdminPedidoManualPayload = {
+  modo?: "manual";
+  nome?: string;
+  telefone?: string;
+  email?: string;
+  data_inicio?: string | null;
+  periodo_locacao?: "diaria" | "3_dias" | "15_dias" | "30_dias" | null;
+  cep?: string;
+  numero?: string;
+  complemento?: string;
+  observacoes?: string;
+  itens?: Array<{
+    tipo_item: "brinquedo" | "kit_festa";
+    item_id: number;
+    quantidade: number;
+  }>;
+};

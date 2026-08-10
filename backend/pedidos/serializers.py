@@ -345,7 +345,7 @@ class AdminAgendaPedidoSerializer(serializers.Serializer):
     cliente_nome = serializers.CharField()
     cliente_telefone = serializers.CharField(allow_blank=True)
     data_inicio_locacao = serializers.DateField()
-    data_fim_locacao = serializers.DateField()
+    data_fim_locacao = serializers.DateField(allow_null=True)
     tem_aceite_contrato = serializers.BooleanField()
     tem_kit_festa = serializers.BooleanField()
 
@@ -647,6 +647,37 @@ class RenovarPedidoAdminSerializer(serializers.Serializer):
 
 class AlterarStatusPedidoAdminSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Pedido.Status.choices)
+
+
+class ItemPedidoManualAdminSerializer(serializers.Serializer):
+    tipo_item = serializers.ChoiceField(
+        choices=(ItemCarrinho.TipoItem.BRINQUEDO, ItemCarrinho.TipoItem.KIT_FESTA)
+    )
+    item_id = serializers.IntegerField(min_value=1)
+    quantidade = serializers.IntegerField(min_value=1, default=1)
+
+
+class PedidoManualAdminSerializer(serializers.Serializer):
+    nome = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    telefone = serializers.CharField(max_length=30, required=False, allow_blank=True)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    data_inicio = serializers.DateField(required=False, allow_null=True)
+    periodo_locacao = serializers.ChoiceField(
+        choices=tuple(CarrinhoService.PERIODOS_LOCACAO),
+        required=False,
+        allow_null=True,
+    )
+    cep = serializers.CharField(max_length=9, required=False, allow_blank=True)
+    numero = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    complemento = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    observacoes = serializers.CharField(required=False, allow_blank=True)
+    itens = ItemPedidoManualAdminSerializer(many=True, required=False)
+
+    def validate_cep(self, value):
+        cep = "".join(caractere for caractere in value if caractere.isdigit())
+        if cep and len(cep) != 8:
+            raise serializers.ValidationError("CEP invalido.")
+        return cep
 
 
 class ReservaUnidadePedidoSerializer(serializers.ModelSerializer):

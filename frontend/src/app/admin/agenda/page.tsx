@@ -15,6 +15,7 @@ import type {
 
 const eventTypeOptions: Array<{ value: AdminAgendaTypeFilter; label: string }> = [
   { value: "todos", label: "Todos os tipos" },
+  { value: "aguardando_analise", label: "Aguardando análise" },
   { value: "entrega", label: "Entrega" },
   { value: "retirada", label: "Retirada" },
   { value: "contrato_pendente", label: "Contrato pendente" },
@@ -22,6 +23,7 @@ const eventTypeOptions: Array<{ value: AdminAgendaTypeFilter; label: string }> =
 ];
 
 const eventTypeLabels: Record<AdminAgendaEventType, string> = {
+  aguardando_analise: "Aguardando análise",
   entrega: "Entregas",
   retirada: "Retiradas",
   contrato_pendente: "Contratos pendentes",
@@ -29,6 +31,7 @@ const eventTypeLabels: Record<AdminAgendaEventType, string> = {
 };
 
 const eventTypeSingleLabels: Record<AdminAgendaEventType, string> = {
+  aguardando_analise: "Aguardando análise",
   entrega: "Entrega",
   retirada: "Retirada",
   contrato_pendente: "Contrato pendente",
@@ -56,6 +59,15 @@ const eventTypeStyles: Record<
     text: string;
   }
 > = {
+  aguardando_analise: {
+    accent: "border-l-amber-500",
+    badge: "border-amber-200 bg-amber-50 text-zinc-800",
+    card: "border-amber-200 bg-amber-50/70 hover:bg-amber-100/70",
+    dot: "bg-amber-500",
+    legend: "border-amber-100 bg-amber-50/60",
+    summary: "border-amber-200 bg-amber-50",
+    text: "text-zinc-800",
+  },
   entrega: {
     accent: "border-l-cyan-500",
     badge: "border-cyan-200 bg-cyan-50 text-zinc-800",
@@ -381,8 +393,13 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
               Período da locação
             </dt>
             <dd className="mt-1 font-medium text-zinc-900">
-              {formatApiDisplayDate(event.pedido.data_inicio_locacao)} até{" "}
-              {formatApiDisplayDate(event.pedido.data_fim_locacao)}
+              {event.pedido.data_inicio_locacao
+                ? formatApiDisplayDate(event.pedido.data_inicio_locacao)
+                : "Não definida"}{" "}
+              até{" "}
+              {event.pedido.data_fim_locacao
+                ? formatApiDisplayDate(event.pedido.data_fim_locacao)
+                : "Não definida"}
             </dd>
           </div>
         </dl>

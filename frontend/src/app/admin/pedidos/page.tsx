@@ -174,13 +174,16 @@ export default function PedidosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Gestao de Pedidos</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Acompanhe as locacoes de brinquedos e kits.
           </p>
         </div>
+        <Button onClick={() => router.push("/admin/pedidos/novo")}>
+          Novo pedido
+        </Button>
       </div>
 
       <form

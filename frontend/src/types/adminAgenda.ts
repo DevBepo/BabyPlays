@@ -1,6 +1,7 @@
 import type { AdminPedidoStatus } from "./adminPedidos";
 
 export type AdminAgendaEventType =
+  | "aguardando_analise"
   | "entrega"
   | "retirada"
   | "contrato_pendente"
@@ -18,8 +19,8 @@ export type AdminAgendaOrder = {
   status: AdminPedidoStatus;
   cliente_nome: string;
   cliente_telefone: string;
-  data_inicio_locacao: string;
-  data_fim_locacao: string;
+  data_inicio_locacao: string | null;
+  data_fim_locacao: string | null;
   tem_aceite_contrato: boolean;
   tem_kit_festa: boolean;
 };
