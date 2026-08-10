@@ -2797,6 +2797,7 @@ class PedidoAdminAgendaAPITests(APITestCase):
         self.assertEqual(
             response.data["resumo"]["por_tipo"],
             {
+                "aguardando_analise": 0,
                 "entrega": 1,
                 "retirada": 1,
                 "contrato_pendente": 1,
@@ -3309,7 +3310,7 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("status", response.data)
 
-    def test_reserva_exige_periodo_valido(self):
+    def test_reserva_sem_periodo_cria_bloqueio_indefinido(self):
         self.autenticar_admin()
         self.pedido = self.criar_pedido(periodo=False)
         self.criar_item_brinquedo()
@@ -3317,8 +3318,16 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
 
         response = self.client.post(self.url(), {}, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("periodo", response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reserva = ReservaUnidade.objects.get(pedido=self.pedido)
+        self.assertIsNone(reserva.data_inicio)
+        self.assertIsNone(reserva.data_fim)
+
+    def test_reserva_rejeita_periodo_invalido(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido(periodo=False)
+        self.criar_item_brinquedo()
+        self.criar_unidade()
 
         self.pedido.data_inicio_locacao = self.data_inicio
         self.pedido.data_fim_locacao = self.data_inicio
