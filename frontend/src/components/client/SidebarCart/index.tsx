@@ -82,7 +82,6 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   const [modalContratoAberto, setModalContratoAberto] = useState(false); 
 
   
-  const [expandirDados, setExpandirDados] = useState(false);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -161,7 +160,10 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
   // Derivações do carrinho
   const itens = carrinho?.itens || [];
   const quantidadeTotal = itens.reduce((acc, item) => acc + item.quantidade, 0);
-  const subtotal = itens.reduce((acc, item) => acc + parseFloat(item.subtotal_snapshot), 0);
+  const subtotal = itens.reduce(
+    (total, item) => total + Number(item.subtotal_snapshot),
+    0,
+  );
   
   const handleRemoverItem = async (id: number) => {
     try {
@@ -184,9 +186,8 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
       await atualizarQuantidadeItem(item.id, quantidade);
       await refreshCart();
     } catch {
-      setCheckoutError({
-        message: "Não foi possível atualizar a quantidade deste item. Tente novamente.",
-      });
+      // O backend mantém a quantidade atual quando não há estoque suficiente.
+      // Nesse caso, o botão simplesmente não avança.
     } finally {
       setItemAtualizando(null);
     }
@@ -203,8 +204,7 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
       return;
     }
 
-    if (!cep || !numero || !nome || !telefone) {
-      setExpandirDados(true);
+    if (!cep || !numero || !nome || !email || !telefone) {
       setCheckoutError({
         message: "Preencha todos os campos obrigatórios em Dados de Entrega e Contato.",
       });
@@ -244,7 +244,7 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
       });
 
       await refreshCart();
-      setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false); setExpandirDados(false);
+      setCep(""); setNumero(""); setComplemento(""); setContratoAceito(false);
       const whatsappUrl = getWhatsAppUrl(pedido.whatsapp_resumo);
       setWhatsappManualUrl(whatsappUrl);
 
@@ -378,62 +378,41 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
           )}
         </div>
 
-        <div className="rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs leading-5 text-violet-900">
-          As datas exatas da locação serão confirmadas pelo WhatsApp após o envio do pedido.
-        </div>
-
         <div className="flex flex-col border-t border-zinc-100 pt-4">
-          <button 
-            onClick={() => setExpandirDados(!expandirDados)}
-            className="group flex min-h-11 w-full items-center justify-between text-left"
-          >
-            <h3 className="text-sm font-bold text-zinc-800 group-hover:text-teal-600 transition-colors">
-              Dados de Entrega e Contato
-            </h3>
-            <span className={`text-zinc-400 transition-transform ${expandirDados ? "rotate-180" : ""}`}>
-              ▼
-            </span>
-          </button>
+          <h3 className="text-sm font-bold text-zinc-800">
+            Dados de Entrega e Contato
+          </h3>
 
-          {expandirDados && (
-            <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid gap-3">
-                <Input label="Nome completo" placeholder="Seu nome" autoComplete="name" value={nome} onChange={(e) => setNome(e.target.value)} className="min-h-12 py-2 text-base" />
-                <Input label="E-mail" placeholder="voce@exemplo.com" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="min-h-12 py-2 text-base" />
-                <Input label="Telefone (WhatsApp)" placeholder="(51) 99999-9999" type="tel" autoComplete="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="min-h-12 py-2 text-base" />
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="grid gap-3">
+              <Input label="Nome completo" showRequiredIndicator required placeholder="Seu nome" autoComplete="name" value={nome} onChange={(e) => setNome(e.target.value)} className="min-h-12 py-2 text-base" />
+              <Input label="E-mail" showRequiredIndicator required placeholder="voce@exemplo.com" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="min-h-12 py-2 text-base" />
+              <Input label="Telefone (WhatsApp)" showRequiredIndicator required placeholder="(51) 99999-9999" type="tel" autoComplete="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="min-h-12 py-2 text-base" />
+            </div>
+            <div className="mt-2 grid gap-3 min-[360px]:grid-cols-2 min-[430px]:grid-cols-3">
+              <div>
+                <Input label="CEP" showRequiredIndicator required placeholder="00000-000" autoComplete="postal-code" inputMode="numeric" value={cep} onChange={(e) => setCep(e.target.value)} maxLength={9} className="min-h-12 py-2 text-base" />
               </div>
-              <div className="mt-2 grid gap-3 min-[360px]:grid-cols-2 min-[430px]:grid-cols-3">
-                <div>
-                  <Input label="CEP" placeholder="00000-000" autoComplete="postal-code" inputMode="numeric" value={cep} onChange={(e) => setCep(e.target.value)} maxLength={9} className="min-h-12 py-2 text-base" />
-                </div>
-                <div>
-                  <Input label="Número" placeholder="123" autoComplete="address-line2" inputMode="numeric" value={numero} onChange={(e) => setNumero(e.target.value)} className="min-h-12 py-2 text-base" />
-                </div>
-                <div className="min-[360px]:col-span-2 min-[430px]:col-span-1">
-                  <Input label="Complemento" placeholder="Apto, bloco..." autoComplete="address-line3" value={complemento} onChange={(e) => setComplemento(e.target.value)} className="min-h-12 py-2 text-base" />
-                </div>
+              <div>
+                <Input label="Número" showRequiredIndicator required placeholder="123" autoComplete="address-line2" inputMode="numeric" value={numero} onChange={(e) => setNumero(e.target.value)} className="min-h-12 py-2 text-base" />
+              </div>
+              <div className="min-[360px]:col-span-2 min-[430px]:col-span-1">
+                <Input label="Complemento" placeholder="Apto, bloco..." autoComplete="address-line3" value={complemento} onChange={(e) => setComplemento(e.target.value)} className="min-h-12 py-2 text-base" />
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
           <h3 className="text-sm font-bold text-zinc-800">Resumo do pedido</h3>
-          <div className="flex justify-between text-sm text-zinc-600">
-            <span>Subtotal ({quantidadeTotal} {quantidadeTotal === 1 ? "item" : "itens"})</span>
-            <span>R$ {subtotal.toFixed(2).replace(".", ",")}</span>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-zinc-600">
+              {quantidadeTotal} {quantidadeTotal === 1 ? "item" : "itens"}
+            </span>
+            <span className="text-lg font-black text-teal-600">
+              R$ {subtotal.toFixed(2).replace(".", ",")}
+            </span>
           </div>
-          <div className="flex justify-between text-sm text-zinc-600">
-            <span>Taxa de entrega e retirada</span>
-            <span>A confirmar pelo endereço</span>
-          </div>
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-base font-bold text-zinc-900">Subtotal dos itens</span>
-            <span className="text-lg font-black text-teal-600">R$ {subtotal.toFixed(2).replace(".", ",")}</span>
-          </div>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">
-            O total final será confirmado pela BabyPlays após a análise do endereço.
-          </p>
         </div>
 
         <div className="flex flex-col gap-4 mt-2">
@@ -474,7 +453,9 @@ export function SidebarCart({ variant = "catalog" }: SidebarCartProps) {
                 onChange={(e) => setContratoAceito(e.target.checked)}
                 className="h-5 w-5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500"
               />
-              <span className="text-sm font-bold text-zinc-800">Contrato aceito</span>
+              <span className="text-sm font-bold text-zinc-800">
+                Contrato aceito <span className="text-red-600" aria-hidden="true">*</span>
+              </span>
             </label>
             <button 
               type="button" 
