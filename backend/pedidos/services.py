@@ -1106,7 +1106,13 @@ class ReservaPedidoService:
             )
 
     @staticmethod
-    def _adicionar_demanda(demandas, item_pedido, brinquedo_id, quantidade):
+    def _adicionar_demanda(
+        demandas,
+        item_pedido,
+        brinquedo_id,
+        quantidade,
+        unidade_ids=None,
+    ):
         if quantidade <= 0:
             return
         demanda = demandas.setdefault(
@@ -1121,6 +1127,7 @@ class ReservaPedidoService:
             {
                 "item_pedido": item_pedido,
                 "quantidade": quantidade,
+                "unidade_ids": list(unidade_ids or []),
             }
         )
 
@@ -1147,6 +1154,7 @@ class ReservaPedidoService:
                     item,
                     item.brinquedo_id,
                     multiplicador,
+                    item.snapshot.get("unidade_ids_selecionadas", []),
                 )
             elif item.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
                 itens_snapshot = item.snapshot.get("kit_festa", {}).get("itens", [])
@@ -1382,11 +1390,24 @@ class ReservaPedidoService:
                     data_fim,
                     kit_festa_id=kit_festa_id,
                 )
+                unidade_ids_selecionadas = origem.get("unidade_ids", [])
+                if unidade_ids_selecionadas:
+                    unidades_por_id = {
+                        unidade.id: unidade for unidade in unidades_livres
+                    }
+                    unidades_livres = [
+                        unidades_por_id[unidade_id]
+                        for unidade_id in unidade_ids_selecionadas
+                        if unidade_id in unidades_por_id
+                    ]
                 if len(unidades_livres) < origem["quantidade"]:
                     raise serializers.ValidationError(
                         {
                             "disponibilidade": (
-                                "Unidades insuficientes para o brinquedo "
+                                "As unidades selecionadas nao estao disponiveis "
+                                f"para o brinquedo {brinquedo_id}."
+                                if unidade_ids_selecionadas
+                                else "Unidades insuficientes para o brinquedo "
                                 f"{brinquedo_id}."
                             )
                         }
@@ -1841,6 +1862,40 @@ class GestaoAdminPedidoService:
             if not periodo:
                 raise serializers.ValidationError({"itens": "Brinquedo sem preco de periodo."})
             snapshot = CarrinhoService._snapshot_brinquedo(objeto, quantidade, periodo)
+            unidade_ids = dados.get("unidade_ids", [])
+            if unidade_ids:
+                unidades = UnidadeBrinquedo.objects.filter(
+                    id__in=unidade_ids,
+                    brinquedo=objeto,
+                    status=UnidadeBrinquedo.Status.DISPONIVEL,
+                    dedicacao_kit__isnull=True,
+                )
+                if unidades.count() != len(unidade_ids):
+                    raise serializers.ValidationError(
+                        {
+                            "itens": (
+                                "Uma ou mais unidades selecionadas nao pertencem ao "
+                                "brinquedo ou nao estao disponiveis."
+                            )
+                        }
+                    )
+                bloqueios = ReservaUnidade.objects.filter(
+                    unidade_brinquedo_id__in=unidade_ids,
+                    status=ReservaUnidade.Status.ATIVA,
+                )
+                inicio = dados.get("data_inicio")
+                fim = dados.get("data_fim")
+                if inicio and fim:
+                    bloqueios = bloqueios.filter(
+                        Q(data_inicio__isnull=True)
+                        | Q(data_fim__isnull=True)
+                        | Q(data_inicio__lt=fim, data_fim__gt=inicio)
+                    )
+                if bloqueios.exists():
+                    raise serializers.ValidationError(
+                        {"itens": "Uma ou mais unidades selecionadas ja estao reservadas."}
+                    )
+                snapshot["snapshot"]["unidade_ids_selecionadas"] = unidade_ids
             return objeto, None, snapshot
         objeto = KitFesta.objects.prefetch_related("itens__brinquedo").filter(
             pk=dados["item_id"], ativo=True
@@ -1905,7 +1960,12 @@ class GestaoAdminPedidoService:
         pedido.itens.all().delete()
         subtotal = Decimal("0.00")
         for item_dados in dados.get("itens", []):
-            item_com_periodo = {**item_dados, "periodo_locacao": periodo}
+            item_com_periodo = {
+                **item_dados,
+                "periodo_locacao": periodo,
+                "data_inicio": inicio,
+                "data_fim": fim,
+            }
             brinquedo, kit, snapshot = GestaoAdminPedidoService._snapshot_item_manual(
                 item_com_periodo
             )

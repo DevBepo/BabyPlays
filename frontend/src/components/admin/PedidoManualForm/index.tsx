@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { listarBrinquedos, listarKitsFesta } from "@/services/catalogo";
+import {
+  listarBrinquedos,
+  listarKitsFesta,
+  listarUnidadesBrinquedo,
+  type UnidadeBrinquedoAdmin,
+} from "@/services/catalogo";
 import {
   atualizarPedidoManualAdmin,
   criarPedidoManualAdmin,
@@ -20,6 +25,7 @@ type LinhaItem = {
   tipo_item: "brinquedo" | "kit_festa";
   item_id: string;
   quantidade: number;
+  unidade_ids: string[];
 };
 
 type Props = {
@@ -58,8 +64,16 @@ export function PedidoManualForm({ pedido }: Props) {
           "",
       ),
       quantidade: item.quantidade,
+      unidade_ids:
+        item.resumo_composicao.unidades_selecionadas?.map((unidade) =>
+          String(unidade.id),
+        ) ?? [],
     })) ?? [],
   );
+  const [unidadesPorBrinquedo, setUnidadesPorBrinquedo] = useState<
+    Record<number, UnidadeBrinquedoAdmin[]>
+  >({});
+  const [unidadesCarregando, setUnidadesCarregando] = useState<number[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -70,6 +84,39 @@ export function PedidoManualForm({ pedido }: Props) {
         setKits(listaKits);
       })
       .catch(() => setErro("Não foi possível carregar brinquedos e kits."));
+  }, []);
+
+  async function carregarUnidades(brinquedoId: number) {
+    if (!brinquedoId || unidadesPorBrinquedo[brinquedoId]) return;
+    setUnidadesCarregando((atuais) => [...new Set([...atuais, brinquedoId])]);
+    try {
+      const unidades = await listarUnidadesBrinquedo(brinquedoId);
+      setUnidadesPorBrinquedo((atuais) => ({
+        ...atuais,
+        [brinquedoId]: unidades,
+      }));
+    } catch {
+      setErro("Nao foi possivel carregar as unidades do brinquedo.");
+    } finally {
+      setUnidadesCarregando((atuais) =>
+        atuais.filter((id) => id !== brinquedoId),
+      );
+    }
+  }
+
+  useEffect(() => {
+    const brinquedoIds = Array.from(
+      new Set(
+        itens
+          .filter((item) => item.tipo_item === "brinquedo" && item.item_id)
+          .map((item) => Number(item.item_id)),
+      ),
+    );
+    brinquedoIds.forEach((brinquedoId) => {
+      void carregarUnidades(brinquedoId);
+    });
+    // A carga tambem acontece imediatamente ao trocar o brinquedo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const opcoesPorTipo = useMemo(
@@ -83,7 +130,7 @@ export function PedidoManualForm({ pedido }: Props) {
   function adicionarLinha() {
     setItens((atuais) => [
       ...atuais,
-      { tipo_item: "brinquedo", item_id: "", quantidade: 1 },
+      { tipo_item: "brinquedo", item_id: "", quantidade: 1, unidade_ids: [] },
     ]);
   }
 
@@ -107,6 +154,9 @@ export function PedidoManualForm({ pedido }: Props) {
           tipo_item: item.tipo_item,
           item_id: Number(item.item_id),
           quantidade: item.quantidade,
+          unidade_ids: item.unidade_ids
+            .filter(Boolean)
+            .map((unidadeId) => Number(unidadeId)),
         })),
     };
     try {
@@ -163,11 +213,23 @@ export function PedidoManualForm({ pedido }: Props) {
         </div>
         <div className="flex flex-col gap-3">
           {itens.length === 0 && <p className="text-sm text-zinc-500">Nenhum item adicionado.</p>}
-          {itens.map((item, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-[140px_1fr_100px_auto]">
+          {itens.map((item, index) => {
+            const brinquedoId = Number(item.item_id);
+            const unidadesDisponiveis = (unidadesPorBrinquedo[brinquedoId] ?? []).filter(
+              (unidade) => unidade.status === "disponivel" && !unidade.dedicada_kit_festa,
+            );
+            const unidadesSelecionadasEmOutrasLinhas = new Set(
+              itens.flatMap((linha, linhaIndex) =>
+                linhaIndex === index ? [] : linha.unidade_ids.filter(Boolean),
+              ),
+            );
+
+            return (
+            <div key={index} className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3">
+              <div className="grid gap-2 sm:grid-cols-[140px_1fr_100px_auto]">
               <select
                 value={item.tipo_item}
-                onChange={(e) => setItens((atuais) => atuais.map((atual, i) => i === index ? { ...atual, tipo_item: e.target.value as LinhaItem["tipo_item"], item_id: "" } : atual))}
+                onChange={(e) => setItens((atuais) => atuais.map((atual, i) => i === index ? { ...atual, tipo_item: e.target.value as LinhaItem["tipo_item"], item_id: "", unidade_ids: [] } : atual))}
                 className="h-11 rounded-lg border border-zinc-300 bg-white px-3"
               >
                 <option value="brinquedo">Brinquedo</option>
@@ -175,16 +237,81 @@ export function PedidoManualForm({ pedido }: Props) {
               </select>
               <select
                 value={item.item_id}
-                onChange={(e) => setItens((atuais) => atuais.map((atual, i) => i === index ? { ...atual, item_id: e.target.value } : atual))}
+                onChange={(e) => {
+                  const itemId = e.target.value;
+                  setItens((atuais) => atuais.map((atual, i) => i === index ? { ...atual, item_id: itemId, unidade_ids: [] } : atual));
+                  if (item.tipo_item === "brinquedo" && itemId) {
+                    void carregarUnidades(Number(itemId));
+                  }
+                }}
                 className="h-11 rounded-lg border border-zinc-300 bg-white px-3"
               >
                 <option value="">Selecione</option>
                 {opcoesPorTipo[item.tipo_item].map((opcao) => <option key={opcao.id} value={opcao.id}>{opcao.nome}</option>)}
               </select>
-              <Input aria-label="Quantidade" type="number" min={1} value={item.quantidade} onChange={(e) => setItens((atuais) => atuais.map((atual, i) => i === index ? { ...atual, quantidade: Math.max(1, Number(e.target.value)) } : atual))} />
+              <Input aria-label="Quantidade" type="number" min={1} value={item.quantidade} onChange={(e) => {
+                const quantidade = Math.max(1, Number(e.target.value));
+                setItens((atuais) => atuais.map((atual, i) => i === index ? { ...atual, quantidade, unidade_ids: atual.unidade_ids.slice(0, quantidade) } : atual));
+              }} />
               <Button type="button" variant="ghost" onClick={() => setItens((atuais) => atuais.filter((_, i) => i !== index))}>Remover</Button>
+              </div>
+
+              {item.tipo_item === "brinquedo" && item.item_id ? (
+                <div className="mt-3 border-t border-zinc-200 pt-3">
+                  <p className="text-sm font-semibold text-zinc-800">Unidades fisicas</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Escolha uma unidade para cada quantidade ou deixe sem selecao para o sistema definir ao reservar.
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {Array.from({ length: item.quantidade }, (_, unidadeIndex) => (
+                      <label key={unidadeIndex} className="flex flex-col gap-1.5 text-xs font-medium text-zinc-600">
+                        Unidade {unidadeIndex + 1}
+                        <select
+                          value={item.unidade_ids[unidadeIndex] ?? ""}
+                          onChange={(e) => setItens((atuais) => atuais.map((atual, i) => {
+                            if (i !== index) return atual;
+                            const unidadeIds = [...atual.unidade_ids];
+                            unidadeIds[unidadeIndex] = e.target.value;
+                            return { ...atual, unidade_ids: unidadeIds };
+                          }))}
+                          disabled={unidadesCarregando.includes(brinquedoId)}
+                          className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm disabled:bg-zinc-100"
+                        >
+                          <option value="">
+                            {unidadesCarregando.includes(brinquedoId)
+                              ? "Carregando unidades..."
+                              : "Definir automaticamente depois"}
+                          </option>
+                          {unidadesDisponiveis.map((unidade) => (
+                            <option
+                              key={unidade.id}
+                              value={unidade.id}
+                              disabled={
+                                unidadesSelecionadasEmOutrasLinhas.has(String(unidade.id)) ||
+                                item.unidade_ids.some(
+                                  (selecionada, selecionadaIndex) =>
+                                    selecionadaIndex !== unidadeIndex &&
+                                    selecionada === String(unidade.id),
+                                )
+                              }
+                            >
+                              {unidade.codigo}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                  {!unidadesCarregando.includes(brinquedoId) && unidadesDisponiveis.length === 0 ? (
+                    <p className="mt-2 text-xs font-medium text-amber-700">
+                      Nenhuma unidade avulsa disponivel para este brinquedo.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

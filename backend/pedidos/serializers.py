@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.utils import timezone
 
+from catalogo.models import UnidadeBrinquedo
+
 from .models import (
     AceiteContrato,
     Carrinho,
@@ -398,12 +400,20 @@ class ItemPedidoAdminSerializer(serializers.ModelSerializer):
     def get_resumo_composicao(self, obj):
         if obj.tipo_item == ItemCarrinho.TipoItem.BRINQUEDO:
             brinquedo = obj.snapshot.get("brinquedo", {})
+            unidade_ids = obj.snapshot.get("unidade_ids_selecionadas", [])
+            unidades = UnidadeBrinquedo.objects.filter(id__in=unidade_ids).order_by(
+                "codigo", "id"
+            )
             return {
                 "tipo": obj.tipo_item,
                 "brinquedo": {
                     "id": obj.brinquedo_id or brinquedo.get("id"),
                     "nome": brinquedo.get("nome") or obj.nome_snapshot,
                 },
+                "unidades_selecionadas": UnidadeBrinquedoAdminResumoSerializer(
+                    unidades,
+                    many=True,
+                ).data,
             }
 
         if obj.tipo_item == ItemCarrinho.TipoItem.KIT_FESTA:
@@ -655,6 +665,28 @@ class ItemPedidoManualAdminSerializer(serializers.Serializer):
     )
     item_id = serializers.IntegerField(min_value=1)
     quantidade = serializers.IntegerField(min_value=1, default=1)
+    unidade_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        unidade_ids = attrs.get("unidade_ids", [])
+        if len(unidade_ids) != len(set(unidade_ids)):
+            raise serializers.ValidationError(
+                {"unidade_ids": "Selecione cada unidade fisica apenas uma vez."}
+            )
+        if attrs["tipo_item"] == ItemCarrinho.TipoItem.KIT_FESTA and unidade_ids:
+            raise serializers.ValidationError(
+                {"unidade_ids": "Unidades avulsas so podem ser escolhidas para brinquedos."}
+            )
+        if unidade_ids and len(unidade_ids) != attrs["quantidade"]:
+            raise serializers.ValidationError(
+                {"unidade_ids": "Selecione uma unidade fisica para cada item."}
+            )
+        return attrs
 
 
 class PedidoManualAdminSerializer(serializers.Serializer):
@@ -678,6 +710,18 @@ class PedidoManualAdminSerializer(serializers.Serializer):
         if cep and len(cep) != 8:
             raise serializers.ValidationError("CEP invalido.")
         return cep
+
+    def validate_itens(self, itens):
+        unidades = [
+            unidade_id
+            for item in itens
+            for unidade_id in item.get("unidade_ids", [])
+        ]
+        if len(unidades) != len(set(unidades)):
+            raise serializers.ValidationError(
+                "Uma unidade fisica so pode aparecer uma vez no pedido."
+            )
+        return itens
 
 
 class ReservaUnidadePedidoSerializer(serializers.ModelSerializer):

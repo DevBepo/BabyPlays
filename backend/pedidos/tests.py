@@ -3958,6 +3958,92 @@ class PedidoManualAdminAPITests(APITestCase):
         self.assertEqual(pedido.itens.count(), 1)
         self.assertFalse(ReservaUnidade.objects.filter(pedido=pedido).exists())
 
+    def test_admin_escolhe_unidade_e_reserva_exatamente_a_selecionada(self):
+        UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="MANUAL-AUTOMATICA-1",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+        unidade_escolhida = UnidadeBrinquedo.objects.create(
+            brinquedo=self.brinquedo,
+            codigo="MANUAL-ESCOLHIDA-2",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+        criado = self.client.post(
+            "/api/admin/pedidos/",
+            {
+                "itens": [
+                    {
+                        "tipo_item": "brinquedo",
+                        "item_id": self.brinquedo.id,
+                        "quantidade": 1,
+                        "unidade_ids": [unidade_escolhida.id],
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(criado.status_code, status.HTTP_201_CREATED)
+        pedido = Pedido.objects.get(pk=criado.data["id"])
+        item = pedido.itens.get()
+        self.assertEqual(
+            item.snapshot["unidade_ids_selecionadas"],
+            [unidade_escolhida.id],
+        )
+        self.assertEqual(
+            criado.data["itens"][0]["resumo_composicao"][
+                "unidades_selecionadas"
+            ][0]["id"],
+            unidade_escolhida.id,
+        )
+        self.assertFalse(ReservaUnidade.objects.filter(pedido=pedido).exists())
+
+        reservado = self.client.post(
+            f"/api/admin/pedidos/{pedido.id}/alterar-status/",
+            {"status": Pedido.Status.RESERVADO},
+            format="json",
+        )
+
+        self.assertEqual(reservado.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            ReservaUnidade.objects.get(pedido=pedido).unidade_brinquedo,
+            unidade_escolhida,
+        )
+
+    def test_pedido_manual_rejeita_unidade_de_outro_brinquedo(self):
+        outro_brinquedo = Brinquedo.objects.create(
+            nome="Outro brinquedo manual",
+            descricao="Teste",
+            preco_aluguel=Decimal("120.00"),
+            preco_15_dias=Decimal("120.00"),
+        )
+        unidade_errada = UnidadeBrinquedo.objects.create(
+            brinquedo=outro_brinquedo,
+            codigo="MANUAL-OUTRO-1",
+            status=UnidadeBrinquedo.Status.DISPONIVEL,
+        )
+
+        response = self.client.post(
+            "/api/admin/pedidos/",
+            {
+                "itens": [
+                    {
+                        "tipo_item": "brinquedo",
+                        "item_id": self.brinquedo.id,
+                        "quantidade": 1,
+                        "unidade_ids": [unidade_errada.id],
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("itens", response.data)
+        self.assertFalse(Pedido.objects.exists())
+
     def test_pedido_com_data_inicial_aparece_na_agenda(self):
         data = timezone.localdate() + timedelta(days=7)
         pedido = Pedido.objects.create(

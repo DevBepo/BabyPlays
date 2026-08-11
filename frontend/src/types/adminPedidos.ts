@@ -65,6 +65,7 @@ export type AdminPedidoResumoComposicao = {
     nome: string;
   };
   itens?: unknown[];
+  unidades_selecionadas?: AdminPedidoUnidadeResumo[];
 };
 
 export type AdminPedidoItem = {
@@ -206,5 +207,6 @@ export type AdminPedidoManualPayload = {
     tipo_item: "brinquedo" | "kit_festa";
     item_id: number;
     quantidade: number;
+    unidade_ids?: number[];
   }>;
 };
