@@ -594,8 +594,8 @@ export default function AdminAgendaPage() {
           </div>
 
           {/* Linha 2: Filtros */}
-          <div className="flex flex-col lg:flex-row gap-3">
-            <div className="flex gap-2 w-full lg:w-auto">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex w-full gap-2 lg:w-auto">
               <button type="button" onClick={() => setViewMode("semana")} className={`flex-1 lg:w-32 py-2 text-xs font-bold rounded-lg border transition-colors ${viewMode === 'semana' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}>
                 Semana
               </button>
@@ -603,8 +603,8 @@ export default function AdminAgendaPage() {
                 Mês
               </button>
             </div>
-            <div className="w-full lg:flex-1">
-              <Select aria-label="Tipo" options={eventTypeOptions} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as AdminAgendaTypeFilter)} className="w-full h-10 lg:h-9" />
+            <div className="w-full lg:w-80">
+              <Select aria-label="Tipo" options={eventTypeOptions} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as AdminAgendaTypeFilter)} className="h-10 w-full" />
             </div>
           </div>
         </div>

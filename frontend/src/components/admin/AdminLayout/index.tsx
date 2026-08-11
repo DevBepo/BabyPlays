@@ -271,17 +271,30 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             Menu
           </button>
 
-          <span className="relative hidden h-16 w-12 shrink-0 overflow-hidden lg:block">
+          <Link
+            href="/"
+            aria-label="Ir para a loja BabyPlays"
+            className="hidden shrink-0 items-end gap-2 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#AB2E97] lg:flex"
+          >
             <Image
-              src="/assets/LogoComEscrita.jpg"
+              src="/assets/BabyPlaysTaglinePagina24.png"
               alt="BabyPlays - Locação de brinquedos"
-              width={1275}
-              height={990}
-              sizes="97px"
-              className="absolute left-1/2 top-1/2 h-[75px] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+              width={587}
+              height={147}
+              sizes="128px"
+              className="h-auto w-32 object-contain"
               priority
             />
-          </span>
+            <Image
+              src="/assets/BabyPlaysMascotePagina24.png"
+              alt=""
+              width={683}
+              height={541}
+              sizes="80px"
+              className="h-auto w-20 object-contain"
+              priority
+            />
+          </Link>
 
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="flex min-w-0 flex-col text-right">
