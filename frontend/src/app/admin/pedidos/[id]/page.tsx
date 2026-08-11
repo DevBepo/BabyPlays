@@ -412,49 +412,72 @@ export default function DetalhePedidoPage() {
         </div>
 
         {pedido && (
-          <div className="flex w-full flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center xl:self-start">
-            {pedido.status === "aguardando_analise" && (
-              <Button
-                className="w-full sm:w-auto"
-                variant="outline"
-                onClick={() => router.push(`/admin/pedidos/${pedido.id}/editar`)}
-              >
-                Editar pedido
-              </Button>
-            )}
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => void handleDefinirDatas()}>Definir datas</Button>
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => void handleRenovar()}>Renovar</Button>
-            <select
-              aria-label="Alterar status do pedido"
-              value={pedido.status}
-              onChange={(event) => void handleAlterarStatus(event.target.value)}
-              className="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 sm:w-auto sm:h-10"
-            >
-              <option value="aguardando_analise">Aguardando analise</option>
-              <option value="reservado">Reservado</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="em_locacao">Em locacao</option>
-              <option value="retirado">Retirado</option>
-              <option value="cancelado">Cancelado</option>
-            </select>
-            {acoesDisponiveis.length > 0 ? (
-              acoesDisponiveis.map((acao) => (
-                <Button
-                  className="w-full sm:w-auto"
-                  key={acao}
-                  variant="outline"
-                  loading={executingAction === acao}
-                  disabled={executingAction !== null}
-                  onClick={() => void handleAction(acao)}
+          <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm xl:w-[34rem] xl:self-start">
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                  Proxima acao
+                </p>
+                {acoesDisponiveis.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {acoesDisponiveis.map((acao) => (
+                      <Button
+                        className="w-full sm:w-auto"
+                        key={acao}
+                        size="sm"
+                        variant="secondary"
+                        loading={executingAction === acao}
+                        disabled={executingAction !== null}
+                        onClick={() => void handleAction(acao)}
+                      >
+                        {actionConfig[acao]?.label ?? acao}
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm font-medium text-zinc-500">
+                    Nenhuma acao disponivel
+                  </span>
+                )}
+              </div>
+
+              <label className="block shrink-0">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                  Status
+                </span>
+                <select
+                  aria-label="Alterar status do pedido"
+                  value={pedido.status}
+                  onChange={(event) => void handleAlterarStatus(event.target.value)}
+                  className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 sm:w-48"
                 >
-                  {actionConfig[acao]?.label ?? acao}
+                  <option value="aguardando_analise">Aguardando analise</option>
+                  <option value="reservado">Reservado</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="em_locacao">Em locacao</option>
+                  <option value="retirado">Retirado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-1 border-t border-zinc-100 bg-zinc-50 px-3 py-2">
+              {pedido.status === "aguardando_analise" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => router.push(`/admin/pedidos/${pedido.id}/editar`)}
+                >
+                  Editar pedido
                 </Button>
-              ))
-            ) : (
-              <span className="text-xs font-medium text-zinc-500">
-                Nenhuma acao disponivel
-              </span>
-            )}
+              )}
+              <Button size="sm" variant="ghost" onClick={() => void handleDefinirDatas()}>
+                Definir datas
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => void handleRenovar()}>
+                Renovar
+              </Button>
+            </div>
           </div>
         )}
       </div>
