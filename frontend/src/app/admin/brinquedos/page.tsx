@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 import { BrinquedoAdminCard } from "@/components/admin/BrinquedoAdminCard";
-import { BrinquedoCategoryOrganizer } from "@/components/admin/BrinquedoCategoryOrganizer";
 import { BrinquedoAdminFilters } from "@/components/admin/BrinquedoAdminFilters";
 import { Badge } from "@/components/ui/Badge";
 import { InlineCategoryModal } from "@/components/admin/InlineCategoryModal";
@@ -125,8 +124,6 @@ export default function ListaBrinquedosAdmin() {
   const [statusFiltro, setStatusFiltro] = useState<StatusCatalogoFiltro>("todos");
   const [quantidadeVisivel, setQuantidadeVisivel] = useState(QUANTIDADE_INICIAL);
   const [categoriaModalAberta, setCategoriaModalAberta] = useState(false);
-  const [organizadorAberto, setOrganizadorAberto] = useState(false);
-  const [brinquedoMovendoCategoria, setBrinquedoMovendoCategoria] = useState<number | null>(null);
   const imagemPreviewUrl = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : null),
     [imagemArquivo],
@@ -552,50 +549,6 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
-  async function handleMoverCategoria(brinquedoId: number, categoriaId: number | null) {
-    const brinquedo = brinquedos.find((item) => item.id === brinquedoId);
-    const categoriaAnterior = brinquedo?.categoria ?? null;
-    const categoriaDestino =
-      categoriaId === null
-        ? null
-        : categorias.find((categoria) => categoria.id === categoriaId) ?? null;
-
-    if (!brinquedo || (brinquedo.categoria?.id ?? null) === categoriaId) {
-      return;
-    }
-
-    setBrinquedoMovendoCategoria(brinquedoId);
-    setErro(null);
-    setSucesso(null);
-    setBrinquedos((atuais) =>
-      atuais.map((item) =>
-        item.id === brinquedoId ? { ...item, categoria: categoriaDestino } : item,
-      ),
-    );
-
-    try {
-      await atualizarBrinquedo(brinquedoId, { categoria: categoriaId });
-      setSucesso(
-        categoriaDestino
-          ? `${brinquedo.nome} foi movido para ${categoriaDestino.nome}.`
-          : `${brinquedo.nome} ficou sem categoria.`,
-      );
-    } catch (error) {
-      setBrinquedos((atuais) =>
-        atuais.map((item) =>
-          item.id === brinquedoId ? { ...item, categoria: categoriaAnterior } : item,
-        ),
-      );
-      setErro(
-        isApiError(error)
-          ? error.message
-          : "Nao foi possivel salvar a nova categoria do brinquedo.",
-      );
-    } finally {
-      setBrinquedoMovendoCategoria(null);
-    }
-  }
-
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -606,13 +559,6 @@ export default function ListaBrinquedosAdmin() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button
-            className="w-full sm:w-auto"
-            variant="outline"
-            onClick={() => setOrganizadorAberto((aberto) => !aberto)}
-          >
-            {organizadorAberto ? "Fechar organização" : "Organizar categorias"}
-          </Button>
           <Button className="w-full sm:w-auto" variant="primary" onClick={abrirNovoBrinquedo}>
             Novo Brinquedo
           </Button>
@@ -629,16 +575,6 @@ export default function ListaBrinquedosAdmin() {
         <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
           {erro}
         </div>
-      ) : null}
-
-      {organizadorAberto ? (
-        <BrinquedoCategoryOrganizer
-          brinquedos={brinquedos}
-          categorias={categorias}
-          brinquedoMovendoId={brinquedoMovendoCategoria}
-          onMove={handleMoverCategoria}
-          onCreateCategory={() => setCategoriaModalAberta(true)}
-        />
       ) : null}
 
       {formAberto ? (
@@ -797,7 +733,6 @@ export default function ListaBrinquedosAdmin() {
                     src={imagemAtualUrl}
                     alt="Imagem atual do brinquedo"
                     fill
-                    unoptimized
                     className="object-contain p-2"
                   />
                 ) : (
@@ -861,7 +796,7 @@ export default function ListaBrinquedosAdmin() {
                       <div key={item.id} className="max-w-[160px] rounded-lg border border-zinc-200 bg-white p-1.5 shadow-sm">
                         <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
                           {url ? (
-                            <Image src={url} alt={item.alt_text || brinquedoAtual.nome} fill unoptimized className="object-contain" />
+                            <Image src={url} alt={item.alt_text || brinquedoAtual.nome} fill className="object-contain" />
                           ) : null}
                         </div>
                         <span className="mt-1.5 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">Adicional</span>

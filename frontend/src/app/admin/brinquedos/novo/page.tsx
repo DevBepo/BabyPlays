@@ -153,7 +153,7 @@ export default function NovoBrinquedo() {
             Preencha os dados abaixo e anexe uma foto principal.
           </p>
         </div>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={() => router.back()}>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={() => router.push("/admin/brinquedos")}>
           Voltar
         </Button>
       </div>
@@ -367,7 +367,7 @@ export default function NovoBrinquedo() {
           </div>
 
           <div className="mt-2 flex flex-col-reverse gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
-            <Button className="w-full sm:w-auto" type="button" variant="ghost" onClick={() => router.back()}>
+            <Button className="w-full sm:w-auto" type="button" variant="ghost" onClick={() => router.push("/admin/brinquedos")}>
               Cancelar
             </Button>
             <Button
