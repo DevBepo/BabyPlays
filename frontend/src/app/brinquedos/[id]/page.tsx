@@ -203,7 +203,7 @@ function BrinquedoDetalheContent() {
         <Button
           type="button"
           variant="ghost"
-          onClick={() => router.back()}
+          onClick={() => router.push("/#brinquedos")}
           className="mb-6 rounded-full bg-white/75 px-4 shadow-sm backdrop-blur-sm hover:bg-white"
         >
           ← Voltar
@@ -224,7 +224,6 @@ function BrinquedoDetalheContent() {
                   alt={imagem?.alt_text || brinquedo.nome}
                   width={720}
                   height={720}
-                  unoptimized
                   className="h-full w-full object-contain"
                   priority
                 />
@@ -277,7 +276,6 @@ function BrinquedoDetalheContent() {
                           alt={item.alt_text || brinquedo.nome}
                           width={144}
                           height={144}
-                          unoptimized
                           className="h-full w-full object-contain"
                         />
                       )}

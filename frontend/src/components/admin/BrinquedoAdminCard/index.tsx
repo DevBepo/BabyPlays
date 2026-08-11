@@ -38,7 +38,6 @@ export function BrinquedoAdminCard({
               src={imagemUrl}
               alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
               fill
-              unoptimized
               className="object-contain p-3"
               sizes="(max-width: 768px) 100vw, 210px"
             />
@@ -138,13 +137,13 @@ export function BrinquedoAdminCard({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-200 pt-3 text-xs font-semibold">
+          <div className="grid grid-cols-2 gap-2 border-t border-zinc-200 pt-3 text-xs font-semibold">
             {brinquedo.ativo !== false ? (
               <button
                 type="button"
                 disabled={alterandoStatus}
                 onClick={onToggleStatus}
-                className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-50"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-50"
               >
                 Ocultar
               </button>
@@ -153,7 +152,7 @@ export function BrinquedoAdminCard({
               <Link
                 href={`/brinquedos/${brinquedo.id}`}
                 target="_blank"
-                className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-teal-700 transition-colors hover:bg-teal-50 hover:text-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-teal-100 bg-white px-3 text-center text-sm text-teal-700 transition-colors hover:bg-teal-50 hover:text-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
               >
                 Ver na loja
               </Link>
@@ -162,7 +161,7 @@ export function BrinquedoAdminCard({
               type="button"
               disabled={alterandoStatus || removendo}
               onClick={onRemove}
-              className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+              className="col-span-2 inline-flex min-h-10 items-center justify-center rounded-lg border border-red-100 bg-white px-3 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
             >
               {removendo ? "Removendo..." : "Remover"}
             </button>

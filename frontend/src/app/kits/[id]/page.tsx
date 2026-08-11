@@ -187,7 +187,6 @@ export default function KitFestaDetalhePage() {
                     alt={imagem?.alt_text || kit.nome}
                     width={720}
                     height={720}
-                    unoptimized
                     className="h-full w-full object-contain"
                     priority
                   />
@@ -240,7 +239,6 @@ export default function KitFestaDetalhePage() {
                             alt={item.alt_text || kit.nome}
                             width={144}
                             height={144}
-                            unoptimized
                             className="h-full w-full object-contain"
                           />
                         ) : null}

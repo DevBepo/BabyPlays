@@ -87,10 +87,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "api.babyplays.com.br",
+        port: "",
+        pathname: "/media/**",
       },
       {
         protocol: "https",
         hostname: "api-babyplays.up.railway.app",
+        port: "",
+        pathname: "/media/**",
       },
       {
         protocol: "http",
