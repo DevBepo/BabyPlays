@@ -797,6 +797,7 @@ export default function ListaBrinquedosAdmin() {
                     src={imagemAtualUrl}
                     alt="Imagem atual do brinquedo"
                     fill
+                    unoptimized
                     className="object-contain p-2"
                   />
                 ) : (
@@ -860,7 +861,7 @@ export default function ListaBrinquedosAdmin() {
                       <div key={item.id} className="max-w-[160px] rounded-lg border border-zinc-200 bg-white p-1.5 shadow-sm">
                         <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
                           {url ? (
-                            <Image src={url} alt={item.alt_text || brinquedoAtual.nome} fill className="object-contain" />
+                            <Image src={url} alt={item.alt_text || brinquedoAtual.nome} fill unoptimized className="object-contain" />
                           ) : null}
                         </div>
                         <span className="mt-1.5 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">Adicional</span>

@@ -224,6 +224,7 @@ function BrinquedoDetalheContent() {
                   alt={imagem?.alt_text || brinquedo.nome}
                   width={720}
                   height={720}
+                  unoptimized
                   className="h-full w-full object-contain"
                   priority
                 />
@@ -276,6 +277,7 @@ function BrinquedoDetalheContent() {
                           alt={item.alt_text || brinquedo.nome}
                           width={144}
                           height={144}
+                          unoptimized
                           className="h-full w-full object-contain"
                         />
                       )}
