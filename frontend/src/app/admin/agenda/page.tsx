@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { obterAgendaAdmin } from "@/services/adminAgenda";
 import type { ApiError } from "@/types/api";
@@ -444,6 +445,7 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
 }
 
 export default function AdminAgendaPage() {
+  const router = useRouter();
   const [referenceDate, setReferenceDate] = useState(() => normalizeDate(new Date()));
   const [viewMode, setViewMode] = useState<"semana" | "mes">("semana");
   const [typeFilter, setTypeFilter] = useState<AdminAgendaTypeFilter>("todos");
@@ -579,17 +581,27 @@ export default function AdminAgendaPage() {
               <span className="text-xs font-normal text-zinc-600">{displayLabel}</span>
             </div>
 
-            <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 w-full sm:w-auto">
-              <button type="button" onClick={goToToday} className="hidden sm:block h-7 rounded px-2.5 text-xs font-medium text-zinc-700 hover:bg-teal-50 hover:text-teal-700">
-                Hoje
-              </button>
-              <button type="button" onClick={goToPrevious} className="flex-1 sm:flex-none p-2 sm:h-7 sm:w-7 sm:p-0 flex items-center justify-center hover:bg-white rounded shadow-sm sm:shadow-none text-sm font-medium transition-colors">
-                &lt;
-              </button>
-              <input type="date" value={formatApiDate(referenceDate)} onChange={handleDateChange} className="flex-[2] sm:flex-none text-center bg-transparent text-sm font-bold border-0 outline-none cursor-pointer hover:bg-teal-50 rounded" />
-              <button type="button" onClick={goToNext} className="flex-1 sm:flex-none p-2 sm:h-7 sm:w-7 sm:p-0 flex items-center justify-center hover:bg-white rounded shadow-sm sm:shadow-none text-sm font-medium transition-colors">
-                &gt;
-              </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => router.push("/admin/pedidos/novo")}
+              >
+                Novo pedido
+              </Button>
+              <div className="flex w-full items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:w-auto">
+                <button type="button" onClick={goToToday} className="hidden sm:block h-7 rounded px-2.5 text-xs font-medium text-zinc-700 hover:bg-teal-50 hover:text-teal-700">
+                  Hoje
+                </button>
+                <button type="button" onClick={goToPrevious} className="flex-1 sm:flex-none p-2 sm:h-7 sm:w-7 sm:p-0 flex items-center justify-center hover:bg-white rounded shadow-sm sm:shadow-none text-sm font-medium transition-colors">
+                  &lt;
+                </button>
+                <input type="date" value={formatApiDate(referenceDate)} onChange={handleDateChange} className="flex-[2] sm:flex-none text-center bg-transparent text-sm font-bold border-0 outline-none cursor-pointer hover:bg-teal-50 rounded" />
+                <button type="button" onClick={goToNext} className="flex-1 sm:flex-none p-2 sm:h-7 sm:w-7 sm:p-0 flex items-center justify-center hover:bg-white rounded shadow-sm sm:shadow-none text-sm font-medium transition-colors">
+                  &gt;
+                </button>
+              </div>
             </div>
           </div>
 
