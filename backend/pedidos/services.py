@@ -1272,12 +1272,23 @@ class ReservaPedidoService:
             brinquedo_id=brinquedo_id,
             status=UnidadeBrinquedo.Status.DISPONIVEL,
         )
+        dedicacoes = DedicacaoUnidadeKit.objects.filter(
+            unidade_id=OuterRef("pk"),
+        )
         if kit_festa_id is None:
-            queryset = queryset.filter(dedicacao_kit__isnull=True)
+            queryset = queryset.annotate(
+                tem_dedicacao_kit=Exists(dedicacoes),
+            ).filter(tem_dedicacao_kit=False)
         else:
-            queryset = queryset.filter(
-                dedicacao_kit__item_kit__kit_id=kit_festa_id,
-                dedicacao_kit__item_kit__kit__ativo=True,
+            queryset = queryset.annotate(
+                dedicada_ao_kit=Exists(
+                    dedicacoes.filter(
+                        item_kit__kit_id=kit_festa_id,
+                        item_kit__kit__ativo=True,
+                    )
+                ),
+            ).filter(
+                dedicada_ao_kit=True,
             )
         if data_inicio and data_fim:
             queryset = queryset.exclude(
@@ -1299,7 +1310,7 @@ class ReservaPedidoService:
             queryset = queryset.exclude(
                 reservas__status=ReservaUnidade.Status.ATIVA
             )
-        unidades = list(queryset.distinct().order_by("id"))
+        unidades = list(queryset.order_by("id"))
         if not unidades:
             return []
 
