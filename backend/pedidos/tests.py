@@ -3219,6 +3219,23 @@ class ReservaUnidadesPedidoAdminTests(APITestCase):
             ReservaUnidade.objects.filter(item_pedido=item).count(),
         )
 
+    def test_reserva_nao_usa_distinct_com_bloqueio_de_unidades(self):
+        self.autenticar_admin()
+        self.pedido = self.criar_pedido()
+        self.criar_item_brinquedo()
+        self.criar_unidade()
+
+        with patch(
+            "django.db.models.query.QuerySet.distinct",
+            side_effect=AssertionError(
+                "SELECT FOR UPDATE com DISTINCT nao e suportado pelo PostgreSQL."
+            ),
+        ):
+            response = self.client.post(self.url(), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(ReservaUnidade.objects.count(), 1)
+
     def test_admin_reserva_unidades_de_pedido_com_kit_festa_pronto(self):
         self.autenticar_admin()
         self.pedido = self.criar_pedido()
