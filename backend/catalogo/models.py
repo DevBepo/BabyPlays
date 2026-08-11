@@ -90,7 +90,7 @@ class Categoria(models.Model):
 
 class Brinquedo(models.Model):
     nome = models.CharField(max_length=200, verbose_name="Nome")
-    descricao = models.TextField(verbose_name="Descrição")
+    descricao = models.TextField(blank=True, verbose_name="Descrição")
     categoria = models.ForeignKey(
         Categoria,
         related_name="brinquedos",

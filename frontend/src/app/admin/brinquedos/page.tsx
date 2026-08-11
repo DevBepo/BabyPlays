@@ -693,7 +693,7 @@ export default function ListaBrinquedosAdmin() {
 
             <div className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
             <Textarea
-              label="Descricao do brinquedo *"
+              label="Descricao do brinquedo"
               placeholder="Explique o brinquedo, a idade recomendada e seus principais beneficios."
               rows={4}
               className="min-h-[112px] max-h-[320px] leading-6"
@@ -705,7 +705,6 @@ export default function ListaBrinquedosAdmin() {
                 }))
               }
               error={getApiFieldError(fieldErrors, "descricao")}
-              required
             />
             <p className="mt-2 text-xs leading-5 text-zinc-500">Use uma descricao curta e clara para explicar o brinquedo, idade recomendada e principais beneficios.</p>
             </div>

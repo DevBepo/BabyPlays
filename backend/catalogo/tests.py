@@ -1303,6 +1303,21 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(Brinquedo.objects.count(), 2)
         self.assertEqual(response.data["nome"], "Cama elastica")
 
+    def test_usuario_admin_consegue_criar_brinquedo_sem_descricao(self):
+        self.client.force_authenticate(user=self.usuario_admin)
+        payload = self.payload_valido()
+        payload.pop("descricao")
+
+        response = self.client.post(
+            self.brinquedos_url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        brinquedo_criado = Brinquedo.objects.get(nome="Cama elastica")
+        self.assertEqual(brinquedo_criado.descricao, "")
+
     def test_usuario_admin_consegue_criar_brinquedo_com_categoria(self):
         categoria = Categoria.objects.create(
             nome="Bebes",
@@ -1335,7 +1350,6 @@ class BrinquedoAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("nome", response.data)
-        self.assertIn("descricao", response.data)
 
     def test_api_ignora_campos_somente_leitura_na_criacao(self):
         self.client.force_authenticate(user=self.usuario_admin)
