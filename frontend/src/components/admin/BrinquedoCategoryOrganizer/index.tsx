@@ -153,6 +153,7 @@ export function BrinquedoCategoryOrganizer({
                               src={imagemUrl}
                               alt=""
                               fill
+                              unoptimized
                               className="object-contain p-1"
                               sizes="48px"
                             />

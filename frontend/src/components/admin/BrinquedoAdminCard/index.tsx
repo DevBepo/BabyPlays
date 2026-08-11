@@ -38,6 +38,7 @@ export function BrinquedoAdminCard({
               src={imagemUrl}
               alt={brinquedo.imagem_principal?.alt_text || brinquedo.nome}
               fill
+              unoptimized
               className="object-contain p-3"
               sizes="(max-width: 768px) 100vw, 210px"
             />

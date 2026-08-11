@@ -187,6 +187,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
             src={imagemUrl}
             alt={imagem?.alt_text || kit.nome}
             fill
+            unoptimized
             className="object-contain p-1 transition-transform duration-500 ease-out group-hover:scale-125"
           />
         ) : (
