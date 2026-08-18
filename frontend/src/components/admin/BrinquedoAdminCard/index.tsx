@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatarMoeda, statusAdministrativo } from "@/lib/admin-brinquedos";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { formatarIdadeRecomendada } from "@/lib/idade-recomendada";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { BrinquedoCatalogo } from "@/types/catalogo";
 
@@ -28,6 +29,10 @@ export function BrinquedoAdminCard({
 }: BrinquedoAdminCardProps) {
   const imagemUrl = resolveMediaUrl(brinquedo.imagem_principal?.url);
   const statusAtual = statusAdministrativo(brinquedo);
+  const idadeRecomendada = formatarIdadeRecomendada(
+    brinquedo.idade_minima_meses,
+    brinquedo.idade_maxima_meses,
+  );
 
   return (
     <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md">
@@ -78,6 +83,16 @@ export function BrinquedoAdminCard({
           </p>
 
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-5">
+            {idadeRecomendada ? (
+              <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Idade
+                </p>
+                <p className="mt-1 text-sm font-bold text-zinc-900">
+                  {idadeRecomendada}
+                </p>
+              </div>
+            ) : null}
             <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 Unidades fisicas

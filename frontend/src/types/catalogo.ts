@@ -51,6 +51,8 @@ export type BrinquedoCatalogo = {
   id: number;
   nome: string;
   descricao: string;
+  idade_minima_meses: number | null;
+  idade_maxima_meses: number | null;
   preco_aluguel: string;
   preco_diaria: string | null;
   preco_3_dias: string | null;

@@ -100,6 +100,8 @@ export type CriarBrinquedoPayload = {
   nome: string;
   descricao: string;
   categoria?: number | null;
+  idade_minima_meses?: number | null;
+  idade_maxima_meses?: number | null;
   preco_diaria?: string | number | null;
   preco_3_dias?: string | number | null;
   preco_15_dias?: string | number | null;

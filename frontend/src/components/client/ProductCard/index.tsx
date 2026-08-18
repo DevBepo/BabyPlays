@@ -16,6 +16,7 @@ interface ProductCardProps {
   id: number;
   nome: string;
   descricao: string;
+  idadeRecomendada?: string | null;
   periodosDisponiveis: PeriodoLocacaoDisponivel[];
   categoriaNome?: string;
   disponivelParaCarrinho: boolean;
@@ -51,6 +52,7 @@ export function ProductCard({
   id,
   nome,
   descricao,
+  idadeRecomendada,
   periodosDisponiveis,
   categoriaNome,
   disponivelParaCarrinho,
@@ -165,6 +167,12 @@ export function ProductCard({
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
           {categoriaNome || descricao}
         </p>
+
+        {idadeRecomendada ? (
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#803233]">
+            Idade: {idadeRecomendada}
+          </p>
+        ) : null}
 
         <div className="mt-3 flex items-end gap-3">
           <div>

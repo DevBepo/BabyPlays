@@ -99,6 +99,17 @@ class Brinquedo(models.Model):
         blank=True,
         verbose_name="Categoria",
     )
+    idade_minima_meses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Idade minima recomendada (meses)",
+        help_text="Use 0 para brinquedos recomendados desde o nascimento.",
+    )
+    idade_maxima_meses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Idade maxima recomendada (meses)",
+    )
     preco_aluguel = models.DecimalField(
         max_digits=6,
         decimal_places=2,
@@ -160,6 +171,18 @@ class Brinquedo(models.Model):
     def clean(self):
         super().clean()
         validar_precos_periodo(self)
+        if (
+            self.idade_minima_meses is not None
+            and self.idade_maxima_meses is not None
+            and self.idade_minima_meses > self.idade_maxima_meses
+        ):
+            raise ValidationError(
+                {
+                    "idade_maxima_meses": (
+                        "A idade maxima nao pode ser menor que a idade minima."
+                    )
+                }
+            )
 
     def periodos_locacao_disponiveis(self):
         return periodos_locacao_disponiveis(self)

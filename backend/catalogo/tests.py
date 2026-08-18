@@ -1336,6 +1336,46 @@ class BrinquedoAPITests(APITestCase):
         self.assertEqual(response.data["categoria"]["nome"], "Bebes")
         self.assertEqual(response.data["categoria"]["slug"], "bebes")
 
+    def test_usuario_admin_consegue_criar_brinquedo_com_idade_recomendada(self):
+        payload = self.payload_valido()
+        payload["idade_minima_meses"] = 6
+        payload["idade_maxima_meses"] = 36
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(self.brinquedos_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        brinquedo_criado = Brinquedo.objects.get(nome="Cama elastica")
+        self.assertEqual(brinquedo_criado.idade_minima_meses, 6)
+        self.assertEqual(brinquedo_criado.idade_maxima_meses, 36)
+        self.assertEqual(response.data["idade_minima_meses"], 6)
+        self.assertEqual(response.data["idade_maxima_meses"], 36)
+
+    def test_api_publica_retorna_idade_recomendada_do_brinquedo(self):
+        self.brinquedo.idade_minima_meses = 0
+        self.brinquedo.idade_maxima_meses = 6
+        self.brinquedo.save(
+            update_fields=["idade_minima_meses", "idade_maxima_meses"],
+        )
+
+        response = self.client.get(self.brinquedos_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["idade_minima_meses"], 0)
+        self.assertEqual(response.data[0]["idade_maxima_meses"], 6)
+
+    def test_criacao_de_brinquedo_valida_faixa_de_idade_recomendada(self):
+        payload = self.payload_valido()
+        payload["idade_minima_meses"] = 36
+        payload["idade_maxima_meses"] = 6
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.post(self.brinquedos_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("idade_maxima_meses", response.data)
+        self.assertFalse(Brinquedo.objects.filter(nome="Cama elastica").exists())
+
     def test_categoria_usa_slug_unico(self):
         Categoria.objects.create(nome="Bebes", slug="bebes")
 

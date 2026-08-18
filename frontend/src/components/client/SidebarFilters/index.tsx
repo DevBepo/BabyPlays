@@ -2,14 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-const AGE_FILTERS = [
-  "0 a 6 meses",
-  "6 a 12 meses",
-  "1 a 2 anos",
-  "2 a 3 anos",
-  "3 a 4 anos",
-  "4+ anos",
-];
+import { IDADE_FAIXAS_CATALOGO } from "@/lib/idade-recomendada";
 
 const FILTER_ICON_COLORS = [
   "text-[#AB2E97]",
@@ -62,6 +55,8 @@ type SidebarFiltersProps = {
   selectedCategory: string;
   setSelectedCategory: (category: string) => void;
   categorias: Array<[string, string]>;
+  selectedAgeFilter: string;
+  setSelectedAgeFilter: (ageFilter: string) => void;
   onlyAvailable: boolean;
   setOnlyAvailable: (available: boolean) => void;
   loading: boolean;
@@ -71,6 +66,8 @@ function FiltersContent({
   selectedCategory,
   setSelectedCategory,
   categorias,
+  selectedAgeFilter,
+  setSelectedAgeFilter,
   onlyAvailable,
   setOnlyAvailable,
   loading,
@@ -80,14 +77,23 @@ function FiltersContent({
       <section className="space-y-3">
         <FilterSectionTitle>Idade da criança</FilterSectionTitle>
         <div className="grid grid-cols-2 gap-2 lg:block lg:space-y-1.5">
-          {AGE_FILTERS.map((age) => (
+          {IDADE_FAIXAS_CATALOGO.map((age) => (
             <button
-              key={age}
+              key={age.value}
               type="button"
-              disabled
-              className="flex min-h-11 w-full items-center rounded-xl border border-[#FAB555]/30 bg-white/70 px-3 py-2 text-left text-xs font-normal leading-5 text-zinc-500 transition-colors disabled:cursor-not-allowed disabled:opacity-75 lg:min-h-9 lg:text-sm"
+              onClick={() =>
+                setSelectedAgeFilter(
+                  selectedAgeFilter === age.value ? "todos" : age.value,
+                )
+              }
+              aria-pressed={selectedAgeFilter === age.value}
+              className={`flex min-h-11 w-full items-center rounded-xl border px-3 py-2 text-left text-xs font-normal leading-5 transition-colors lg:min-h-9 lg:text-sm ${
+                selectedAgeFilter === age.value
+                  ? "border-[#AB2E97]/40 bg-[#F7EAF5] text-[#2C1615]"
+                  : "border-[#FAB555]/30 bg-white/70 text-zinc-600 hover:border-[#76CFC8]/40 hover:bg-[#E8F8F6]"
+              }`}
             >
-              <span>{age}</span>
+              <span>{age.label}</span>
             </button>
           ))}
         </div>
@@ -164,6 +170,8 @@ export function SidebarFilters({
   selectedCategory,
   setSelectedCategory,
   categorias,
+  selectedAgeFilter,
+  setSelectedAgeFilter,
   onlyAvailable,
   setOnlyAvailable,
   loading,
@@ -171,7 +179,10 @@ export function SidebarFilters({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const activeFilters = Number(selectedCategory !== "todos") + Number(onlyAvailable);
+  const activeFilters =
+    Number(selectedCategory !== "todos") +
+    Number(selectedAgeFilter !== "todos") +
+    Number(onlyAvailable);
 
   useEffect(() => {
     if (!isMobileOpen) return;
@@ -216,6 +227,7 @@ export function SidebarFilters({
 
   const clearFilters = () => {
     setSelectedCategory("todos");
+    setSelectedAgeFilter("todos");
     setOnlyAvailable(false);
   };
 
@@ -223,6 +235,8 @@ export function SidebarFilters({
     selectedCategory,
     setSelectedCategory,
     categorias,
+    selectedAgeFilter,
+    setSelectedAgeFilter,
     onlyAvailable,
     setOnlyAvailable,
     loading,

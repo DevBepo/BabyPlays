@@ -16,6 +16,10 @@ import { listarBrinquedos, listarKitsFesta } from "@/services/catalogo";
 import { Footer } from "@/components/client/Footer";
 import { adicionarAoCarrinho } from "@/services/cart";
 import { resolveMediaUrl } from "@/lib/media-url";
+import {
+  brinquedoAtendeFaixaIdade,
+  formatarIdadeRecomendada,
+} from "@/lib/idade-recomendada";
 import type { ApiError } from "@/types/api";
 import type {
   BrinquedoCatalogo,
@@ -256,6 +260,7 @@ export default function Home() {
   const [errors, setErrors] = useState<CatalogoError>(initialErrors);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("todos");
+  const [selectedAgeFilter, setSelectedAgeFilter] = useState("todos");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   
   const [brinquedoScrollState, setBrinquedoScrollState] = useState(initialCarouselScrollState);
@@ -306,10 +311,17 @@ export default function Home() {
   const brinquedosFiltrados = useMemo(() => {
     return brinquedos.filter((brinquedo) => {
       const matchCategory = selectedCategory === "todos" || brinquedo.categoria?.slug === selectedCategory;
+      const matchAge =
+        selectedAgeFilter === "todos" ||
+        brinquedoAtendeFaixaIdade(
+          brinquedo.idade_minima_meses,
+          brinquedo.idade_maxima_meses,
+          selectedAgeFilter,
+        );
       const matchAvailability = !onlyAvailable || brinquedo.disponivel_para_carrinho === true;
-      return matchCategory && matchAvailability && matchesSearch(brinquedo, normalizedSearch);
+      return matchCategory && matchAge && matchAvailability && matchesSearch(brinquedo, normalizedSearch);
     }).sort((a, b) => b.id - a.id);
-  }, [brinquedos, normalizedSearch, onlyAvailable, selectedCategory]);
+  }, [brinquedos, normalizedSearch, onlyAvailable, selectedAgeFilter, selectedCategory]);
 
   const kitsFestaFiltrados = useMemo(() => {
     return kitsFesta.filter((kit) => matchesKitSearch(kit, normalizedSearch)).sort((a, b) => b.id - a.id);
@@ -422,6 +434,8 @@ export default function Home() {
           totalItensFiltrados={totalItensFiltrados}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
+          selectedAgeFilter={selectedAgeFilter}
+          setSelectedAgeFilter={setSelectedAgeFilter}
           categorias={categorias}
           onlyAvailable={onlyAvailable}
           setOnlyAvailable={setOnlyAvailable}
@@ -476,6 +490,10 @@ export default function Home() {
                               id={brinquedo.id}
                               nome={brinquedo.nome}
                               descricao={brinquedo.descricao}
+                              idadeRecomendada={formatarIdadeRecomendada(
+                                brinquedo.idade_minima_meses,
+                                brinquedo.idade_maxima_meses,
+                              )}
                               periodosDisponiveis={brinquedo.periodos_disponiveis}
                               categoriaNome={brinquedo.categoria?.nome}
                               disponivelParaCarrinho={brinquedo.disponivel_para_carrinho === true}

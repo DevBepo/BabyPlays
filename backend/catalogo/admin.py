@@ -33,6 +33,17 @@ def _mensagem_erro_admin(exc):
     return str(detail or exc)
 
 
+def _formatar_idade_meses(valor):
+    if valor is None:
+        return None
+    if valor == 0:
+        return "desde o nascimento"
+    if valor >= 12 and valor % 12 == 0:
+        anos = valor // 12
+        return f"{anos} ano" if anos == 1 else f"{anos} anos"
+    return f"{valor} mes" if valor == 1 else f"{valor} meses"
+
+
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
     list_display = ("nome", "slug", "ativo", "ordem", "criado_em", "atualizado_em")
@@ -62,6 +73,7 @@ class BrinquedoAdmin(admin.ModelAdmin):
         "id",
         "nome",
         "categoria",
+        "idade_recomendada",
         "preco_aluguel",
         "preco_diaria",
         "preco_15_dias",
@@ -78,6 +90,22 @@ class BrinquedoAdmin(admin.ModelAdmin):
     ordering = ("nome",)
     list_select_related = ("categoria",)
     inlines = (ImagemBrinquedoInline, UnidadeBrinquedoInline)
+
+    @admin.display(description="Idade recomendada")
+    def idade_recomendada(self, obj):
+        idade_minima = _formatar_idade_meses(obj.idade_minima_meses)
+        idade_maxima = _formatar_idade_meses(obj.idade_maxima_meses)
+        if idade_minima and idade_maxima:
+            if obj.idade_minima_meses == 0:
+                if obj.idade_maxima_meses == 0:
+                    return "Desde o nascimento"
+                return f"Desde o nascimento ate {idade_maxima}"
+            return f"{idade_minima} a {idade_maxima}"
+        if idade_minima:
+            return f"A partir de {idade_minima}"
+        if idade_maxima:
+            return f"Até {idade_maxima}"
+        return "-"
 
     @admin.display(description="Quantidade disponivel")
     def quantidade_disponivel(self, obj):

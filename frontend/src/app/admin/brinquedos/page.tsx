@@ -32,6 +32,11 @@ import {
   statusAdministrativo,
   type StatusCatalogoFiltro,
 } from "@/lib/admin-brinquedos";
+import {
+  idadeFormParaMeses,
+  idadeMesesParaForm,
+  type IdadeUnidade,
+} from "@/lib/idade-recomendada";
 import type { ApiFieldErrors } from "@/types/api";
 import type {
   BrinquedoCatalogo,
@@ -50,6 +55,11 @@ const STATUS_UNIDADE_OPTIONS = [
   { value: "baixada", label: "Baixada" },
 ];
 
+const IDADE_UNIDADE_OPTIONS: Array<{ value: IdadeUnidade; label: string }> = [
+  { value: "meses", label: "meses" },
+  { value: "anos", label: "anos" },
+];
+
 const QUANTIDADE_INICIAL = 12;
 
 type BrinquedoFormState = {
@@ -60,6 +70,10 @@ type BrinquedoFormState = {
   preco_3_dias: string;
   preco_15_dias: string;
   preco_30_dias: string;
+  idade_minima_valor: string;
+  idade_minima_unidade: IdadeUnidade;
+  idade_maxima_valor: string;
+  idade_maxima_unidade: IdadeUnidade;
   ativo: boolean;
 };
 
@@ -71,10 +85,17 @@ const initialForm: BrinquedoFormState = {
   preco_3_dias: "",
   preco_15_dias: "",
   preco_30_dias: "",
+  idade_minima_valor: "",
+  idade_minima_unidade: "meses",
+  idade_maxima_valor: "",
+  idade_maxima_unidade: "meses",
   ativo: true,
 };
 
 function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
+  const idadeMinima = idadeMesesParaForm(brinquedo.idade_minima_meses);
+  const idadeMaxima = idadeMesesParaForm(brinquedo.idade_maxima_meses);
+
   return {
     nome: brinquedo.nome,
     descricao: brinquedo.descricao,
@@ -83,6 +104,10 @@ function formFromBrinquedo(brinquedo: BrinquedoCatalogo): BrinquedoFormState {
     preco_3_dias: brinquedo.preco_3_dias ?? "",
     preco_15_dias: brinquedo.preco_15_dias ?? "",
     preco_30_dias: brinquedo.preco_30_dias ?? "",
+    idade_minima_valor: idadeMinima.valor,
+    idade_minima_unidade: idadeMinima.unidade,
+    idade_maxima_valor: idadeMaxima.valor,
+    idade_maxima_unidade: idadeMaxima.unidade,
     ativo: brinquedo.ativo !== false,
   };
 }
@@ -423,6 +448,14 @@ export default function ListaBrinquedosAdmin() {
       preco_3_dias: form.preco_3_dias || null,
       preco_15_dias: form.preco_15_dias || null,
       preco_30_dias: form.preco_30_dias || null,
+      idade_minima_meses: idadeFormParaMeses(
+        form.idade_minima_valor,
+        form.idade_minima_unidade,
+      ),
+      idade_maxima_meses: idadeFormParaMeses(
+        form.idade_maxima_valor,
+        form.idade_maxima_unidade,
+      ),
       ativo: form.ativo,
     };
 
@@ -688,6 +721,78 @@ export default function ListaBrinquedosAdmin() {
                 }
                 error={getApiFieldError(fieldErrors, "preco_30_dias")}
               />
+              </div>
+
+              <div className="md:col-span-2">
+                <p className="text-sm font-medium text-zinc-700">
+                  Idade recomendada
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Preencha como preferir. Para o cliente, a idade aparece no
+                  formato mais fácil de ler.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:grid-cols-2 sm:p-4">
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <Input
+                    label="Idade minima"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Ex: 6"
+                    value={form.idade_minima_valor}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        idade_minima_valor: event.target.value,
+                      }))
+                    }
+                    error={getApiFieldError(fieldErrors, "idade_minima_meses")}
+                  />
+                  <Select
+                    label="Unidade"
+                    options={IDADE_UNIDADE_OPTIONS}
+                    value={form.idade_minima_unidade}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        idade_minima_unidade: event.target.value as IdadeUnidade,
+                      }))
+                    }
+                    placeholderDisabled
+                  />
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <Input
+                    label="Idade maxima"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Ex: 3"
+                    value={form.idade_maxima_valor}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        idade_maxima_valor: event.target.value,
+                      }))
+                    }
+                    error={getApiFieldError(fieldErrors, "idade_maxima_meses")}
+                  />
+                  <Select
+                    label="Unidade"
+                    options={IDADE_UNIDADE_OPTIONS}
+                    value={form.idade_maxima_unidade}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        idade_maxima_unidade: event.target.value as IdadeUnidade,
+                      }))
+                    }
+                    placeholderDisabled
+                  />
+                </div>
               </div>
             </div>
 

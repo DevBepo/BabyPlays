@@ -59,6 +59,30 @@ def validar_precos_por_periodo(attrs, instance=None):
         )
 
 
+def validar_idade_recomendada(attrs, instance=None):
+    idade_minima = attrs.get(
+        "idade_minima_meses",
+        getattr(instance, "idade_minima_meses", None) if instance else None,
+    )
+    idade_maxima = attrs.get(
+        "idade_maxima_meses",
+        getattr(instance, "idade_maxima_meses", None) if instance else None,
+    )
+
+    if (
+        idade_minima is not None
+        and idade_maxima is not None
+        and idade_minima > idade_maxima
+    ):
+        raise serializers.ValidationError(
+            {
+                "idade_maxima_meses": (
+                    "A idade maxima nao pode ser menor que a idade minima."
+                )
+            }
+        )
+
+
 def sincronizar_preco_legado(attrs, instance=None):
     preco = primeiro_preco_disponivel(attrs, instance)
     if preco is not None:
@@ -159,6 +183,8 @@ class BrinquedoPublicSerializer(serializers.ModelSerializer):
             "id",
             "nome",
             "descricao",
+            "idade_minima_meses",
+            "idade_maxima_meses",
             "preco_aluguel",
             "preco_diaria",
             "preco_3_dias",
@@ -251,6 +277,8 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
             "nome",
             "descricao",
             "categoria",
+            "idade_minima_meses",
+            "idade_maxima_meses",
             "preco_aluguel",
             "preco_diaria",
             "preco_3_dias",
@@ -286,6 +314,7 @@ class BrinquedoAdminSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        validar_idade_recomendada(attrs, self.instance)
         validar_precos_por_periodo(attrs, self.instance)
         return sincronizar_preco_legado(attrs, self.instance)
 

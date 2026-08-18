@@ -13,8 +13,17 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/TextArea";
 import { criarBrinquedo, listarCategorias, uploadImagensBrinquedo } from "@/services/catalogo";
 import { getApiFieldError, isApiError } from "@/lib/api-error";
+import {
+  idadeFormParaMeses,
+  type IdadeUnidade,
+} from "@/lib/idade-recomendada";
 import type { ApiFieldErrors } from "@/types/api";
 import type { CategoriaCatalogo } from "@/types/catalogo";
+
+const IDADE_UNIDADE_OPTIONS: Array<{ value: IdadeUnidade; label: string }> = [
+  { value: "meses", label: "meses" },
+  { value: "anos", label: "anos" },
+];
 
 export default function NovoBrinquedo() {
   const router = useRouter();
@@ -31,6 +40,12 @@ export default function NovoBrinquedo() {
   const [preco3Dias, setPreco3Dias] = useState("");
   const [preco15Dias, setPreco15Dias] = useState("");
   const [preco30Dias, setPreco30Dias] = useState("");
+  const [idadeMinimaValor, setIdadeMinimaValor] = useState("");
+  const [idadeMinimaUnidade, setIdadeMinimaUnidade] =
+    useState<IdadeUnidade>("meses");
+  const [idadeMaximaValor, setIdadeMaximaValor] = useState("");
+  const [idadeMaximaUnidade, setIdadeMaximaUnidade] =
+    useState<IdadeUnidade>("meses");
   const [descricao, setDescricao] = useState("");
   const [ativo, setAtivo] = useState(true);
   const [indisponivelCatalogo, setIndisponivelCatalogo] = useState(false);
@@ -122,6 +137,14 @@ export default function NovoBrinquedo() {
         preco_3_dias: preco3Dias || null,
         preco_15_dias: preco15Dias || null,
         preco_30_dias: preco30Dias || null,
+        idade_minima_meses: idadeFormParaMeses(
+          idadeMinimaValor,
+          idadeMinimaUnidade,
+        ),
+        idade_maxima_meses: idadeFormParaMeses(
+          idadeMaximaValor,
+          idadeMaximaUnidade,
+        ),
         ativo,
         indisponivel_catalogo: indisponivelCatalogo,
       });
@@ -333,6 +356,62 @@ export default function NovoBrinquedo() {
                 onChange={(event) => setPreco30Dias(event.target.value)}
                 error={getApiFieldError(fieldErrors, "preco_30_dias")}
               />
+              </div>
+
+              <div className="md:col-span-2">
+                <p className="text-sm font-medium text-zinc-700">
+                  Idade recomendada
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Preencha como preferir. Para o cliente, a idade aparece no
+                  formato mais fácil de ler.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 md:col-span-2 sm:grid-cols-2 sm:p-4">
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <Input
+                    label="Idade minima"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Ex: 6"
+                    value={idadeMinimaValor}
+                    onChange={(event) => setIdadeMinimaValor(event.target.value)}
+                    error={getApiFieldError(fieldErrors, "idade_minima_meses")}
+                  />
+                  <Select
+                    label="Unidade"
+                    options={IDADE_UNIDADE_OPTIONS}
+                    value={idadeMinimaUnidade}
+                    onChange={(event) =>
+                      setIdadeMinimaUnidade(event.target.value as IdadeUnidade)
+                    }
+                    placeholderDisabled
+                  />
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <Input
+                    label="Idade maxima"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Ex: 3"
+                    value={idadeMaximaValor}
+                    onChange={(event) => setIdadeMaximaValor(event.target.value)}
+                    error={getApiFieldError(fieldErrors, "idade_maxima_meses")}
+                  />
+                  <Select
+                    label="Unidade"
+                    options={IDADE_UNIDADE_OPTIONS}
+                    value={idadeMaximaUnidade}
+                    onChange={(event) =>
+                      setIdadeMaximaUnidade(event.target.value as IdadeUnidade)
+                    }
+                    placeholderDisabled
+                  />
+                </div>
               </div>
             </div>
           </section>
