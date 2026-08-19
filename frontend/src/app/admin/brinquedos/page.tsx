@@ -177,6 +177,29 @@ export default function ListaBrinquedosAdmin() {
     setImagensAdicionais((atuais) => atuais.filter((item) => item !== arquivo));
   }
 
+  function adicionarFotosAdicionaisSelecionadas(arquivos: FileList | null) {
+    const novasFotos = Array.from(arquivos ?? []);
+    if (!novasFotos.length) return;
+
+    setImagensAdicionais((atuais) => {
+      const fotosPorChave = new Map(
+        atuais.map((arquivo) => [
+          `${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`,
+          arquivo,
+        ]),
+      );
+
+      novasFotos.forEach((arquivo) => {
+        fotosPorChave.set(
+          `${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`,
+          arquivo,
+        );
+      });
+
+      return Array.from(fotosPorChave.values());
+    });
+  }
+
   const brinquedosOrdenados = useMemo(
     () => [...brinquedos].sort((a, b) => a.nome.localeCompare(b.nome)),
     [brinquedos],
@@ -869,7 +892,17 @@ export default function ListaBrinquedosAdmin() {
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <label htmlFor="fotos-adicionais-edicao" className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-teal-800">Adicionar fotos</label>
-                <input id="fotos-adicionais-edicao" type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setImagensAdicionais(Array.from(event.target.files ?? []))} />
+                <input
+                  id="fotos-adicionais-edicao"
+                  type="file"
+                  className="sr-only"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(event) => {
+                    adicionarFotosAdicionaisSelecionadas(event.target.files);
+                    event.currentTarget.value = "";
+                  }}
+                />
                 <span className="text-xs text-zinc-500">{imagensAdicionais.length ? `${imagensAdicionais.length} foto(s) selecionada(s)` : "Selecione uma ou mais imagens"}</span>
               </div>
 
