@@ -233,6 +233,36 @@ class ImagemBrinquedoService:
             if nome_arquivo:
                 transaction.on_commit(lambda: storage.delete(nome_arquivo))
 
+    @staticmethod
+    def ordenar_imagens(brinquedo, imagem_ids):
+        with transaction.atomic():
+            brinquedo = Brinquedo.objects.select_for_update().get(pk=brinquedo.pk)
+            imagens = list(
+                ImagemBrinquedo.objects.select_for_update()
+                .filter(brinquedo=brinquedo, ativo=True)
+                .order_by("-principal", "ordem", "id")
+            )
+            imagens_por_id = {imagem.id: imagem for imagem in imagens}
+
+            if set(imagem_ids) != set(imagens_por_id):
+                raise serializers.ValidationError(
+                    {"imagens": "Envie todas as imagens ativas deste brinquedo, sem incluir imagens de outro item."}
+                )
+
+            for ordem, imagem_id in enumerate(imagem_ids, start=1):
+                imagem = imagens_por_id[imagem_id]
+                if imagem.ordem != ordem:
+                    imagem.ordem = ordem
+                    imagem.save(update_fields=["ordem", "atualizado_em"])
+
+        return list(
+            ImagemBrinquedo.objects.filter(brinquedo=brinquedo, ativo=True).order_by(
+                "-principal",
+                "ordem",
+                "id",
+            )
+        )
+
 
 class ImagemKitFestaService:
     @staticmethod

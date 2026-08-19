@@ -1812,6 +1812,34 @@ class BrinquedoAPITests(APITestCase):
         self.assertFalse(response.data["imagens"][1]["principal"])
         self.assertEqual(self.brinquedo.imagens.count(), 2)
 
+    def test_admin_ordena_imagens_do_brinquedo(self):
+        principal = self.criar_imagem_brinquedo(principal=True, ordem=1)
+        primeira = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("primeira.jpg"),
+            ordem=2,
+        )
+        segunda = self.criar_imagem_brinquedo(
+            imagem=self.imagem_upload("segunda.jpg"),
+            ordem=3,
+        )
+        self.client.force_authenticate(user=self.usuario_admin)
+
+        response = self.client.patch(
+            f"{self.brinquedos_url}{self.brinquedo.id}/ordenar-imagens/",
+            {"imagens": [principal.id, segunda.id, primeira.id]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [imagem["id"] for imagem in response.data],
+            [principal.id, segunda.id, primeira.id],
+        )
+        primeira.refresh_from_db()
+        segunda.refresh_from_db()
+        self.assertEqual(primeira.ordem, 3)
+        self.assertEqual(segunda.ordem, 2)
+
     def test_upload_multiplo_invalido_nao_salva_parcialmente(self):
         self.client.force_authenticate(user=self.usuario_admin)
         invalida = SimpleUploadedFile(

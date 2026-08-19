@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 import { BrinquedoAdminCard } from "@/components/admin/BrinquedoAdminCard";
@@ -23,6 +23,7 @@ import {
   listarBrinquedos,
   listarCategorias,
   listarUnidadesBrinquedo,
+  ordenarImagensBrinquedo,
   removerImagemBrinquedo,
   uploadImagensBrinquedo,
 } from "@/services/catalogo";
@@ -136,6 +137,7 @@ export default function ListaBrinquedosAdmin() {
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
   const [imagensAdicionais, setImagensAdicionais] = useState<File[]>([]);
   const [imagemAlterando, setImagemAlterando] = useState<number | null>(null);
+  const [imagemArrastando, setImagemArrastando] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<UnidadeBrinquedoAdmin[]>([]);
   const [unidadesLoading, setUnidadesLoading] = useState(false);
   const [criandoUnidade, setCriandoUnidade] = useState(false);
@@ -551,6 +553,60 @@ export default function ListaBrinquedosAdmin() {
     }
   }
 
+  async function reordenarImagensSalvas(imagemArrastadaId: number, imagemDestinoId: number) {
+    if (!brinquedoEmEdicao || !brinquedoAtual) return;
+
+    const principais = brinquedoAtual.imagens.filter((item) => item.principal);
+    const adicionais = brinquedoAtual.imagens.filter((item) => !item.principal);
+    const indiceAtual = adicionais.findIndex((item) => item.id === imagemArrastadaId);
+    const novoIndice = adicionais.findIndex((item) => item.id === imagemDestinoId);
+
+    if (indiceAtual < 0 || novoIndice < 0 || indiceAtual === novoIndice) {
+      return;
+    }
+
+    const adicionaisOrdenadas = [...adicionais];
+    const [itemAtual] = adicionaisOrdenadas.splice(indiceAtual, 1);
+    adicionaisOrdenadas.splice(novoIndice, 0, itemAtual);
+
+    const novaOrdem = [...principais, ...adicionaisOrdenadas].map((item) => item.id);
+
+    setImagemAlterando(imagemArrastadaId);
+    setErro(null);
+    try {
+      await ordenarImagensBrinquedo(brinquedoEmEdicao, novaOrdem);
+      await carregarBrinquedos();
+      setSucesso("Ordem das fotos atualizada.");
+    } catch (error) {
+      setErro(isApiError(error) ? error.message : "Nao foi possivel ordenar as fotos.");
+    } finally {
+      setImagemAlterando(null);
+    }
+  }
+
+  function handleImagemDragStart(event: DragEvent<HTMLDivElement>, imagemId: number) {
+    setImagemArrastando(imagemId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(imagemId));
+  }
+
+  function handleImagemDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleImagemDrop(event: DragEvent<HTMLDivElement>, imagemDestinoId: number) {
+    event.preventDefault();
+    const imagemArrastadaId = Number(event.dataTransfer.getData("text/plain") || imagemArrastando);
+    setImagemArrastando(null);
+
+    if (!Number.isFinite(imagemArrastadaId)) {
+      return;
+    }
+
+    void reordenarImagensSalvas(imagemArrastadaId, imagemDestinoId);
+  }
+
   async function handleRemoverBrinquedo(brinquedo: BrinquedoCatalogo) {
     const confirmado = window.confirm(
       `Remover "${brinquedo.nome}" do catalogo? Esta acao pode arquivar o item se houver historico.`,
@@ -927,16 +983,32 @@ export default function ListaBrinquedosAdmin() {
                 <div className="mt-5">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Fotos salvas</p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {brinquedoAtual.imagens.filter((item) => !item.principal).map((item) => {
+                  {brinquedoAtual.imagens.filter((item) => !item.principal).map((item, index) => {
                     const url = resolveMediaUrl(item.url);
                     return (
-                      <div key={item.id} className="max-w-[160px] rounded-lg border border-zinc-200 bg-white p-1.5 shadow-sm">
+                      <div
+                        key={item.id}
+                        draggable={imagemAlterando === null}
+                        onDragStart={(event) => handleImagemDragStart(event, item.id)}
+                        onDragOver={handleImagemDragOver}
+                        onDrop={(event) => handleImagemDrop(event, item.id)}
+                        onDragEnd={() => setImagemArrastando(null)}
+                        className={`max-w-[160px] cursor-grab rounded-lg border bg-white p-1.5 shadow-sm transition active:cursor-grabbing ${
+                          imagemArrastando === item.id
+                            ? "border-teal-500 opacity-60 ring-2 ring-teal-200"
+                            : "border-zinc-200"
+                        }`}
+                        aria-label={`Foto adicional ${index + 1}`}
+                      >
                         <div className="relative aspect-square overflow-hidden rounded-md bg-zinc-50">
                           {url ? (
                             <Image src={url} alt={item.alt_text || brinquedoAtual.nome} fill className="object-contain" />
                           ) : null}
                         </div>
-                        <span className="mt-1.5 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">Adicional</span>
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">Adicional {index + 1}</span>
+                          <span className="text-[10px] font-semibold text-zinc-400">Ordem {item.ordem}</span>
+                        </div>
                         <div className="mt-1.5 flex flex-col gap-1">
                           <button type="button" disabled={imagemAlterando === item.id} onClick={() => void definirImagemPrincipal(item.id)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 disabled:opacity-50">Tornar principal</button>
                           <button

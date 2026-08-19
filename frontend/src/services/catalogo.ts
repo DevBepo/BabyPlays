@@ -251,6 +251,16 @@ export function definirImagemPrincipalBrinquedo(
   );
 }
 
+export function ordenarImagensBrinquedo(
+  brinquedoId: number,
+  imagemIds: number[],
+): Promise<ImagemBrinquedo[]> {
+  return apiPatch<ImagemBrinquedo[]>(
+    `${CATALOGO_ENDPOINTS.brinquedos}${brinquedoId}/ordenar-imagens/`,
+    { imagens: imagemIds },
+  );
+}
+
 type UploadImagemKitFestaResponse = {
   mensagem: string;
   id: number;

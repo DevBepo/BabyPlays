@@ -167,6 +167,18 @@ class ImagemKitFestaPublicSerializer(serializers.ModelSerializer):
         return url
 
 
+class OrdenarImagensSerializer(serializers.Serializer):
+    imagens = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+
+    def validate_imagens(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Nao repita a mesma imagem na ordenacao.")
+        return value
+
+
 class BrinquedoPublicSerializer(serializers.ModelSerializer):
     exibir_no_catalogo = serializers.BooleanField(source="ativo", read_only=True)
     disponivel_para_carrinho = serializers.SerializerMethodField()

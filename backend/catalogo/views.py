@@ -21,6 +21,7 @@ from .serializers import (
     ImagemKitFestaPublicSerializer,
     CategoriaAdminSerializer,
     CategoriaResumoSerializer,
+    OrdenarImagensSerializer,
     ConfiguracaoKitPersonalizavelAdminSerializer,
     ConfiguracaoKitPersonalizavelPublicSerializer,
     DisponibilidadeKitPersonalizavelSerializer,
@@ -180,6 +181,27 @@ class BrinquedoViewSet(viewsets.ModelViewSet):
         get_object_or_404(ImagemBrinquedo, pk=imagem_id, brinquedo=brinquedo)
         ImagemBrinquedoService.remover_imagem(brinquedo, imagem_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="ordenar-imagens",
+    )
+    def ordenar_imagens(self, request, pk=None):
+        brinquedo = self.get_object()
+        serializer = OrdenarImagensSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        imagens = ImagemBrinquedoService.ordenar_imagens(
+            brinquedo,
+            serializer.validated_data["imagens"],
+        )
+        return Response(
+            ImagemBrinquedoPublicSerializer(
+                imagens,
+                many=True,
+                context={"request": request},
+            ).data
+        )
 
     def destroy(self, request, *args, **kwargs):
         brinquedo = self.get_object()
