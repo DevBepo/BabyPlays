@@ -185,7 +185,7 @@ function KitFestaCard({ kit }: { kit: KitFestaCatalogo }) {
 
   return (
     <article className="group flex h-full w-full flex-col overflow-hidden rounded-3xl border border-[#FAB555]/35 bg-white shadow-sm shadow-[#803233]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#F07F40]/45 hover:shadow-lg hover:shadow-[#803233]/10">
-      <Link href={`/kits/${kit.id}`} aria-label={`Ver detalhes de ${kit.nome}`} className="relative aspect-[4/3] overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97] sm:aspect-square">
+      <Link href={`/kits/${kit.id}`} aria-label={`Ver detalhes de ${kit.nome}`} className="relative aspect-[4/3] overflow-hidden bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97] sm:aspect-square">
         {imagemUrl ? (
           <Image
             src={imagemUrl}

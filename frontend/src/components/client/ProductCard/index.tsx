@@ -142,7 +142,7 @@ export function ProductCard({
       <Link
         href={`/brinquedos/${id}`}
         aria-label={`Ver detalhes de ${nome}`}
-        className="aspect-[4/3] w-full overflow-hidden bg-[#FFF8EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97] sm:aspect-square"
+        className="aspect-[4/3] w-full overflow-hidden bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#AB2E97] sm:aspect-square"
       >
         {imagemUrl ? (
           <img
