@@ -6,6 +6,12 @@ from django.test import SimpleTestCase, override_settings
 
 
 class SecuritySettingsTests(SimpleTestCase):
+    def test_erros_de_requisicao_sao_enviados_ao_console(self):
+        logger = settings.LOGGING["loggers"]["django.request"]
+
+        self.assertEqual(logger["level"], "ERROR")
+        self.assertIn("console", logger["handlers"])
+
     def test_security_headers_are_configured(self):
         self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
         self.assertEqual(settings.X_FRAME_OPTIONS, "DENY")
