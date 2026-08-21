@@ -13,6 +13,7 @@ from rest_framework.test import APITestCase
 
 from .models import ConfiguracaoTaxaEntregaRetirada, RegraFreteBairro
 from .providers import (
+    CepProvider,
     CepNaoEncontradoError,
     EnderecoInterpretado,
     EnderecoIncompletoError,
@@ -65,6 +66,46 @@ class FakeHttpResponse:
 
     def read(self):
         return json.dumps(self.payload).encode("utf-8")
+
+
+class CepProviderTests(TestCase):
+    def test_falha_de_rede_e_convertida_em_erro_de_cep_seguro(self):
+        with patch("entregas.providers.urlopen", side_effect=OSError("falha de rede")):
+            with self.assertRaises(CepNaoEncontradoError):
+                CepProvider().buscar("01001000")
+
+    def test_resposta_com_formato_invalido_e_rejeitada_sem_erro_500(self):
+        with patch(
+            "entregas.providers.urlopen",
+            return_value=FakeHttpResponse(["resposta", "invalida"]),
+        ):
+            with self.assertRaises(CepNaoEncontradoError):
+                CepProvider().buscar("01001000")
+
+    def test_campos_nulos_do_provider_sao_normalizados(self):
+        with patch(
+            "entregas.providers.urlopen",
+            return_value=FakeHttpResponse(
+                {
+                    "logradouro": None,
+                    "bairro": None,
+                    "localidade": None,
+                    "uf": None,
+                }
+            ),
+        ):
+            resultado = CepProvider().buscar("01001000")
+
+        self.assertEqual(
+            resultado,
+            {
+                "cep": "01001000",
+                "logradouro": "",
+                "bairro": "",
+                "cidade": "",
+                "uf": "",
+            },
+        )
 
 
 def criar_configuracao(**extra):

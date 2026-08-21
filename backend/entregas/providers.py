@@ -59,18 +59,25 @@ class CepProvider:
         try:
             with urlopen(url, timeout=5) as response:
                 payload = json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as exc:
             raise CepNaoEncontradoError("CEP nao encontrado.") from exc
 
-        if payload.get("erro"):
+        if not isinstance(payload, dict) or payload.get("erro"):
             raise CepNaoEncontradoError("CEP nao encontrado.")
 
         return {
             "cep": cep,
-            "logradouro": payload.get("logradouro", "").strip(),
-            "bairro": payload.get("bairro", "").strip(),
-            "cidade": payload.get("localidade", "").strip(),
-            "uf": payload.get("uf", "").strip(),
+            "logradouro": str(payload.get("logradouro") or "").strip(),
+            "bairro": str(payload.get("bairro") or "").strip(),
+            "cidade": str(payload.get("localidade") or "").strip(),
+            "uf": str(payload.get("uf") or "").strip(),
         }
 
 

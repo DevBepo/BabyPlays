@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from ipaddress import ip_address
 
 from django.http import Http404
 from django.db import transaction
@@ -1035,9 +1036,17 @@ class ContratoService:
     @staticmethod
     def _obter_ip(request):
         forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR") or None
+        candidato = (
+            forwarded_for.split(",")[0].strip()
+            if forwarded_for
+            else str(request.META.get("REMOTE_ADDR") or "").strip()
+        )
+        if not candidato:
+            return None
+        try:
+            return str(ip_address(candidato))
+        except ValueError:
+            return None
 
     @staticmethod
     def _obter_user_agent(request):

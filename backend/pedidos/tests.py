@@ -1757,6 +1757,25 @@ class CarrinhoAPITests(APITestCase):
         self.assertNotIn("contrato_texto_snapshot", response.data)
         self.assertNotIn("ip", response.data)
 
+    def test_ip_invalido_do_proxy_nao_causa_erro_500_no_aceite(self):
+        contrato = self.criar_contrato()
+        pedido_id = self.criar_pedido_legado_sem_aceite(contrato)
+
+        response = self.client.post(
+            f"{self.pedidos_url}{pedido_id}/aceitar-contrato/",
+            {
+                "aceito": True,
+                "contrato_id": contrato.id,
+                "contrato_versao": contrato.versao,
+            },
+            format="json",
+            HTTP_X_FORWARDED_FOR="valor-invalido, 203.0.113.10",
+            HTTP_USER_AGENT="Teste Browser",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(AceiteContrato.objects.get().ip)
+
     def test_frontend_nao_consegue_forjar_dados_de_auditoria_do_aceite(self):
         contrato = self.criar_contrato()
         pedido_id = self.criar_pedido_legado_sem_aceite(contrato)
