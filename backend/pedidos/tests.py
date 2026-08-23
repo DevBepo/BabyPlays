@@ -993,6 +993,14 @@ class CarrinhoAPITests(APITestCase):
             {field.name for field in Pedido._meta.get_fields()},
         )
 
+    def test_checkout_limita_lock_aos_itens_sem_bloquear_joins_opcionais(self):
+        self.adicionar_brinquedo()
+        carrinho = Carrinho.objects.get()
+
+        queryset = PedidoService._itens_para_checkout(carrinho)
+
+        self.assertEqual(queryset.query.select_for_update_of, ("self",))
+
     def test_cria_cliente_automaticamente_na_conversao_quando_user_nao_tem_cliente(self):
         self.adicionar_brinquedo()
 

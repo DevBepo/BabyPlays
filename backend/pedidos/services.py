@@ -510,6 +510,14 @@ class CarrinhoService:
 
 class PedidoService:
     @staticmethod
+    def _itens_para_checkout(carrinho):
+        return carrinho.itens.select_for_update(of=("self",)).select_related(
+            "brinquedo",
+            "kit_festa",
+            "configuracao_kit_personalizavel",
+        )
+
+    @staticmethod
     def _validar_dados_cliente(dados):
         erros = {}
         for campo in (
@@ -786,13 +794,7 @@ class PedidoService:
                 {"carrinho": "Carrinho nao pertence ao usuario autenticado."}
             )
 
-        itens = list(
-            carrinho.itens.select_for_update().select_related(
-                "brinquedo",
-                "kit_festa",
-                "configuracao_kit_personalizavel",
-            )
-        )
+        itens = list(PedidoService._itens_para_checkout(carrinho))
         if not itens:
             raise serializers.ValidationError(
                 {"carrinho": "Carrinho vazio nao pode ser convertido em pedido."}
