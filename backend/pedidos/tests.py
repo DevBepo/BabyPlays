@@ -758,7 +758,23 @@ class CarrinhoAPITests(APITestCase):
         self.assertIsNone(response.data["data_fim_locacao"])
         resumo_whatsapp = response.data["whatsapp_resumo"]
         self.assertIn("solicitacao de locacao", resumo_whatsapp)
-        self.assertIn(f"Pedido: #{pedido.id}", resumo_whatsapp)
+        self.assertNotIn("Pedido:", resumo_whatsapp)
+        self.assertIn(
+            f"\n\nNome: {pedido.nome_cliente_snapshot}\n"
+            f"Telefone: {pedido.telefone_cliente_snapshot}\n\n",
+            resumo_whatsapp,
+        )
+        self.assertIn(
+            "Itens escolhidos:\n\n"
+            "- Cama elastica\n"
+            "  Quantidade: 2 unidade(s)\n"
+            "  Periodo: 15 dias\n"
+            "  Valor: R$ 440.00\n",
+            resumo_whatsapp,
+        )
+        self.assertIn("\n\nEndereco:\n", resumo_whatsapp)
+        self.assertIn("\n\nSubtotal: R$ 440.00\n", resumo_whatsapp)
+        self.assertIn("\n\nContrato aceito no site: Sim\n\n", resumo_whatsapp)
         self.assertIn("Contrato aceito no site: Sim", resumo_whatsapp)
         self.assertIn("Taxa de entrega e retirada: R$ 48,00", resumo_whatsapp)
         self.assertIn(

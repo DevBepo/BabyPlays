@@ -917,8 +917,6 @@ class PedidoService:
                 "da BabyPlays."
             ),
             "",
-            f"Pedido: #{pedido.id}",
-            "",
             f"Nome: {pedido.nome_cliente_snapshot}",
             f"Telefone: {pedido.telefone_cliente_snapshot}",
             "",
@@ -927,10 +925,14 @@ class PedidoService:
         for item in pedido.itens.all():
             periodo = item.snapshot.get("periodo_locacao", {})
             label_periodo = periodo.get("label", "Periodo a combinar")
-            linhas.append(
-                f"- {item.nome_snapshot} - {item.quantidade} unidade(s) "
-                f"({label_periodo}) - "
-                f"R$ {item.subtotal_snapshot:.2f}"
+            linhas.extend(
+                [
+                    "",
+                    f"- {item.nome_snapshot}",
+                    f"  Quantidade: {item.quantidade} unidade(s)",
+                    f"  Periodo: {label_periodo}",
+                    f"  Valor: R$ {item.subtotal_snapshot:.2f}",
+                ]
             )
             composicao = item.snapshot.get("kit_festa", {}).get("itens", [])
             for componente in composicao:
@@ -951,7 +953,7 @@ class PedidoService:
             str(parte) for parte in endereco_partes if parte
         )
         if endereco_formatado:
-            linhas.extend(["", f"Endereco: {endereco_formatado}"])
+            linhas.extend(["", "Endereco:", endereco_formatado])
         if pedido.observacoes_cliente:
             linhas.extend(
                 ["", "Observacoes:", pedido.observacoes_cliente]
