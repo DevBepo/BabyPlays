@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,7 @@ import {
   atualizarDatasAdminPedido,
   renovarAdminPedido,
   alterarStatusAdminPedido,
+  excluirAdminPedido,
 } from "@/services/adminPedidos";
 import type { ApiError, ApiErrorData } from "@/types/api";
 import type {
@@ -260,6 +261,12 @@ export default function DetalhePedidoPage() {
   const [executingAction, setExecutingAction] = useState<AdminPedidoAction | null>(
     null,
   );
+  const [deleting, setDeleting] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
+  const [savingDates, setSavingDates] = useState(false);
+  const [dateStart, setDateStart] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
+  const [eventDate, setEventDate] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -358,22 +365,43 @@ export default function DetalhePedidoPage() {
     }
   }
 
-  async function handleDefinirDatas() {
-    if (!pedidoId || !pedido) return;
-    const inicio = window.prompt("Data de inicio (AAAA-MM-DD)", pedido.data_inicio_locacao ?? "");
-    if (!inicio) return;
-    const fim = window.prompt("Data final (AAAA-MM-DD)", pedido.data_fim_locacao ?? "");
-    if (!fim) return;
-    const evento = window.prompt("Data do evento (AAAA-MM-DD, opcional)", pedido.data_evento_pretendida ?? "");
+  function openDateEditor() {
+    if (!pedido) return;
+    setDateStart(pedido.data_inicio_locacao ?? "");
+    setDateEnd(pedido.data_fim_locacao ?? "");
+    setEventDate(pedido.data_evento_pretendida ?? "");
+    setEditingDates(true);
+    setError(null);
+    setSuccessMessage(null);
+  }
 
-    await recarregarApos(
-      () => atualizarDatasAdminPedido(pedidoId, {
-        data_inicio_locacao: inicio,
-        data_fim_locacao: fim,
-        data_evento_pretendida: evento || null,
-      }),
-      "Datas atualizadas com sucesso.",
-    );
+  async function handleDefinirDatas(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!pedidoId || !pedido || !dateStart || !dateEnd) return;
+
+    if (dateEnd < dateStart) {
+      setError("A data final deve ser igual ou posterior a data inicial.");
+      return;
+    }
+
+    setSavingDates(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await atualizarDatasAdminPedido(pedidoId, {
+        data_inicio_locacao: dateStart,
+        data_fim_locacao: dateEnd,
+        data_evento_pretendida: eventDate || null,
+      });
+      setPedido(await obterAdminPedido(pedidoId));
+      setEditingDates(false);
+      setSuccessMessage("Datas atualizadas com sucesso.");
+    } catch (err) {
+      setError(getAdminActionErrorMessage(err));
+    } finally {
+      setSavingDates(false);
+    }
   }
 
   async function handleRenovar() {
@@ -386,6 +414,26 @@ export default function DetalhePedidoPage() {
   async function handleAlterarStatus(status: string) {
     if (!pedidoId || !status || !window.confirm(`Alterar o pedido para ${status}?`)) return;
     await recarregarApos(() => alterarStatusAdminPedido(pedidoId, status), "Status atualizado com sucesso.");
+  }
+
+  async function handleDelete() {
+    if (!pedidoId || !pedido) return;
+    if (
+      !window.confirm(
+        `Excluir o pedido #${pedido.id} da operação? Ele será cancelado e removido das telas operacionais, preservando contrato e histórico.`,
+      )
+    ) return;
+
+    setDeleting(true);
+    setError(null);
+    try {
+      await excluirAdminPedido(pedidoId);
+      router.push("/admin/pedidos");
+    } catch (err) {
+      setError(getAdminActionErrorMessage(err));
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -471,16 +519,82 @@ export default function DetalhePedidoPage() {
                   Editar pedido
                 </Button>
               )}
-              <Button size="sm" variant="ghost" onClick={() => void handleDefinirDatas()}>
+              <Button size="sm" variant="ghost" onClick={openDateEditor}>
                 Definir datas
               </Button>
               <Button size="sm" variant="ghost" onClick={() => void handleRenovar()}>
                 Renovar
               </Button>
+              {!(["em_locacao", "retirado"] as string[]).includes(pedido.status) ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={deleting}
+                  onClick={() => void handleDelete()}
+                >
+                  Excluir pedido
+                </Button>
+              ) : null}
             </div>
           </div>
         )}
       </div>
+
+      {editingDates && pedido ? (
+        <form
+          onSubmit={handleDefinirDatas}
+          className="rounded-xl border border-teal-200 bg-teal-50/60 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-zinc-900">
+                Definir datas do pedido #{pedido.id}
+              </h2>
+              <p className="mt-1 text-xs text-zinc-600">
+                Ao salvar, o pedido passa a aparecer na posição correspondente da agenda.
+              </p>
+            </div>
+            <label className="text-xs font-semibold text-zinc-700">
+              Início
+              <input
+                required
+                type="date"
+                value={dateStart}
+                onChange={(event) => setDateStart(event.target.value)}
+                className="mt-1 block h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+              />
+            </label>
+            <label className="text-xs font-semibold text-zinc-700">
+              Fim
+              <input
+                required
+                type="date"
+                min={dateStart || undefined}
+                value={dateEnd}
+                onChange={(event) => setDateEnd(event.target.value)}
+                className="mt-1 block h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+              />
+            </label>
+            <label className="text-xs font-semibold text-zinc-700">
+              Evento (opcional)
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(event) => setEventDate(event.target.value)}
+                className="mt-1 block h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+              />
+            </label>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={() => setEditingDates(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={savingDates}>
+                Salvar datas
+              </Button>
+            </div>
+          </div>
+        </form>
+      ) : null}
 
       {successMessage && (
         <div

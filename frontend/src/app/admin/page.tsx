@@ -264,18 +264,19 @@ export default function DashboardPage() {
                 <Th>Cliente</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Valor</Th>
+                <Th className="text-right">Ações</Th>
               </Tr>
             </Thead>
             <Tbody>
               {loading ? (
                 <Tr>
-                  <Td colSpan={4} className="py-8 text-center text-zinc-500">
+                  <Td colSpan={5} className="py-8 text-center text-zinc-500">
                     Carregando pedidos reais...
                   </Td>
                 </Tr>
               ) : ultimosPedidos.length === 0 ? (
                 <Tr>
-                  <Td colSpan={4} className="py-8 text-center text-zinc-500">
+                  <Td colSpan={5} className="py-8 text-center text-zinc-500">
                     {error
                       ? "Os pedidos estão indisponíveis no momento."
                       : "Nenhum pedido cadastrado até agora."}
@@ -311,6 +312,19 @@ export default function DashboardPage() {
                     <Td>{renderStatusBadge(pedido.status)}</Td>
                     <Td className="text-right font-medium text-zinc-900">
                       {formatCurrency(pedido.total_estimado_snapshot)}
+                    </Td>
+                    <Td className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          abrirPedido(pedido.id);
+                        }}
+                      >
+                        Gerenciar
+                      </Button>
                     </Td>
                   </Tr>
                 ))
