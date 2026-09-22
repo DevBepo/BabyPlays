@@ -1582,13 +1582,16 @@ class AgendaAdminService:
             )
         )
 
+        pedidos_sem_data = cls._pedidos_sem_data(status)
+
         return {
             "periodo": {
                 "inicio": inicio,
                 "fim": fim,
             },
             "eventos": eventos,
-            "resumo": cls._resumo(eventos),
+            "pedidos_sem_data": pedidos_sem_data,
+            "resumo": cls._resumo(eventos, pedidos_sem_data),
         }
 
     @classmethod
@@ -1618,6 +1621,24 @@ class AgendaAdminService:
             )
             .order_by("data_inicio_locacao", "id")
         )
+
+    @classmethod
+    def _pedidos_sem_data(cls, status):
+        queryset = cls._queryset_base().filter(
+            Q(data_inicio_locacao__isnull=True)
+            | Q(data_fim_locacao__isnull=True)
+        ).exclude(
+            status__in=(Pedido.Status.CANCELADO, Pedido.Status.RETIRADO)
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            {
+                **cls._pedido_resumo(pedido),
+                "criado_em": pedido.criado_em,
+                "quantidade_itens": len(pedido.itens.all()),
+            }
+            for pedido in queryset.order_by("criado_em", "id")
+        ]
 
     @staticmethod
     def _filtrar_status(queryset, status):
@@ -1789,12 +1810,13 @@ class AgendaAdminService:
         return unidades
 
     @classmethod
-    def _resumo(cls, eventos):
+    def _resumo(cls, eventos, pedidos_sem_data):
         por_tipo = {tipo: 0 for tipo in cls.TIPOS_EVENTO}
         for evento in eventos:
             por_tipo[evento["tipo"]] += 1
         return {
             "total": len(eventos),
+            "sem_data": len(pedidos_sem_data),
             "por_tipo": por_tipo,
         }
 

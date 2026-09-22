@@ -2837,6 +2837,7 @@ class PedidoAdminAgendaAPITests(APITestCase):
             },
         )
         self.assertEqual(response.data["resumo"]["total"], 4)
+        self.assertEqual(response.data["resumo"]["sem_data"], 0)
         self.assertEqual(
             response.data["resumo"]["por_tipo"],
             {
@@ -2893,6 +2894,29 @@ class PedidoAdminAgendaAPITests(APITestCase):
         }
         self.assertNotIn("AGENDA-HIG-001", codigos_unidades)
         self.assertNotIn("AGENDA-STANDBY-001", codigos_unidades)
+
+    def test_agenda_lista_pedido_sem_data_para_triagem(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(Pedido.Status.AGUARDANDO_ANALISE)
+        Pedido.objects.filter(pk=pedido.pk).update(
+            data_evento_pretendida=None,
+            data_inicio_locacao=None,
+            data_fim_locacao=None,
+        )
+        self.criar_item_brinquedo(pedido)
+        self.criar_aceite(pedido)
+
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["resumo"]["sem_data"], 1)
+        self.assertEqual(response.data["pedidos_sem_data"][0]["id"], pedido.id)
+        self.assertEqual(
+            response.data["pedidos_sem_data"][0]["cliente_nome"],
+            "Cliente Agenda",
+        )
+        self.assertEqual(response.data["pedidos_sem_data"][0]["quantidade_itens"], 1)
+        self.assertTrue(response.data["pedidos_sem_data"][0]["tem_aceite_contrato"])
 
     def test_agenda_filtra_por_tipo(self):
         self.autenticar_admin()

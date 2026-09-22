@@ -44,12 +44,24 @@ export type AdminAgendaEvent = {
 
 export type AdminAgendaSummary = {
   total: number;
+  sem_data: number;
   por_tipo: Record<AdminAgendaEventType, number>;
+};
+
+export type AdminAgendaUnscheduledOrder = {
+  id: number;
+  status: AdminPedidoStatus;
+  cliente_nome: string;
+  cliente_telefone: string;
+  criado_em: string;
+  tem_aceite_contrato: boolean;
+  quantidade_itens: number;
 };
 
 export type AdminAgendaResponse = {
   periodo: AdminAgendaPeriod;
   eventos: AdminAgendaEvent[];
+  pedidos_sem_data: AdminAgendaUnscheduledOrder[];
   resumo: AdminAgendaSummary;
 };
 

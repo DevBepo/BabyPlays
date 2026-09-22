@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { obterAgendaAdmin } from "@/services/adminAgenda";
+import { atualizarDatasAdminPedido } from "@/services/adminPedidos";
 import type { ApiError } from "@/types/api";
 import type {
   AdminAgendaEvent,
@@ -182,6 +183,16 @@ function formatApiDisplayDate(date: string) {
   return formatDisplayDate(dateFromApi(date));
 }
 
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
 function formatDayName(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     weekday: "short",
@@ -319,7 +330,13 @@ function AgendaEventCard({
   );
 }
 
-function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
+function EventDetailsPanel({
+  event,
+  onReschedule,
+}: {
+  event: AdminAgendaEvent | null;
+  onReschedule: (event: AdminAgendaEvent) => void;
+}) {
   const router = useRouter();
 
   if (!event) {
@@ -432,13 +449,22 @@ function EventDetailsPanel({ event }: { event: AdminAgendaEvent | null }) {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => router.push(`/admin/pedidos/${event.pedido.id}`)}
-          className="h-10 w-full rounded-lg bg-teal-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-        >
-          Ver pedido
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onReschedule(event)}
+            className="h-10 rounded-lg border border-teal-600 px-3 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          >
+            Mudar datas
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/pedidos/${event.pedido.id}`)}
+            className="h-10 rounded-lg bg-teal-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          >
+            Gerenciar
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -453,6 +479,13 @@ export default function AdminAgendaPage() {
   const [selectedEvent, setSelectedEvent] = useState<AdminAgendaEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [schedulingOrderId, setSchedulingOrderId] = useState<number | null>(null);
+  const [scheduleStart, setScheduleStart] = useState("");
+  const [scheduleEnd, setScheduleEnd] = useState("");
+  const [scheduleEventDate, setScheduleEventDate] = useState("");
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   const weekStart = useMemo(() => getWeekStart(referenceDate), [referenceDate]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
@@ -540,7 +573,45 @@ export default function AdminAgendaPage() {
     return () => {
       active = false;
     };
-  }, [typeFilter, apiStart, apiEnd]);
+  }, [typeFilter, apiStart, apiEnd, reloadToken]);
+
+  function openSchedule(
+    pedidoId: number,
+    currentStart?: string | null,
+    currentEnd?: string | null,
+  ) {
+    const defaultStart = formatApiDate(referenceDate);
+    setSchedulingOrderId(pedidoId);
+    setScheduleStart(currentStart || defaultStart);
+    setScheduleEnd(currentEnd || formatApiDate(addDays(dateFromApi(currentStart || defaultStart), 1)));
+    setScheduleEventDate(currentStart || defaultStart);
+    setError(null);
+    setSuccessMessage(null);
+  }
+
+  async function saveSchedule(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!schedulingOrderId) return;
+    setSavingSchedule(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      await atualizarDatasAdminPedido(schedulingOrderId, {
+        data_inicio_locacao: scheduleStart,
+        data_fim_locacao: scheduleEnd,
+        data_evento_pretendida: scheduleEventDate || null,
+      });
+      setSchedulingOrderId(null);
+      setSelectedEvent(null);
+      setReferenceDate(dateFromApi(scheduleStart));
+      setSuccessMessage(`Pedido #${schedulingOrderId} agendado com sucesso.`);
+      setReloadToken((current) => current + 1);
+    } catch (err) {
+      setError(getAgendaErrorMessage(err));
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
 
   function goToToday() {
     setReferenceDate(normalizeDate(new Date()));
@@ -641,6 +712,69 @@ export default function AdminAgendaPage() {
         >
           {error}
         </div>
+      ) : null}
+
+      {successMessage ? (
+        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          {successMessage}
+        </div>
+      ) : null}
+
+      {!loading && !error && agenda && agenda.pedidos_sem_data.length > 0 ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-zinc-900">Pedidos aguardando agendamento</h2>
+              <p className="text-xs text-zinc-600">Estes pedidos chegaram pelo site, mas ainda não receberam as datas da locação.</p>
+            </div>
+            <span className="mt-2 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 sm:mt-0">
+              {agenda.resumo.sem_data} pendente(s)
+            </span>
+          </div>
+
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {agenda.pedidos_sem_data.map((pedido) => (
+              <div key={pedido.id} className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-zinc-900">#{pedido.id} · {pedido.cliente_nome || "Cliente sem nome"}</p>
+                  <p className="mt-1 text-xs text-zinc-500">Recebido em {formatDateTime(pedido.criado_em)} · {pedido.quantidade_itens} item(ns)</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/admin/pedidos/${pedido.id}`)}>
+                    Gerenciar
+                  </Button>
+                  <Button type="button" size="sm" onClick={() => openSchedule(pedido.id)}>
+                    Agendar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {schedulingOrderId ? (
+        <form onSubmit={saveSchedule} className="rounded-lg border border-teal-200 bg-teal-50/60 p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-zinc-900">Agendar pedido #{schedulingOrderId}</h2>
+              <p className="mt-1 text-xs text-zinc-600">Ao salvar, o pedido aparecerá na posição correspondente do calendário.</p>
+            </div>
+            <label className="text-xs font-semibold text-zinc-700">Início
+              <input required type="date" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 block h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm" />
+            </label>
+            <label className="text-xs font-semibold text-zinc-700">Fim
+              <input required type="date" min={scheduleStart ? formatApiDate(addDays(dateFromApi(scheduleStart), 1)) : undefined} value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)} className="mt-1 block h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm" />
+            </label>
+            <label className="text-xs font-semibold text-zinc-700">Evento (opcional)
+              <input type="date" value={scheduleEventDate} onChange={(event) => setScheduleEventDate(event.target.value)} className="mt-1 block h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm" />
+            </label>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={() => setSchedulingOrderId(null)}>Cancelar</Button>
+              <Button type="submit" loading={savingSchedule}>Salvar datas</Button>
+            </div>
+          </div>
+        </form>
       ) : null}
 
       {!error ? (
@@ -839,7 +973,14 @@ export default function AdminAgendaPage() {
               )}
             </div>
 
-            <EventDetailsPanel event={selectedEvent} />
+            <EventDetailsPanel
+              event={selectedEvent}
+              onReschedule={(event) => openSchedule(
+                event.pedido.id,
+                event.pedido.data_inicio_locacao,
+                event.pedido.data_fim_locacao,
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-sm md:grid-cols-5">

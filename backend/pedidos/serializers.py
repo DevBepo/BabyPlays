@@ -352,6 +352,16 @@ class AdminAgendaPedidoSerializer(serializers.Serializer):
     tem_kit_festa = serializers.BooleanField()
 
 
+class AdminAgendaPedidoSemDataSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    cliente_nome = serializers.CharField()
+    cliente_telefone = serializers.CharField(allow_blank=True)
+    criado_em = serializers.DateTimeField()
+    tem_aceite_contrato = serializers.BooleanField()
+    quantidade_itens = serializers.IntegerField()
+
+
 class AdminAgendaUnidadeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     codigo = serializers.CharField()
@@ -371,12 +381,14 @@ class AdminAgendaEventoSerializer(serializers.Serializer):
 
 class AdminAgendaResumoSerializer(serializers.Serializer):
     total = serializers.IntegerField()
+    sem_data = serializers.IntegerField()
     por_tipo = serializers.DictField(child=serializers.IntegerField())
 
 
 class AdminAgendaResponseSerializer(serializers.Serializer):
     periodo = AdminAgendaPeriodoSerializer()
     eventos = AdminAgendaEventoSerializer(many=True)
+    pedidos_sem_data = AdminAgendaPedidoSemDataSerializer(many=True)
     resumo = AdminAgendaResumoSerializer()
 
 
