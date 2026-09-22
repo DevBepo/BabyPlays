@@ -184,7 +184,11 @@ class PedidoListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        pedidos = Pedido.objects.filter(usuario=request.user).prefetch_related("itens")
+        pedidos = Pedido.objects.filter(
+            usuario=request.user,
+        ).exclude(
+            status=Pedido.Status.CANCELADO,
+        ).prefetch_related("itens")
         return Response(PedidoSerializer(pedidos, many=True).data)
 
 
@@ -193,7 +197,9 @@ class PedidoDetalheView(APIView):
 
     def get(self, request, pedido_id):
         pedido = get_object_or_404(
-            Pedido.objects.filter(usuario=request.user).prefetch_related("itens"),
+            Pedido.objects.filter(
+                usuario=request.user,
+            ).exclude(status=Pedido.Status.CANCELADO).prefetch_related("itens"),
             id=pedido_id,
         )
         return Response(PedidoSerializer(pedido).data)
@@ -266,6 +272,8 @@ class AdminPedidoQuerysetMixin:
         status_pedido = params.get("status")
         if status_pedido:
             queryset = queryset.filter(status=status_pedido)
+        else:
+            queryset = queryset.exclude(status=Pedido.Status.CANCELADO)
 
         cliente_id = params.get("cliente")
         if cliente_id:
@@ -374,6 +382,11 @@ class AdminPedidoDetailView(AdminPedidoQuerysetMixin, APIView):
         )
         pedido = get_object_or_404(self.queryset_detalhe(), id=pedido.id)
         return Response(PedidoAdminDetailSerializer(pedido).data)
+
+    def delete(self, request, pedido_id):
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        GestaoAdminPedidoService.arquivar(pedido, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminRenovarPedidoView(APIView):

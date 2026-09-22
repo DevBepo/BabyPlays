@@ -2342,6 +2342,43 @@ class PedidoAdminAPITests(APITestCase):
         ids = [pedido["id"] for pedido in response.data["results"]]
         self.assertEqual(ids, [recente.id, antigo.id])
 
+    def test_admin_exclui_pedido_da_operacao_preservando_historico(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(status_pedido=Pedido.Status.AGUARDANDO_ANALISE)
+        self.criar_item(pedido)
+        aceite = self.criar_aceite(pedido)
+
+        response = self.client.delete(self.detalhe_url(pedido))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.CANCELADO)
+        self.assertTrue(AceiteContrato.objects.filter(pk=aceite.pk).exists())
+        self.assertEqual(self.client.get(self.lista_url).data["count"], 0)
+        cancelados = self.client.get(
+            self.lista_url,
+            {"status": Pedido.Status.CANCELADO},
+        )
+        self.assertEqual(cancelados.data["count"], 1)
+
+    def test_cliente_comum_nao_exclui_pedido_admin(self):
+        pedido = self.criar_pedido()
+        self.client.force_authenticate(user=self.usuario)
+
+        response = self.client.delete(self.detalhe_url(pedido))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertNotEqual(Pedido.objects.get(pk=pedido.pk).status, Pedido.Status.CANCELADO)
+
+    def test_admin_nao_exclui_pedido_em_locacao(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(status_pedido=Pedido.Status.EM_LOCACAO)
+
+        response = self.client.delete(self.detalhe_url(pedido))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Pedido.objects.get(pk=pedido.pk).status, Pedido.Status.EM_LOCACAO)
+
     def test_endpoint_publico_continua_listando_apenas_pedidos_do_usuario(self):
         pedido_usuario = self.criar_pedido()
         pedido_outro = self.criar_pedido(

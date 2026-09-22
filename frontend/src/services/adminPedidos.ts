@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   AdminPedidoActionResponse,
   AdminPedidoDetail,
@@ -36,6 +36,10 @@ export function listarPedidosAdmin(
 
 export function obterAdminPedido(id: number | string): Promise<AdminPedidoDetail> {
   return apiGet<AdminPedidoDetail>(`/api/admin/pedidos/${id}/`);
+}
+
+export function excluirAdminPedido(id: number | string): Promise<void> {
+  return apiDelete<void>(`/api/admin/pedidos/${id}/`);
 }
 
 export function criarPedidoManualAdmin(

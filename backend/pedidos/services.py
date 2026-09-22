@@ -1468,7 +1468,7 @@ class AdminDashboardService:
         fim_semana = inicio_semana + timedelta(days=6)
 
         pedidos_aguardando = Pedido.objects.filter(
-            status=Pedido.Status.AGUARDANDO_ANALISE
+            status=Pedido.Status.AGUARDANDO_ANALISE,
         )
         unidades_operacionais = UnidadeBrinquedo.objects.exclude(
             status=UnidadeBrinquedo.Status.BAIXADA
@@ -1480,7 +1480,7 @@ class AdminDashboardService:
             status=ReservaUnidade.Status.ATIVA,
         )
         ultimos_pedidos = list(
-            Pedido.objects.select_related(
+            Pedido.objects.exclude(status=Pedido.Status.CANCELADO).select_related(
                 "cliente",
                 "cliente__user",
                 "usuario",
@@ -1866,6 +1866,18 @@ class GestaoAdminPedidoService:
     @staticmethod
     def _serializar_data(valor):
         return valor.isoformat() if valor else None
+
+    @staticmethod
+    @transaction.atomic
+    def arquivar(pedido, usuario_admin):
+        pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if pedido.status == Pedido.Status.CANCELADO:
+            return pedido
+        if pedido.status in {Pedido.Status.EM_LOCACAO, Pedido.Status.RETIRADO}:
+            raise serializers.ValidationError(
+                {"status": "Pedido em locacao ou ja retirado nao pode ser excluido."}
+            )
+        return GestaoAdminPedidoService.cancelar(pedido, usuario_admin)
 
     @staticmethod
     def _garantir_aceite_whatsapp_para_pedido_manual(pedido):

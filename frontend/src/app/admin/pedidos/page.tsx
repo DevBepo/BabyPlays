@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 
-import { listarPedidosAdmin } from "@/services/adminPedidos";
+import { excluirAdminPedido, listarPedidosAdmin } from "@/services/adminPedidos";
 import type { ApiError } from "@/types/api";
 import type {
   AdminPedidoListItem,
@@ -116,6 +116,7 @@ export default function PedidosPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -170,6 +171,30 @@ export default function PedidosPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFiltrosAplicados({ busca, status });
+  }
+
+  async function handleDelete(pedido: AdminPedidoListItem) {
+    if (
+      !window.confirm(
+        `Excluir o pedido #${pedido.id} da operação? Ele será cancelado e removido das telas operacionais, preservando o histórico.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(pedido.id);
+    setError(null);
+    try {
+      await excluirAdminPedido(pedido.id);
+      setPedidos((current) => current.filter((item) => item.id !== pedido.id));
+      setMetadata((current) =>
+        current ? { ...current, count: Math.max(0, current.count - 1) } : current,
+      );
+    } catch (err) {
+      setError(getAdminPedidosErrorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -270,13 +295,26 @@ export default function PedidosPage() {
                 </Td>
                 <Td>{renderStatusBadge(pedido.status)}</Td>
                 <Td className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push(`/admin/pedidos/${pedido.id}`)}
-                  >
-                    Ver detalhes
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/admin/pedidos/${pedido.id}`)}
+                    >
+                      Gerenciar
+                    </Button>
+                    {!(["em_locacao", "retirado"] as string[]).includes(pedido.status) ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        loading={deletingId === pedido.id}
+                        disabled={deletingId !== null && deletingId !== pedido.id}
+                        onClick={() => void handleDelete(pedido)}
+                      >
+                        Excluir
+                      </Button>
+                    ) : null}
+                  </div>
                 </Td>
               </Tr>
             ))
