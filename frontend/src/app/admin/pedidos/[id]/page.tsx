@@ -525,16 +525,14 @@ export default function DetalhePedidoPage() {
               <Button size="sm" variant="ghost" onClick={() => void handleRenovar()}>
                 Renovar
               </Button>
-              {!(["em_locacao", "retirado"] as string[]).includes(pedido.status) ? (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  loading={deleting}
-                  onClick={() => void handleDelete()}
-                >
-                  Excluir pedido
-                </Button>
-              ) : null}
+              <Button
+                size="sm"
+                variant="danger"
+                loading={deleting}
+                onClick={() => void handleDelete()}
+              >
+                Excluir pedido
+              </Button>
             </div>
           </div>
         )}

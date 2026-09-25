@@ -303,17 +303,15 @@ export default function PedidosPage() {
                     >
                       Gerenciar
                     </Button>
-                    {!(["em_locacao", "retirado"] as string[]).includes(pedido.status) ? (
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        loading={deletingId === pedido.id}
-                        disabled={deletingId !== null && deletingId !== pedido.id}
-                        onClick={() => void handleDelete(pedido)}
-                      >
-                        Excluir
-                      </Button>
-                    ) : null}
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      loading={deletingId === pedido.id}
+                      disabled={deletingId !== null && deletingId !== pedido.id}
+                      onClick={() => void handleDelete(pedido)}
+                    >
+                      Excluir
+                    </Button>
                   </div>
                 </Td>
               </Tr>
