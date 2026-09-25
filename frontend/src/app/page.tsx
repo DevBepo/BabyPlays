@@ -142,7 +142,7 @@ function CarouselButton({ direction, onClick, visible, ariaLabel }: { direction:
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`absolute top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#AB2E97]/20 bg-white/95 text-[#AB2E97] shadow-md shadow-[#AB2E97]/15 transition-colors hover:border-[#AB2E97] hover:bg-[#F7EAF5] sm:flex ${direction === "left" ? "left-2" : "right-2"}`}
+      className={`absolute top-1/2 z-20 flex h-11 w-11 touch-manipulation -translate-y-1/2 items-center justify-center rounded-full border border-[#AB2E97]/25 bg-white/95 text-[#AB2E97] shadow-md shadow-[#AB2E97]/15 transition-colors hover:border-[#AB2E97] hover:bg-[#F7EAF5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AB2E97] focus-visible:ring-offset-2 ${direction === "left" ? "left-2" : "right-2"}`}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         {direction === "left" ? <path d="m15 18-6-6 6-6" /> : <path d="m9 18 6-6-6-6" />}
