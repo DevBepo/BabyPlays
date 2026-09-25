@@ -339,7 +339,12 @@ export default function Home() {
         );
       const matchAvailability = !onlyAvailable || brinquedo.disponivel_para_carrinho === true;
       return matchCategory && matchAge && matchAvailability && matchesSearch(brinquedo, normalizedSearch);
-    }).sort((a, b) => b.id - a.id);
+    }).sort((a, b) => {
+      const disponibilidade =
+        Number(b.disponivel_para_carrinho === true) -
+        Number(a.disponivel_para_carrinho === true);
+      return disponibilidade || b.id - a.id;
+    });
   }, [brinquedos, normalizedSearch, onlyAvailable, selectedAgeFilter, selectedCategory]);
 
   const kitsFestaFiltrados = useMemo(() => {
