@@ -2370,14 +2370,68 @@ class PedidoAdminAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertNotEqual(Pedido.objects.get(pk=pedido.pk).status, Pedido.Status.CANCELADO)
 
-    def test_admin_nao_exclui_pedido_em_locacao(self):
+    def test_admin_exclui_pedido_em_locacao_e_envia_unidade_para_standby(self):
         self.autenticar_admin()
         pedido = self.criar_pedido(status_pedido=Pedido.Status.EM_LOCACAO)
+        item = self.criar_item(pedido)
+        reserva = self.criar_reserva(pedido, item)
+        unidade = reserva.unidade_brinquedo
+        unidade.status = UnidadeBrinquedo.Status.EM_LOCACAO
+        unidade.save(update_fields=["status", "atualizado_em"])
 
         response = self.client.delete(self.detalhe_url(pedido))
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Pedido.objects.get(pk=pedido.pk).status, Pedido.Status.EM_LOCACAO)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        pedido.refresh_from_db()
+        reserva.refresh_from_db()
+        unidade.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.CANCELADO)
+        self.assertEqual(reserva.status, ReservaUnidade.Status.CANCELADA)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.STANDBY)
+
+    def test_admin_exclui_pedido_retirado_sem_liberar_unidade(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(status_pedido=Pedido.Status.RETIRADO)
+        item = self.criar_item(pedido)
+        reserva = self.criar_reserva(pedido, item)
+        reserva.status = ReservaUnidade.Status.ENCERRADA
+        reserva.save(update_fields=["status", "atualizado_em"])
+        unidade = reserva.unidade_brinquedo
+        unidade.status = UnidadeBrinquedo.Status.HIGIENIZACAO
+        unidade.save(update_fields=["status", "atualizado_em"])
+
+        response = self.client.delete(self.detalhe_url(pedido))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        pedido.refresh_from_db()
+        reserva.refresh_from_db()
+        unidade.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.CANCELADO)
+        self.assertEqual(reserva.status, ReservaUnidade.Status.ENCERRADA)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.HIGIENIZACAO)
+
+    def test_admin_reverte_pedido_em_locacao_para_aguardando_analise(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(status_pedido=Pedido.Status.EM_LOCACAO)
+        item = self.criar_item(pedido)
+        reserva = self.criar_reserva(pedido, item)
+        unidade = reserva.unidade_brinquedo
+        unidade.status = UnidadeBrinquedo.Status.EM_LOCACAO
+        unidade.save(update_fields=["status", "atualizado_em"])
+
+        response = self.client.post(
+            f"/api/admin/pedidos/{pedido.id}/alterar-status/",
+            {"status": Pedido.Status.AGUARDANDO_ANALISE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        pedido.refresh_from_db()
+        reserva.refresh_from_db()
+        unidade.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO_ANALISE)
+        self.assertEqual(reserva.status, ReservaUnidade.Status.CANCELADA)
+        self.assertEqual(unidade.status, UnidadeBrinquedo.Status.DISPONIVEL)
 
     def test_endpoint_publico_continua_listando_apenas_pedidos_do_usuario(self):
         pedido_usuario = self.criar_pedido()
@@ -2547,12 +2601,15 @@ class AdminDashboardAPITests(APITestCase):
         self.assertEqual(
             [pedido["id"] for pedido in response.data["ultimos_pedidos"]],
             [
-                cancelado.id,
                 retirada_hoje.id,
                 confirmado.id,
                 aguardando_novo.id,
                 aguardando_antigo.id,
             ],
+        )
+        self.assertNotIn(
+            cancelado.id,
+            [pedido["id"] for pedido in response.data["ultimos_pedidos"]],
         )
         self.assertNotIn("endereco_entrega_snapshot", response.data["ultimos_pedidos"][0])
 

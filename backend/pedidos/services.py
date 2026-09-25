@@ -1932,11 +1932,32 @@ class GestaoAdminPedidoService:
         pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
         if pedido.status == Pedido.Status.CANCELADO:
             return pedido
-        if pedido.status in {Pedido.Status.EM_LOCACAO, Pedido.Status.RETIRADO}:
-            raise serializers.ValidationError(
-                {"status": "Pedido em locacao ou ja retirado nao pode ser excluido."}
-            )
         return GestaoAdminPedidoService.cancelar(pedido, usuario_admin)
+
+    @staticmethod
+    def _reverter_para_analise(
+        pedido,
+        status_unidade_em_locacao=UnidadeBrinquedo.Status.DISPONIVEL,
+    ):
+        reservas = list(
+            ReservaUnidade.objects.select_for_update()
+            .filter(pedido=pedido, status=ReservaUnidade.Status.ATIVA)
+            .select_related("unidade_brinquedo")
+            .order_by("id")
+        )
+        unidades_por_id = OperacaoLocacaoService._unidades_travadas(reservas)
+
+        for reserva in reservas:
+            unidade = unidades_por_id[reserva.unidade_brinquedo_id]
+            if unidade.status == UnidadeBrinquedo.Status.EM_LOCACAO:
+                unidade.status = status_unidade_em_locacao
+                unidade.save(update_fields=["status", "atualizado_em"])
+            reserva.status = ReservaUnidade.Status.CANCELADA
+            reserva.save(update_fields=["status", "atualizado_em"])
+
+        pedido.status = Pedido.Status.AGUARDANDO_ANALISE
+        pedido.save(update_fields=["status", "atualizado_em"])
+        return pedido
 
     @staticmethod
     def _garantir_aceite_whatsapp_para_pedido_manual(pedido):
@@ -2247,14 +2268,11 @@ class GestaoAdminPedidoService:
     @transaction.atomic
     def cancelar(pedido, usuario_admin):
         pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
-        if pedido.status in {Pedido.Status.EM_LOCACAO, Pedido.Status.RETIRADO}:
-            raise serializers.ValidationError(
-                {"status": "Locacao iniciada ou retirada nao pode ser cancelada."}
-            )
         anterior = pedido.status
-        ReservaUnidade.objects.filter(
-            pedido=pedido, status=ReservaUnidade.Status.ATIVA
-        ).update(status=ReservaUnidade.Status.CANCELADA, atualizado_em=timezone.now())
+        GestaoAdminPedidoService._reverter_para_analise(
+            pedido,
+            status_unidade_em_locacao=UnidadeBrinquedo.Status.STANDBY,
+        )
         pedido.status = Pedido.Status.CANCELADO
         pedido.save(update_fields=["status", "atualizado_em"])
         GestaoAdminPedidoService._registrar(
@@ -2266,38 +2284,41 @@ class GestaoAdminPedidoService:
     @staticmethod
     @transaction.atomic
     def alterar_status(pedido, usuario_admin, novo_status):
+        pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
         if pedido.status == novo_status:
             return pedido
         anterior = pedido.status
         if novo_status == Pedido.Status.CANCELADO:
             return GestaoAdminPedidoService.cancelar(pedido, usuario_admin)
-        if novo_status == Pedido.Status.RESERVADO:
-            ReservaPedidoService.reservar_unidades(pedido)
-        elif novo_status == Pedido.Status.CONFIRMADO:
-            if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
+
+        if novo_status == Pedido.Status.AGUARDANDO_ANALISE:
+            GestaoAdminPedidoService._reverter_para_analise(pedido)
+        else:
+            ordem = {
+                Pedido.Status.AGUARDANDO_ANALISE: 0,
+                Pedido.Status.RESERVADO: 1,
+                Pedido.Status.CONFIRMADO: 2,
+                Pedido.Status.EM_LOCACAO: 3,
+                Pedido.Status.RETIRADO: 4,
+            }
+            if pedido.status not in ordem or ordem[pedido.status] > ordem[novo_status]:
+                pedido = GestaoAdminPedidoService._reverter_para_analise(pedido)
+
+            if ordem[pedido.status] < ordem[Pedido.Status.RESERVADO] <= ordem[novo_status]:
                 ReservaPedidoService.reservar_unidades(pedido)
             pedido = Pedido.objects.get(pk=pedido.pk)
-            GestaoAdminPedidoService._garantir_aceite_whatsapp_para_pedido_manual(
-                pedido
-            )
-            ConfirmacaoPedidoService.confirmar(pedido, usuario_admin)
-        elif novo_status == Pedido.Status.EM_LOCACAO:
-            if pedido.status == Pedido.Status.AGUARDANDO_ANALISE:
-                ReservaPedidoService.reservar_unidades(pedido)
-            pedido = Pedido.objects.get(pk=pedido.pk)
-            if pedido.status == Pedido.Status.RESERVADO:
+            if ordem[pedido.status] < ordem[Pedido.Status.CONFIRMADO] <= ordem[novo_status]:
                 GestaoAdminPedidoService._garantir_aceite_whatsapp_para_pedido_manual(
                     pedido
                 )
                 ConfirmacaoPedidoService.confirmar(pedido, usuario_admin)
             pedido = Pedido.objects.get(pk=pedido.pk)
-            OperacaoLocacaoService.iniciar_locacao(pedido, usuario_admin)
-        elif novo_status == Pedido.Status.RETIRADO:
-            OperacaoLocacaoService.registrar_retirada(pedido, usuario_admin)
-        else:
-            raise serializers.ValidationError(
-                {"status": "O status solicitado nao pode ser aplicado diretamente."}
-            )
+            if ordem[pedido.status] < ordem[Pedido.Status.EM_LOCACAO] <= ordem[novo_status]:
+                OperacaoLocacaoService.iniciar_locacao(pedido, usuario_admin)
+            pedido = Pedido.objects.get(pk=pedido.pk)
+            if ordem[pedido.status] < ordem[Pedido.Status.RETIRADO] <= ordem[novo_status]:
+                OperacaoLocacaoService.registrar_retirada(pedido, usuario_admin)
+
         pedido = Pedido.objects.get(pk=pedido.pk)
         GestaoAdminPedidoService._registrar(
             pedido, usuario_admin, HistoricoPedido.Acao.STATUS_ALTERADO,
