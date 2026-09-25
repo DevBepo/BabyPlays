@@ -94,6 +94,25 @@ function getKitImage(kit: KitFestaCatalogo) {
 function scrollCarousel(ref: RefObject<HTMLDivElement | null>, direction: -1 | 1) {
   const carousel = ref.current;
   if (!carousel) return;
+
+  if (window.matchMedia("(max-width: 639px)").matches) {
+    const items = Array.from(carousel.children) as HTMLElement[];
+    const carouselLeft = carousel.getBoundingClientRect().left;
+    const currentIndex = items.reduce((closestIndex, item, index) => {
+      const itemDistance = Math.abs(item.getBoundingClientRect().left - carouselLeft);
+      const closestDistance = Math.abs(items[closestIndex].getBoundingClientRect().left - carouselLeft);
+      return itemDistance < closestDistance ? index : closestIndex;
+    }, 0);
+    const targetIndex = Math.min(Math.max(currentIndex + direction, 0), items.length - 1);
+    const target = items[targetIndex];
+
+    if (target) {
+      const targetLeft = carousel.scrollLeft + target.getBoundingClientRect().left - carouselLeft;
+      carousel.scrollTo({ left: targetLeft, behavior: "smooth" });
+    }
+    return;
+  }
+
   carousel.scrollBy({ left: direction * carousel.clientWidth, behavior: "smooth" });
 }
 
@@ -481,7 +500,7 @@ export default function Home() {
                 ) : (
                   <div className="relative overflow-hidden rounded-3xl">
                     <CarouselButton direction="left" visible={brinquedoScrollState.canScrollPrevious} onClick={() => scrollCarousel(brinquedosCarouselRef, -1)} ariaLabel="Ver brinquedos anteriores" />
-                    <div ref={brinquedosCarouselRef} className="@container flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div ref={brinquedosCarouselRef} className="@container flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {brinquedosFiltrados.map((brinquedo) => {
                         const imagem = getBrinquedoImage(brinquedo);
                         return (
@@ -528,7 +547,7 @@ export default function Home() {
                 ) : (
                   <div className="relative overflow-hidden rounded-3xl">
                     <CarouselButton direction="left" visible={kitsScrollState.canScrollPrevious} onClick={() => scrollCarousel(kitsCarouselRef, -1)} ariaLabel="Ver kits anteriores" />
-                    <div ref={kitsCarouselRef} className="@container flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div ref={kitsCarouselRef} className="@container flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {kitsFestaFiltrados.map((kit) => (
                         <div key={kit.id} className="w-full shrink-0 snap-start @min-[480px]:w-[calc((100%-1rem)/2)] @min-[720px]:w-[calc((100%-2rem)/3)] @min-[980px]:w-[calc((100%-3rem)/4)]">
                           <KitFestaCard kit={kit} />
