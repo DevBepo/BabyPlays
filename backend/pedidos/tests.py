@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 from rest_framework import status
@@ -2780,6 +2780,24 @@ class PedidoAdminAgendaAPITests(APITestCase):
             user_agent="Agenda Test Browser",
         )
 
+    def definir_data_criacao(self, pedido, data):
+        criado_em = timezone.make_aware(
+            datetime.combine(data, time(hour=12)),
+            timezone.get_current_timezone(),
+        )
+        Pedido.objects.filter(pk=pedido.pk).update(criado_em=criado_em)
+        pedido.refresh_from_db()
+        return pedido
+
+    def remover_datas_operacionais(self, pedido):
+        Pedido.objects.filter(pk=pedido.pk).update(
+            data_evento_pretendida=None,
+            data_inicio_locacao=None,
+            data_fim_locacao=None,
+        )
+        pedido.refresh_from_db()
+        return pedido
+
     def preparar_cenario_agenda(self):
         entrega = self.criar_pedido(
             Pedido.Status.CONFIRMADO,
@@ -2873,12 +2891,13 @@ class PedidoAdminAgendaAPITests(APITestCase):
                 "fim": self.data_fim.isoformat(),
             },
         )
-        self.assertEqual(response.data["resumo"]["total"], 4)
+        self.assertEqual(response.data["resumo"]["total"], 5)
         self.assertEqual(response.data["resumo"]["sem_data"], 0)
         self.assertEqual(
             response.data["resumo"]["por_tipo"],
             {
                 "aguardando_analise": 0,
+                "reserva": 1,
                 "entrega": 1,
                 "retirada": 1,
                 "contrato_pendente": 1,
@@ -2922,7 +2941,7 @@ class PedidoAdminAgendaAPITests(APITestCase):
             evento["pedido"]["id"]
             for evento in response.data["eventos"]
         }
-        self.assertNotIn(pedidos["reservado_com_aceite"].id, ids_pedidos)
+        self.assertIn(pedidos["reservado_com_aceite"].id, ids_pedidos)
         self.assertNotIn(pedidos["higienizacao"].id, ids_pedidos)
         codigos_unidades = {
             unidade["codigo"]
@@ -2932,13 +2951,96 @@ class PedidoAdminAgendaAPITests(APITestCase):
         self.assertNotIn("AGENDA-HIG-001", codigos_unidades)
         self.assertNotIn("AGENDA-STANDBY-001", codigos_unidades)
 
-    def test_agenda_lista_pedido_sem_data_para_triagem(self):
+    def test_pedido_recem_criado_sem_data_aparece_na_agenda_pela_criacao(self):
         self.autenticar_admin()
         pedido = self.criar_pedido(Pedido.Status.AGUARDANDO_ANALISE)
-        Pedido.objects.filter(pk=pedido.pk).update(
-            data_evento_pretendida=None,
-            data_inicio_locacao=None,
-            data_fim_locacao=None,
+        self.remover_datas_operacionais(pedido)
+        self.definir_data_criacao(pedido, self.data_inicio)
+        self.criar_item_brinquedo(pedido)
+        self.criar_aceite(pedido)
+
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["resumo"]["sem_data"], 0)
+        self.assertEqual(response.data["pedidos_sem_data"], [])
+        self.assertEqual(len(response.data["eventos"]), 1)
+        evento = response.data["eventos"][0]
+        self.assertEqual(evento["tipo"], "aguardando_analise")
+        self.assertEqual(evento["data"], self.data_inicio.isoformat())
+        self.assertEqual(evento["pedido"]["id"], pedido.id)
+        self.assertIsNone(evento["pedido"]["data_inicio_locacao"])
+
+    def test_pedido_sem_data_fora_do_periodo_continua_disponivel_para_triagem(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(Pedido.Status.AGUARDANDO_ANALISE)
+        self.remover_datas_operacionais(pedido)
+        self.definir_data_criacao(pedido, self.data_inicio - timedelta(days=1))
+        self.criar_item_brinquedo(pedido)
+
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["eventos"], [])
+        self.assertEqual(response.data["resumo"]["sem_data"], 1)
+        self.assertEqual(response.data["pedidos_sem_data"][0]["id"], pedido.id)
+
+    def test_pedido_reservado_sem_data_e_com_aceite_aparece_pela_criacao(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(Pedido.Status.RESERVADO)
+        self.remover_datas_operacionais(pedido)
+        self.definir_data_criacao(pedido, self.data_inicio)
+        self.criar_item_brinquedo(pedido)
+        self.criar_aceite(pedido)
+
+        response = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["eventos"]), 1)
+        evento = response.data["eventos"][0]
+        self.assertEqual(evento["tipo"], "reserva")
+        self.assertEqual(evento["data"], self.data_inicio.isoformat())
+        self.assertEqual(evento["pedido"]["status"], Pedido.Status.RESERVADO)
+
+    def test_alterar_de_analise_para_reservado_nao_remove_nem_duplica_pedido(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(Pedido.Status.AGUARDANDO_ANALISE)
+        self.remover_datas_operacionais(pedido)
+        self.definir_data_criacao(pedido, self.data_inicio)
+        self.criar_item_brinquedo(pedido)
+        self.criar_unidade(codigo="AGENDA-TRANSICAO-001")
+
+        antes = self.client.get(self.agenda_url, self.parametros())
+        alteracao = self.client.post(
+            f"/api/admin/pedidos/{pedido.id}/alterar-status/",
+            {"status": Pedido.Status.RESERVADO},
+            format="json",
+        )
+        depois = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(antes.status_code, status.HTTP_200_OK)
+        self.assertEqual(alteracao.status_code, status.HTTP_200_OK)
+        self.assertEqual(depois.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [evento["pedido"]["id"] for evento in antes.data["eventos"]],
+            [pedido.id],
+        )
+        self.assertEqual(
+            [evento["pedido"]["id"] for evento in depois.data["eventos"]],
+            [pedido.id],
+        )
+        self.assertEqual(depois.data["eventos"][0]["tipo"], "contrato_pendente")
+        self.assertEqual(
+            depois.data["eventos"][0]["pedido"]["status"],
+            Pedido.Status.RESERVADO,
+        )
+
+    def test_pedido_reservado_com_data_permanece_na_data_operacional(self):
+        self.autenticar_admin()
+        data_operacional = self.data_inicio + timedelta(days=2)
+        pedido = self.criar_pedido(
+            Pedido.Status.RESERVADO,
+            data_inicio=data_operacional,
         )
         self.criar_item_brinquedo(pedido)
         self.criar_aceite(pedido)
@@ -2946,14 +3048,36 @@ class PedidoAdminAgendaAPITests(APITestCase):
         response = self.client.get(self.agenda_url, self.parametros())
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["resumo"]["sem_data"], 1)
-        self.assertEqual(response.data["pedidos_sem_data"][0]["id"], pedido.id)
+        eventos_do_pedido = [
+            evento
+            for evento in response.data["eventos"]
+            if evento["pedido"]["id"] == pedido.id
+        ]
+        self.assertEqual(len(eventos_do_pedido), 1)
+        self.assertEqual(eventos_do_pedido[0]["tipo"], "reserva")
+        self.assertEqual(eventos_do_pedido[0]["data"], data_operacional.isoformat())
+
+    def test_recarregar_agenda_mantem_pedido_reservado_sem_duplicacao(self):
+        self.autenticar_admin()
+        pedido = self.criar_pedido(Pedido.Status.RESERVADO)
+        self.remover_datas_operacionais(pedido)
+        self.definir_data_criacao(pedido, self.data_inicio)
+        self.criar_item_brinquedo(pedido)
+        self.criar_aceite(pedido)
+
+        primeira_resposta = self.client.get(self.agenda_url, self.parametros())
+        segunda_resposta = self.client.get(self.agenda_url, self.parametros())
+
+        self.assertEqual(primeira_resposta.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda_resposta.status_code, status.HTTP_200_OK)
+        self.assertEqual(primeira_resposta.data, segunda_resposta.data)
         self.assertEqual(
-            response.data["pedidos_sem_data"][0]["cliente_nome"],
-            "Cliente Agenda",
+            sum(
+                evento["pedido"]["id"] == pedido.id
+                for evento in segunda_resposta.data["eventos"]
+            ),
+            1,
         )
-        self.assertEqual(response.data["pedidos_sem_data"][0]["quantidade_itens"], 1)
-        self.assertTrue(response.data["pedidos_sem_data"][0]["tem_aceite_contrato"])
 
     def test_agenda_filtra_por_tipo(self):
         self.autenticar_admin()

@@ -346,7 +346,7 @@ class AdminAgendaPedidoSerializer(serializers.Serializer):
     status = serializers.CharField()
     cliente_nome = serializers.CharField()
     cliente_telefone = serializers.CharField(allow_blank=True)
-    data_inicio_locacao = serializers.DateField()
+    data_inicio_locacao = serializers.DateField(allow_null=True)
     data_fim_locacao = serializers.DateField(allow_null=True)
     tem_aceite_contrato = serializers.BooleanField()
     tem_kit_festa = serializers.BooleanField()

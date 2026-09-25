@@ -5,6 +5,7 @@ from ipaddress import ip_address
 from django.http import Http404
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models.functions import TruncDate
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import serializers
@@ -1528,6 +1529,7 @@ class AdminDashboardService:
 
 class AgendaAdminService:
     EVENTO_AGUARDANDO_ANALISE = "aguardando_analise"
+    EVENTO_RESERVA = "reserva"
     EVENTO_ENTREGA = "entrega"
     EVENTO_RETIRADA = "retirada"
     EVENTO_CONTRATO_PENDENTE = "contrato_pendente"
@@ -1535,6 +1537,7 @@ class AgendaAdminService:
 
     TIPOS_EVENTO = (
         EVENTO_AGUARDANDO_ANALISE,
+        EVENTO_RESERVA,
         EVENTO_ENTREGA,
         EVENTO_RETIRADA,
         EVENTO_CONTRATO_PENDENTE,
@@ -1543,6 +1546,7 @@ class AgendaAdminService:
 
     LABELS = {
         EVENTO_AGUARDANDO_ANALISE: "Aguardando analise",
+        EVENTO_RESERVA: "Reserva",
         EVENTO_ENTREGA: "Entrega",
         EVENTO_RETIRADA: "Retirada",
         EVENTO_CONTRATO_PENDENTE: "Contrato pendente",
@@ -1551,10 +1555,11 @@ class AgendaAdminService:
 
     ORDEM_TIPOS = {
         EVENTO_AGUARDANDO_ANALISE: 0,
-        EVENTO_ENTREGA: 1,
-        EVENTO_RETIRADA: 2,
-        EVENTO_CONTRATO_PENDENTE: 3,
-        EVENTO_LOCACAO_EM_ANDAMENTO: 4,
+        EVENTO_RESERVA: 1,
+        EVENTO_ENTREGA: 2,
+        EVENTO_RETIRADA: 3,
+        EVENTO_CONTRATO_PENDENTE: 4,
+        EVENTO_LOCACAO_EM_ANDAMENTO: 5,
     }
 
     @classmethod
@@ -1564,6 +1569,8 @@ class AgendaAdminService:
 
         if cls.EVENTO_AGUARDANDO_ANALISE in tipos:
             eventos.extend(cls._eventos_aguardando_analise(inicio, fim, status))
+        if cls.EVENTO_RESERVA in tipos:
+            eventos.extend(cls._eventos_reserva(inicio, fim, status))
         if cls.EVENTO_ENTREGA in tipos:
             eventos.extend(cls._eventos_entrega(inicio, fim, status))
         if cls.EVENTO_RETIRADA in tipos:
@@ -1582,7 +1589,11 @@ class AgendaAdminService:
             )
         )
 
-        pedidos_sem_data = cls._pedidos_sem_data(status)
+        pedido_ids_com_evento = {
+            evento["pedido"]["id"]
+            for evento in eventos
+        }
+        pedidos_sem_data = cls._pedidos_sem_data(status, pedido_ids_com_evento)
 
         return {
             "periodo": {
@@ -1607,6 +1618,10 @@ class AgendaAdminService:
         return (
             Pedido.objects.select_related("cliente")
             .annotate(
+                data_criacao_agenda=TruncDate(
+                    "criado_em",
+                    tzinfo=timezone.get_current_timezone(),
+                ),
                 tem_aceite_contrato_agenda=Exists(
                     AceiteContrato.objects.filter(pedido_id=OuterRef("pk"))
                 )
@@ -1623,13 +1638,15 @@ class AgendaAdminService:
         )
 
     @classmethod
-    def _pedidos_sem_data(cls, status):
+    def _pedidos_sem_data(cls, status, pedido_ids_com_evento):
         queryset = cls._queryset_base().filter(
             Q(data_inicio_locacao__isnull=True)
             | Q(data_fim_locacao__isnull=True)
         ).exclude(
             status__in=(Pedido.Status.CANCELADO, Pedido.Status.RETIRADO)
         )
+        if pedido_ids_com_evento:
+            queryset = queryset.exclude(pk__in=pedido_ids_com_evento)
         queryset = cls._filtrar_status(queryset, status)
         return [
             {
@@ -1663,15 +1680,49 @@ class AgendaAdminService:
     def _eventos_aguardando_analise(cls, inicio, fim, status):
         queryset = cls._queryset_base().filter(
             status=Pedido.Status.AGUARDANDO_ANALISE,
-            data_inicio_locacao__gte=inicio,
-            data_inicio_locacao__lte=fim,
+        ).filter(
+            Q(
+                data_inicio_locacao__gte=inicio,
+                data_inicio_locacao__lte=fim,
+            )
+            | Q(
+                data_inicio_locacao__isnull=True,
+                data_criacao_agenda__gte=inicio,
+                data_criacao_agenda__lte=fim,
+            )
         )
         queryset = cls._filtrar_status(queryset, status)
         return [
             cls._montar_evento(
                 pedido,
                 cls.EVENTO_AGUARDANDO_ANALISE,
-                pedido.data_inicio_locacao,
+                pedido.data_inicio_locacao or pedido.data_criacao_agenda,
+            )
+            for pedido in queryset
+        ]
+
+    @classmethod
+    def _eventos_reserva(cls, inicio, fim, status):
+        queryset = cls._queryset_base().filter(
+            status=Pedido.Status.RESERVADO,
+            tem_aceite_contrato_agenda=True,
+        ).filter(
+            Q(
+                data_inicio_locacao__gte=inicio,
+                data_inicio_locacao__lte=fim,
+            )
+            | Q(
+                data_inicio_locacao__isnull=True,
+                data_criacao_agenda__gte=inicio,
+                data_criacao_agenda__lte=fim,
+            )
+        )
+        queryset = cls._filtrar_status(queryset, status)
+        return [
+            cls._montar_evento(
+                pedido,
+                cls.EVENTO_RESERVA,
+                pedido.data_inicio_locacao or pedido.data_criacao_agenda,
             )
             for pedido in queryset
         ]
@@ -1693,16 +1744,24 @@ class AgendaAdminService:
     def _eventos_contrato_pendente(cls, inicio, fim, status):
         queryset = cls._queryset_base().filter(
             status=Pedido.Status.RESERVADO,
-            aceite_contrato__isnull=True,
-            data_inicio_locacao__gte=inicio,
-            data_inicio_locacao__lte=fim,
+            tem_aceite_contrato_agenda=False,
+        ).filter(
+            Q(
+                data_inicio_locacao__gte=inicio,
+                data_inicio_locacao__lte=fim,
+            )
+            | Q(
+                data_inicio_locacao__isnull=True,
+                data_criacao_agenda__gte=inicio,
+                data_criacao_agenda__lte=fim,
+            )
         )
         queryset = cls._filtrar_status(queryset, status)
         return [
             cls._montar_evento(
                 pedido,
                 cls.EVENTO_CONTRATO_PENDENTE,
-                pedido.data_inicio_locacao,
+                pedido.data_inicio_locacao or pedido.data_criacao_agenda,
             )
             for pedido in queryset
         ]
