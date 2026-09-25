@@ -2,6 +2,7 @@ import type { AdminPedidoStatus } from "./adminPedidos";
 
 export type AdminAgendaEventType =
   | "aguardando_analise"
+  | "reserva"
   | "entrega"
   | "retirada"
   | "contrato_pendente"
