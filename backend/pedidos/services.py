@@ -1770,15 +1770,15 @@ class AgendaAdminService:
     def _eventos_locacao_em_andamento(cls, inicio, fim, status):
         queryset = cls._queryset_base().filter(
             status=Pedido.Status.EM_LOCACAO,
+            data_inicio_locacao__gte=inicio,
             data_inicio_locacao__lte=fim,
-            data_fim_locacao__gte=inicio,
         )
         queryset = cls._filtrar_status(queryset, status)
         return [
             cls._montar_evento(
                 pedido,
                 cls.EVENTO_LOCACAO_EM_ANDAMENTO,
-                max(pedido.data_inicio_locacao, inicio),
+                pedido.data_inicio_locacao,
             )
             for pedido in queryset
         ]

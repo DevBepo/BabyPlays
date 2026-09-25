@@ -3169,7 +3169,7 @@ class PedidoAdminAgendaAPITests(APITestCase):
             ["locacao_em_andamento", "retirada"],
         )
 
-    def test_locacao_em_andamento_ancora_no_inicio_do_periodo_consultado(self):
+    def test_locacao_em_andamento_nao_muda_de_data_ao_navegar_na_agenda(self):
         self.autenticar_admin()
         pedido = self.criar_pedido(
             Pedido.Status.EM_LOCACAO,
@@ -3189,10 +3189,22 @@ class PedidoAdminAgendaAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["eventos"]), 1)
+        self.assertEqual(response.data["eventos"], [])
+
+        periodo_da_data_real = self.client.get(
+            self.agenda_url,
+            {
+                "inicio": (self.data_inicio - timedelta(days=6)).isoformat(),
+                "fim": self.data_inicio.isoformat(),
+                "tipo": "locacao_em_andamento",
+            },
+        )
+
+        self.assertEqual(periodo_da_data_real.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(periodo_da_data_real.data["eventos"]), 1)
         self.assertEqual(
-            response.data["eventos"][0]["data"],
-            self.data_inicio.isoformat(),
+            periodo_da_data_real.data["eventos"][0]["data"],
+            pedido.data_inicio_locacao.isoformat(),
         )
 
     def test_agenda_exige_inicio_e_fim_validos(self):
